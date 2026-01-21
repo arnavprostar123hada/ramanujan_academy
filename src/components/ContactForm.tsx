@@ -141,7 +141,7 @@ const ContactForm = () => {
                   </div>
                   <div>
                     <p className="font-semibold">Timings</p>
-                    <p>Mon - Sat: 9:00 AM - 8:00 PM</p>
+                    <p>Mon - Sat: 4:00 PM - 8:00 PM</p>
                   </div>
                 </div>
               </div>
