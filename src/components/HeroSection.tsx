@@ -35,19 +35,45 @@ const HeroSection = () => {
         />
       </div>
 
-      <div className="container-custom relative z-10 text-center px-4">
-        {/* Logo */}
+      <div className="container-custom relative z-10 text-center px-4 pt-20 md:pt-24">
+        {/* Logo with enhanced animation */}
         <motion.div
-          initial={{ scale: 0, rotate: -180 }}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={{ duration: 0.8, type: "spring", bounce: 0.4 }}
-          className="mb-8"
+          initial={{ scale: 0, opacity: 0, y: -50 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          transition={{ 
+            duration: 1, 
+            type: "spring", 
+            stiffness: 100,
+            damping: 15
+          }}
+          className="mb-6 mt-8"
         >
-          <img
-            src={logo}
-            alt="Ramanujan Academy Logo"
-            className="w-40 h-40 md:w-56 md:h-56 mx-auto object-contain animate-float drop-shadow-2xl"
-          />
+          <motion.div
+            animate={{ 
+              y: [0, -8, 0],
+              rotateY: [0, 10, 0, -10, 0]
+            }}
+            transition={{ 
+              duration: 4, 
+              repeat: Infinity, 
+              ease: "easeInOut"
+            }}
+            className="relative inline-block"
+          >
+            <motion.div
+              className="absolute inset-0 bg-white/30 rounded-full blur-2xl scale-110"
+              animate={{ 
+                scale: [1.1, 1.3, 1.1],
+                opacity: [0.3, 0.5, 0.3]
+              }}
+              transition={{ duration: 3, repeat: Infinity }}
+            />
+            <img
+              src={logo}
+              alt="Ramanujan Academy Logo"
+              className="w-36 h-36 md:w-48 md:h-48 lg:w-56 lg:h-56 mx-auto object-contain drop-shadow-2xl relative z-10"
+            />
+          </motion.div>
         </motion.div>
 
         {/* Title */}
