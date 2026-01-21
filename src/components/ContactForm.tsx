@@ -125,15 +125,20 @@ const ContactForm = () => {
                   </div>
                 </a>
 
-                <div className="flex items-center gap-4 text-secondary-foreground">
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                <a
+                  href="https://maps.google.com/?q=2Q64+VW9,+Uday+Nagar,+Nashik,+Maharashtra+422013"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-4 text-secondary-foreground hover:opacity-80 transition-opacity group"
+                >
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
                     <MapPin className="w-5 h-5" />
                   </div>
                   <div>
                     <p className="font-semibold">Location</p>
-                    <p>Ramanujan Academy</p>
+                    <p className="text-sm">2Q64+VW9, Uday Nagar,<br />Nashik, Maharashtra 422013</p>
                   </div>
-                </div>
+                </a>
 
                 <div className="flex items-center gap-4 text-secondary-foreground">
                   <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
@@ -146,6 +151,24 @@ const ContactForm = () => {
                 </div>
               </div>
             </div>
+
+            {/* Google Maps Embed */}
+            <motion.div
+              whileHover={{ scale: 1.01 }}
+              className="card-elevated overflow-hidden rounded-xl"
+            >
+              <iframe
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3748.8461844376793!2d73.7884!3d20.0134!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bddeb0a8b8b8b8b%3A0x8b8b8b8b8b8b8b8b!2s2Q64%2BVW9%2C%20Uday%20Nagar%2C%20Nashik%2C%20Maharashtra%20422013!5e0!3m2!1sen!2sin!4v1234567890"
+                width="100%"
+                height="200"
+                style={{ border: 0 }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Ramanujan Academy Location"
+                className="w-full"
+              />
+            </motion.div>
 
             {/* WhatsApp CTA */}
             <motion.div

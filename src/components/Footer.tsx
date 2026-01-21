@@ -67,10 +67,15 @@ const Footer = () => {
                 </svg>
                 <span>WhatsApp</span>
               </a>
-              <div className="flex items-center gap-3 text-background/70">
-                <MapPin className="w-5 h-5" />
-                <span>Ramanujan Academy</span>
-              </div>
+              <a 
+                href="https://maps.google.com/?q=2Q64+VW9,+Uday+Nagar,+Nashik,+Maharashtra+422013"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-start gap-3 text-background/70 hover:text-primary transition-colors"
+              >
+                <MapPin className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                <span className="text-sm">2Q64+VW9, Uday Nagar,<br />Nashik, Maharashtra 422013</span>
+              </a>
             </div>
           </div>
         </div>
