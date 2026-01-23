@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { 
   Users, 
   FileText, 
@@ -19,7 +20,8 @@ import {
   X,
   Pencil,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  TrendingUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -347,21 +349,76 @@ const AdminDashboard = () => {
 
   const unreadCount = submissions.filter(s => !s.is_read).length;
 
-  // Calculate students with fee due for current month
-  const currentMonth = MONTHS[new Date().getMonth()];
+  // Calculate current installment period (6 months)
   const currentYear = new Date().getFullYear();
+  const currentMonthIndex = new Date().getMonth();
+  const isFirstHalf = currentMonthIndex < 6; // Jan-Jun = first half, Jul-Dec = second half
+  const currentInstallment = isFirstHalf ? "Jan-Jun" : "Jul-Dec";
+  const firstHalfMonths = ["January", "February", "March", "April", "May", "June"];
+  const secondHalfMonths = ["July", "August", "September", "October", "November", "December"];
 
+  // Calculate students with fee due for current 6-month installment
   const studentsWithFeeDue = useMemo(() => {
+    const installmentMonths = isFirstHalf ? firstHalfMonths : secondHalfMonths;
+    
     return students.filter(student => {
-      const hasCurrentMonthPayment = payments.some(
+      // Check if student has paid for any month in the current installment period
+      const hasInstallmentPayment = payments.some(
         p => p.student_id === student.id && 
-             p.month === currentMonth && 
+             installmentMonths.includes(p.month) && 
              p.year === currentYear &&
              p.status === "paid"
       );
-      return !hasCurrentMonthPayment;
+      return !hasInstallmentPayment;
     });
-  }, [students, payments, currentMonth, currentYear]);
+  }, [students, payments, currentYear, isFirstHalf]);
+
+  // Monthly payment statistics for chart
+  const monthlyPaymentStats = useMemo(() => {
+    const stats: { month: string; amount: number; count: number }[] = [];
+    const last12Months: { month: string; year: number }[] = [];
+    
+    // Generate last 12 months
+    for (let i = 11; i >= 0; i--) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      last12Months.push({
+        month: MONTHS[date.getMonth()],
+        year: date.getFullYear()
+      });
+    }
+
+    last12Months.forEach(({ month, year }) => {
+      const monthPayments = payments.filter(
+        p => p.month === month && p.year === year && p.status === "paid"
+      );
+      const totalAmount = monthPayments.reduce((sum, p) => sum + p.amount, 0);
+      stats.push({
+        month: `${month.substring(0, 3)} ${year.toString().slice(-2)}`,
+        amount: totalAmount,
+        count: monthPayments.length
+      });
+    });
+
+    return stats;
+  }, [payments]);
+
+  // Calculate total collection stats
+  const collectionStats = useMemo(() => {
+    const thisYearPayments = payments.filter(p => p.year === currentYear && p.status === "paid");
+    const thisYearTotal = thisYearPayments.reduce((sum, p) => sum + p.amount, 0);
+    
+    const thisMonthPayments = payments.filter(
+      p => p.month === MONTHS[currentMonthIndex] && p.year === currentYear && p.status === "paid"
+    );
+    const thisMonthTotal = thisMonthPayments.reduce((sum, p) => sum + p.amount, 0);
+
+    return {
+      thisYear: thisYearTotal,
+      thisMonth: thisMonthTotal,
+      totalPayments: payments.filter(p => p.status === "paid").length
+    };
+  }, [payments, currentYear, currentMonthIndex]);
 
   const handleEditStudent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -559,7 +616,75 @@ const AdminDashboard = () => {
           </motion.div>
         </div>
 
-        {/* Fee Due Reminder Alert */}
+        {/* Payment Collection Chart */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mb-6"
+        >
+          <Card className="card-elevated">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5" />
+                Payment Collection Trends (Last 12 Months)
+              </CardTitle>
+              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mt-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-foreground">This Year:</span>
+                  <span className="text-primary font-bold">₹{collectionStats.thisYear.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-foreground">This Month:</span>
+                  <span className="text-primary font-bold">₹{collectionStats.thisMonth.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-foreground">Total Payments:</span>
+                  <span className="font-bold">{collectionStats.totalPayments}</span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyPaymentStats} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis 
+                      dataKey="month" 
+                      tick={{ fontSize: 12 }} 
+                      className="fill-muted-foreground"
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 12 }} 
+                      className="fill-muted-foreground"
+                      tickFormatter={(value) => `₹${value >= 1000 ? `${(value/1000).toFixed(0)}k` : value}`}
+                    />
+                    <Tooltip 
+                      formatter={(value: number, name: string) => [
+                        name === "amount" ? `₹${value.toLocaleString()}` : value,
+                        name === "amount" ? "Collection" : "Payments"
+                      ]}
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--background))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Legend />
+                    <Bar 
+                      dataKey="amount" 
+                      name="Collection (₹)" 
+                      fill="hsl(var(--primary))" 
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Fee Due Reminder Alert - 6 Month Installments */}
         {studentsWithFeeDue.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -570,12 +695,12 @@ const AdminDashboard = () => {
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-destructive">
                   <AlertTriangle className="w-5 h-5" />
-                  Fee Due Reminders - {currentMonth} {currentYear}
+                  Fee Due Reminders - {currentInstallment} {currentYear} Installment
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-3">
-                  {studentsWithFeeDue.length} student{studentsWithFeeDue.length !== 1 ? 's' : ''} haven't paid for {currentMonth}
+                  {studentsWithFeeDue.length} student{studentsWithFeeDue.length !== 1 ? 's' : ''} haven't paid for the {currentInstallment} installment ({isFirstHalf ? "January to June" : "July to December"})
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {studentsWithFeeDue.slice(0, 10).map((student) => (
