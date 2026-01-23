@@ -101,7 +101,7 @@ const CoursesSection = () => {
               We offer coaching for students from Class 5th to Class 12th
             </p>
             <div className="flex flex-wrap justify-center gap-3">
-              {["5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"].map((cls) => (
+              {["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"].map((cls) => (
                 <span
                   key={cls}
                   className="px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full text-primary-foreground font-semibold"
