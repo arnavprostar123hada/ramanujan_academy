@@ -420,6 +420,41 @@ const AdminDashboard = () => {
     };
   }, [payments, currentYear, currentMonthIndex]);
 
+  // Class-wise payment statistics
+  const classWiseStats = useMemo(() => {
+    return CLASSES.map(cls => {
+      const classStudents = students.filter(s => s.class === cls);
+      const classStudentIds = classStudents.map(s => s.id);
+      const classPayments = payments.filter(
+        p => classStudentIds.includes(p.student_id) && p.status === "paid"
+      );
+      const totalCollection = classPayments.reduce((sum, p) => sum + p.amount, 0);
+      const thisYearCollection = classPayments
+        .filter(p => p.year === currentYear)
+        .reduce((sum, p) => sum + p.amount, 0);
+      
+      // Students with pending fees for current installment
+      const installmentMonths = isFirstHalf ? firstHalfMonths : secondHalfMonths;
+      const pendingStudents = classStudents.filter(student => {
+        return !payments.some(
+          p => p.student_id === student.id && 
+               installmentMonths.includes(p.month) && 
+               p.year === currentYear &&
+               p.status === "paid"
+        );
+      });
+
+      return {
+        class: cls,
+        studentCount: classStudents.length,
+        totalCollection,
+        thisYearCollection,
+        paymentCount: classPayments.length,
+        pendingCount: pendingStudents.length
+      };
+    });
+  }, [students, payments, currentYear, isFirstHalf]);
+
   const handleEditStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudent) return;
@@ -679,6 +714,73 @@ const AdminDashboard = () => {
                     />
                   </BarChart>
                 </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Class-wise Payment Statistics */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="mb-6"
+        >
+          <Card className="card-elevated">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <GraduationCap className="w-5 h-5" />
+                Class-wise Collection Breakdown
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                {classWiseStats.map((stat) => (
+                  <div 
+                    key={stat.class}
+                    className="p-4 rounded-lg border bg-background hover:border-primary/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <Badge variant="secondary" className="text-sm">Class {stat.class}</Badge>
+                      <span className="text-xs text-muted-foreground">{stat.studentCount} students</span>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-lg font-bold text-primary">
+                        ₹{stat.thisYearCollection.toLocaleString()}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        This year ({stat.paymentCount} payments)
+                      </p>
+                      {stat.pendingCount > 0 && (
+                        <p className="text-xs text-destructive font-medium">
+                          {stat.pendingCount} pending
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Total Row */}
+              <div className="mt-4 p-4 rounded-lg bg-muted/50 border">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total Students</p>
+                    <p className="text-xl font-bold">{students.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">This Year Collection</p>
+                    <p className="text-xl font-bold text-primary">₹{collectionStats.thisYear.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total Payments</p>
+                    <p className="text-xl font-bold">{collectionStats.totalPayments}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Pending ({currentInstallment})</p>
+                    <p className="text-xl font-bold text-destructive">{studentsWithFeeDue.length}</p>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
