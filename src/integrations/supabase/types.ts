@@ -71,6 +71,80 @@ export type Database = {
         }
         Relationships: []
       }
+      student_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          month: string
+          paid_at: string | null
+          status: string
+          student_id: string
+          year: number
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          month: string
+          paid_at?: string | null
+          status?: string
+          student_id: string
+          year: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          month?: string
+          paid_at?: string | null
+          status?: string
+          student_id?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_payments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      students: {
+        Row: {
+          class: string
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          parent_name: string | null
+          phone: string
+          updated_at: string
+        }
+        Insert: {
+          class: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          parent_name?: string | null
+          phone: string
+          updated_at?: string
+        }
+        Update: {
+          class?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          parent_name?: string | null
+          phone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

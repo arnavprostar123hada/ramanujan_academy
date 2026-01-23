@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { QRCodeSVG } from "qrcode.react";
 import { 
   Users, 
   FileText, 
@@ -11,11 +12,32 @@ import {
   Phone as PhoneIcon,
   Calendar,
   CheckCircle,
-  Circle
+  Circle,
+  GraduationCap,
+  Plus,
+  IndianRupee,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.jpg";
@@ -31,18 +53,63 @@ interface ContactSubmission {
   is_read: boolean;
 }
 
+interface Student {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string;
+  class: string;
+  parent_name: string | null;
+  created_at: string;
+}
+
+interface StudentPayment {
+  id: string;
+  student_id: string;
+  amount: number;
+  month: string;
+  year: number;
+  status: string;
+  paid_at: string | null;
+  created_at: string;
+}
+
 interface VisitStats {
   total: number;
   today: number;
   thisWeek: number;
 }
 
+const UPI_ID = "jadhavfivestar-3@okicici";
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
+
+const CLASSES = ["5th", "6th", "7th", "8th", "9th", "10th"];
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [submissions, setSubmissions] = useState<ContactSubmission[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [payments, setPayments] = useState<StudentPayment[]>([]);
   const [visitStats, setVisitStats] = useState<VisitStats>({ total: 0, today: 0, thisWeek: 0 });
   const [isLoading, setIsLoading] = useState(true);
+  const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("500");
+
+  // New student form state
+  const [newStudent, setNewStudent] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    class: "",
+    parent_name: "",
+  });
 
   useEffect(() => {
     checkAuth();
@@ -62,7 +129,7 @@ const AdminDashboard = () => {
       .select("role")
       .eq("user_id", session.user.id)
       .eq("role", "admin")
-      .single();
+      .maybeSingle();
 
     if (error || !roles) {
       await supabase.auth.signOut();
@@ -81,6 +148,26 @@ const AdminDashboard = () => {
 
       if (submissionsError) throw submissionsError;
       setSubmissions(submissionsData || []);
+
+      // Fetch students
+      const { data: studentsData, error: studentsError } = await supabase
+        .from("students")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (!studentsError && studentsData) {
+        setStudents(studentsData as Student[]);
+      }
+
+      // Fetch payments
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from("student_payments")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (!paymentsError && paymentsData) {
+        setPayments(paymentsData as StudentPayment[]);
+      }
 
       // Fetch visit stats
       const now = new Date();
@@ -135,6 +222,80 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleAddStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newStudent.name || !newStudent.phone || !newStudent.class) {
+      toast({
+        title: "Missing fields",
+        description: "Please fill name, phone, and class",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("students")
+        .insert({
+          name: newStudent.name,
+          email: newStudent.email || null,
+          phone: newStudent.phone,
+          class: newStudent.class,
+          parent_name: newStudent.parent_name || null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setStudents([data as Student, ...students]);
+      setNewStudent({ name: "", email: "", phone: "", class: "", parent_name: "" });
+      setIsAddStudentOpen(false);
+      toast({ title: "Student added successfully" });
+    } catch (error) {
+      toast({
+        title: "Error adding student",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRecordPayment = async () => {
+    if (!selectedStudent) return;
+
+    const currentDate = new Date();
+    const month = MONTHS[currentDate.getMonth()];
+    const year = currentDate.getFullYear();
+
+    try {
+      const { data, error } = await supabase
+        .from("student_payments")
+        .insert({
+          student_id: selectedStudent.id,
+          amount: parseFloat(paymentAmount),
+          month,
+          year,
+          status: "paid",
+          paid_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setPayments([data as StudentPayment, ...payments]);
+      setIsPaymentOpen(false);
+      setSelectedStudent(null);
+      toast({ title: "Payment recorded successfully" });
+    } catch (error) {
+      toast({
+        title: "Error recording payment",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/admin");
@@ -148,6 +309,14 @@ const AdminDashboard = () => {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const getStudentPayments = (studentId: string) => {
+    return payments.filter(p => p.student_id === studentId);
+  };
+
+  const generateUPIUrl = (amount: string, studentName: string) => {
+    return `upi://pay?pa=${UPI_ID}&pn=Ramanujan%20Academy&am=${amount}&cu=INR&tn=Fee%20for%20${encodeURIComponent(studentName)}`;
   };
 
   const unreadCount = submissions.filter(s => !s.is_read).length;
@@ -209,6 +378,25 @@ const AdminDashboard = () => {
             <Card className="card-elevated">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Total Students
+                </CardTitle>
+                <GraduationCap className="w-4 h-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold">{students.length}</div>
+                <p className="text-xs text-muted-foreground">enrolled</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <Card className="card-elevated">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
                   Today's Visits
                 </CardTitle>
                 <Eye className="w-4 h-4 text-muted-foreground" />
@@ -223,25 +411,6 @@ const AdminDashboard = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <Card className="card-elevated">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  This Week
-                </CardTitle>
-                <Users className="w-4 h-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{visitStats.thisWeek}</div>
-                <p className="text-xs text-muted-foreground">visitors this week</p>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
           >
             <Card className="card-elevated">
@@ -249,7 +418,7 @@ const AdminDashboard = () => {
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Total Visits
                 </CardTitle>
-                <Eye className="w-4 h-4 text-muted-foreground" />
+                <Users className="w-4 h-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold">{visitStats.total}</div>
@@ -259,92 +428,394 @@ const AdminDashboard = () => {
           </motion.div>
         </div>
 
-        {/* Submissions List */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-        >
-          <Card className="card-elevated">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Form Submissions
-                {unreadCount > 0 && (
-                  <Badge variant="destructive">{unreadCount} new</Badge>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {submissions.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No submissions yet</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {submissions.map((submission) => (
-                    <motion.div
-                      key={submission.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className={`p-4 rounded-lg border ${
-                        submission.is_read ? "bg-muted/30" : "bg-primary/5 border-primary/20"
-                      }`}
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div className="flex-1 min-w-[200px]">
-                          <div className="flex items-center gap-2 mb-2">
-                            {submission.is_read ? (
-                              <CheckCircle className="w-4 h-4 text-green-500" />
-                            ) : (
-                              <Circle className="w-4 h-4 text-primary" />
-                            )}
-                            <h3 className="font-semibold">{submission.name}</h3>
-                            {submission.class_interested && (
-                              <Badge variant="secondary">Class {submission.class_interested}</Badge>
-                            )}
-                          </div>
-                          
-                          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-2">
-                            <a href={`mailto:${submission.email}`} className="flex items-center gap-1 hover:text-foreground">
-                              <Mail className="w-3 h-3" />
-                              {submission.email}
-                            </a>
-                            <a href={`tel:${submission.phone}`} className="flex items-center gap-1 hover:text-foreground">
-                              <PhoneIcon className="w-3 h-3" />
-                              {submission.phone}
-                            </a>
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {formatDate(submission.created_at)}
-                            </span>
-                          </div>
-
-                          {submission.message && (
-                            <p className="text-sm text-muted-foreground bg-muted p-2 rounded mt-2">
-                              {submission.message}
-                            </p>
-                          )}
-                        </div>
-
-                        {!submission.is_read && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => markAsRead(submission.id)}
-                          >
-                            Mark as Read
-                          </Button>
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
+        {/* Tabs for different sections */}
+        <Tabs defaultValue="enquiries" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
+            <TabsTrigger value="enquiries" className="gap-2">
+              <FileText className="w-4 h-4" />
+              Enquiries
+              {unreadCount > 0 && (
+                <Badge variant="destructive" className="ml-1">{unreadCount}</Badge>
               )}
-            </CardContent>
-          </Card>
-        </motion.div>
+            </TabsTrigger>
+            <TabsTrigger value="students" className="gap-2">
+              <GraduationCap className="w-4 h-4" />
+              Students
+            </TabsTrigger>
+            <TabsTrigger value="payments" className="gap-2">
+              <IndianRupee className="w-4 h-4" />
+              Payments
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Enquiries Tab */}
+          <TabsContent value="enquiries">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="card-elevated">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="w-5 h-5" />
+                    Form Submissions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {submissions.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No submissions yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {submissions.map((submission) => (
+                        <motion.div
+                          key={submission.id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className={`p-4 rounded-lg border ${
+                            submission.is_read ? "bg-muted/30" : "bg-primary/5 border-primary/20"
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div className="flex-1 min-w-[200px]">
+                              <div className="flex items-center gap-2 mb-2">
+                                {submission.is_read ? (
+                                  <CheckCircle className="w-4 h-4 text-green-500" />
+                                ) : (
+                                  <Circle className="w-4 h-4 text-primary" />
+                                )}
+                                <h3 className="font-semibold">{submission.name}</h3>
+                                {submission.class_interested && (
+                                  <Badge variant="secondary">Class {submission.class_interested}</Badge>
+                                )}
+                              </div>
+                              
+                              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-2">
+                                <a href={`mailto:${submission.email}`} className="flex items-center gap-1 hover:text-foreground">
+                                  <Mail className="w-3 h-3" />
+                                  {submission.email}
+                                </a>
+                                <a href={`tel:${submission.phone}`} className="flex items-center gap-1 hover:text-foreground">
+                                  <PhoneIcon className="w-3 h-3" />
+                                  {submission.phone}
+                                </a>
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  {formatDate(submission.created_at)}
+                                </span>
+                              </div>
+
+                              {submission.message && (
+                                <p className="text-sm text-muted-foreground bg-muted p-2 rounded mt-2">
+                                  {submission.message}
+                                </p>
+                              )}
+                            </div>
+
+                            {!submission.is_read && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => markAsRead(submission.id)}
+                              >
+                                Mark as Read
+                              </Button>
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
+          {/* Students Tab */}
+          <TabsContent value="students">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="card-elevated">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5" />
+                    Students
+                  </CardTitle>
+                  <Dialog open={isAddStudentOpen} onOpenChange={setIsAddStudentOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Student
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add New Student</DialogTitle>
+                      </DialogHeader>
+                      <form onSubmit={handleAddStudent} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="name">Student Name *</Label>
+                          <Input
+                            id="name"
+                            value={newStudent.name}
+                            onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
+                            placeholder="Enter student name"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="phone">Phone Number *</Label>
+                          <Input
+                            id="phone"
+                            value={newStudent.phone}
+                            onChange={(e) => setNewStudent({ ...newStudent, phone: e.target.value })}
+                            placeholder="Enter phone number"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="class">Class *</Label>
+                          <Select
+                            value={newStudent.class}
+                            onValueChange={(value) => setNewStudent({ ...newStudent, class: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select class" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {CLASSES.map((cls) => (
+                                <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="email">Email (Optional)</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={newStudent.email}
+                            onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })}
+                            placeholder="Enter email"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="parent">Parent Name (Optional)</Label>
+                          <Input
+                            id="parent"
+                            value={newStudent.parent_name}
+                            onChange={(e) => setNewStudent({ ...newStudent, parent_name: e.target.value })}
+                            placeholder="Enter parent name"
+                          />
+                        </div>
+                        <div className="flex gap-3 pt-4">
+                          <Button type="button" variant="outline" onClick={() => setIsAddStudentOpen(false)} className="flex-1">
+                            Cancel
+                          </Button>
+                          <Button type="submit" className="flex-1">
+                            Add Student
+                          </Button>
+                        </div>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </CardHeader>
+                <CardContent>
+                  {students.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <GraduationCap className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No students added yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {students.map((student) => (
+                        <motion.div
+                          key={student.id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="p-4 rounded-lg border bg-background hover:border-primary/50 transition-colors"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div className="flex-1 min-w-[200px]">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h3 className="font-semibold">{student.name}</h3>
+                                <Badge variant="secondary">Class {student.class}</Badge>
+                              </div>
+                              
+                              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                                <a href={`tel:${student.phone}`} className="flex items-center gap-1 hover:text-foreground">
+                                  <PhoneIcon className="w-3 h-3" />
+                                  {student.phone}
+                                </a>
+                                {student.email && (
+                                  <a href={`mailto:${student.email}`} className="flex items-center gap-1 hover:text-foreground">
+                                    <Mail className="w-3 h-3" />
+                                    {student.email}
+                                  </a>
+                                )}
+                                {student.parent_name && (
+                                  <span className="flex items-center gap-1">
+                                    <Users className="w-3 h-3" />
+                                    {student.parent_name}
+                                  </span>
+                                )}
+                              </div>
+
+                              {getStudentPayments(student.id).length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {getStudentPayments(student.id).slice(0, 3).map((payment) => (
+                                    <Badge key={payment.id} variant="outline" className="text-xs">
+                                      {payment.month} {payment.year} - ₹{payment.amount}
+                                    </Badge>
+                                  ))}
+                                  {getStudentPayments(student.id).length > 3 && (
+                                    <Badge variant="outline" className="text-xs">
+                                      +{getStudentPayments(student.id).length - 3} more
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedStudent(student);
+                                setIsPaymentOpen(true);
+                              }}
+                            >
+                              <IndianRupee className="w-4 h-4 mr-1" />
+                              Payment
+                            </Button>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
+          {/* Payments Tab */}
+          <TabsContent value="payments">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="card-elevated">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <IndianRupee className="w-5 h-5" />
+                    Payment History
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {payments.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <IndianRupee className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No payments recorded yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {payments.map((payment) => {
+                        const student = students.find(s => s.id === payment.student_id);
+                        return (
+                          <motion.div
+                            key={payment.id}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="p-4 rounded-lg border bg-background"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-4">
+                              <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h3 className="font-semibold">{student?.name || "Unknown"}</h3>
+                                  <Badge variant="outline">{student?.class}</Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {payment.month} {payment.year}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xl font-bold text-primary">₹{payment.amount}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {payment.paid_at ? formatDate(payment.paid_at) : "Pending"}
+                                </p>
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Payment QR Dialog */}
+        <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <IndianRupee className="w-5 h-5" />
+                Payment for {selectedStudent?.name}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="amount">Amount (₹)</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  placeholder="Enter amount"
+                />
+              </div>
+
+              <div className="flex flex-col items-center gap-4 p-4 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground text-center">
+                  Scan QR code to pay via UPI
+                </p>
+                <div className="p-4 bg-white rounded-lg">
+                  <QRCodeSVG
+                    value={generateUPIUrl(paymentAmount, selectedStudent?.name || "")}
+                    size={180}
+                    level="H"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground text-center break-all">
+                  UPI ID: {UPI_ID}
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsPaymentOpen(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleRecordPayment}
+                  className="flex-1"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Record Payment
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
