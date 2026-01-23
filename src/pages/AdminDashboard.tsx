@@ -120,6 +120,7 @@ const AdminDashboard = () => {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("500");
+  const [selectedClassFilter, setSelectedClassFilter] = useState<string>("all");
 
   // New student form state
   const [newStudent, setNewStudent] = useState({
@@ -1029,6 +1030,33 @@ const AdminDashboard = () => {
                   </Dialog>
                 </CardHeader>
                 <CardContent>
+                  {/* Class Filter */}
+                  <div className="mb-6">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant={selectedClassFilter === "all" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedClassFilter("all")}
+                      >
+                        All ({students.length})
+                      </Button>
+                      {CLASSES.map((cls) => {
+                        const count = students.filter(s => s.class === cls).length;
+                        return (
+                          <Button
+                            key={cls}
+                            variant={selectedClassFilter === cls ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setSelectedClassFilter(cls)}
+                            className={count === 0 ? "opacity-50" : ""}
+                          >
+                            {cls} ({count})
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {students.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground">
                       <GraduationCap className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -1036,7 +1064,9 @@ const AdminDashboard = () => {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {students.map((student) => (
+                      {students
+                        .filter(student => selectedClassFilter === "all" || student.class === selectedClassFilter)
+                        .map((student) => (
                         <motion.div
                           key={student.id}
                           initial={{ opacity: 0 }}
