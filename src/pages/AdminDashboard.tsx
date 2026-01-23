@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
@@ -16,7 +16,10 @@ import {
   GraduationCap,
   Plus,
   IndianRupee,
-  X
+  X,
+  Pencil,
+  Trash2,
+  AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,10 +30,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -98,12 +112,24 @@ const AdminDashboard = () => {
   const [visitStats, setVisitStats] = useState<VisitStats>({ total: 0, today: 0, thisWeek: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
+  const [isEditStudentOpen, setIsEditStudentOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("500");
 
   // New student form state
   const [newStudent, setNewStudent] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    class: "",
+    parent_name: "",
+  });
+
+  // Edit student form state
+  const [editStudent, setEditStudent] = useState({
     name: "",
     email: "",
     phone: "",
@@ -321,6 +347,111 @@ const AdminDashboard = () => {
 
   const unreadCount = submissions.filter(s => !s.is_read).length;
 
+  // Calculate students with fee due for current month
+  const currentMonth = MONTHS[new Date().getMonth()];
+  const currentYear = new Date().getFullYear();
+
+  const studentsWithFeeDue = useMemo(() => {
+    return students.filter(student => {
+      const hasCurrentMonthPayment = payments.some(
+        p => p.student_id === student.id && 
+             p.month === currentMonth && 
+             p.year === currentYear &&
+             p.status === "paid"
+      );
+      return !hasCurrentMonthPayment;
+    });
+  }, [students, payments, currentMonth, currentYear]);
+
+  const handleEditStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStudent) return;
+    
+    if (!editStudent.name || !editStudent.phone || !editStudent.class) {
+      toast({
+        title: "Missing fields",
+        description: "Please fill name, phone, and class",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("students")
+        .update({
+          name: editStudent.name,
+          email: editStudent.email || null,
+          phone: editStudent.phone,
+          class: editStudent.class,
+          parent_name: editStudent.parent_name || null,
+        })
+        .eq("id", selectedStudent.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setStudents(students.map(s => s.id === selectedStudent.id ? data as Student : s));
+      setIsEditStudentOpen(false);
+      setSelectedStudent(null);
+      toast({ title: "Student updated successfully" });
+    } catch (error) {
+      toast({
+        title: "Error updating student",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteStudent = async () => {
+    if (!studentToDelete) return;
+
+    try {
+      // First delete related payments
+      await supabase
+        .from("student_payments")
+        .delete()
+        .eq("student_id", studentToDelete.id);
+
+      // Then delete the student
+      const { error } = await supabase
+        .from("students")
+        .delete()
+        .eq("id", studentToDelete.id);
+
+      if (error) throw error;
+
+      setStudents(students.filter(s => s.id !== studentToDelete.id));
+      setPayments(payments.filter(p => p.student_id !== studentToDelete.id));
+      setIsDeleteDialogOpen(false);
+      setStudentToDelete(null);
+      toast({ title: "Student deleted successfully" });
+    } catch (error) {
+      toast({
+        title: "Error deleting student",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openEditDialog = (student: Student) => {
+    setSelectedStudent(student);
+    setEditStudent({
+      name: student.name,
+      email: student.email || "",
+      phone: student.phone,
+      class: student.class,
+      parent_name: student.parent_name || "",
+    });
+    setIsEditStudentOpen(true);
+  };
+
+  const openDeleteDialog = (student: Student) => {
+    setStudentToDelete(student);
+    setIsDeleteDialogOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-muted/30">
       {/* Header */}
@@ -428,6 +559,49 @@ const AdminDashboard = () => {
           </motion.div>
         </div>
 
+        {/* Fee Due Reminder Alert */}
+        {studentsWithFeeDue.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6"
+          >
+            <Card className="border-destructive/50 bg-destructive/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="w-5 h-5" />
+                  Fee Due Reminders - {currentMonth} {currentYear}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-3">
+                  {studentsWithFeeDue.length} student{studentsWithFeeDue.length !== 1 ? 's' : ''} haven't paid for {currentMonth}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {studentsWithFeeDue.slice(0, 10).map((student) => (
+                    <Badge 
+                      key={student.id} 
+                      variant="outline" 
+                      className="border-destructive/50 text-destructive cursor-pointer hover:bg-destructive/10"
+                      onClick={() => {
+                        setSelectedStudent(student);
+                        setIsPaymentOpen(true);
+                      }}
+                    >
+                      {student.name} ({student.class})
+                    </Badge>
+                  ))}
+                  {studentsWithFeeDue.length > 10 && (
+                    <Badge variant="outline" className="border-destructive/50 text-destructive">
+                      +{studentsWithFeeDue.length - 10} more
+                    </Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
         {/* Tabs for different sections */}
         <Tabs defaultValue="enquiries" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
@@ -441,6 +615,9 @@ const AdminDashboard = () => {
             <TabsTrigger value="students" className="gap-2">
               <GraduationCap className="w-4 h-4" />
               Students
+              {studentsWithFeeDue.length > 0 && (
+                <Badge variant="destructive" className="ml-1">{studentsWithFeeDue.length}</Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="payments" className="gap-2">
               <IndianRupee className="w-4 h-4" />
@@ -681,17 +858,34 @@ const AdminDashboard = () => {
                               )}
                             </div>
 
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedStudent(student);
-                                setIsPaymentOpen(true);
-                              }}
-                            >
-                              <IndianRupee className="w-4 h-4 mr-1" />
-                              Payment
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openEditDialog(student)}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => openDeleteDialog(student)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedStudent(student);
+                                  setIsPaymentOpen(true);
+                                }}
+                              >
+                                <IndianRupee className="w-4 h-4 mr-1" />
+                                Payment
+                              </Button>
+                            </div>
                           </div>
                         </motion.div>
                       ))}
@@ -816,6 +1010,104 @@ const AdminDashboard = () => {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Edit Student Dialog */}
+        <Dialog open={isEditStudentOpen} onOpenChange={setIsEditStudentOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Student</DialogTitle>
+              <DialogDescription>
+                Update student information
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleEditStudent} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Student Name *</Label>
+                <Input
+                  id="edit-name"
+                  value={editStudent.name}
+                  onChange={(e) => setEditStudent({ ...editStudent, name: e.target.value })}
+                  placeholder="Enter student name"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-phone">Phone Number *</Label>
+                <Input
+                  id="edit-phone"
+                  value={editStudent.phone}
+                  onChange={(e) => setEditStudent({ ...editStudent, phone: e.target.value })}
+                  placeholder="Enter phone number"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-class">Class *</Label>
+                <Select
+                  value={editStudent.class}
+                  onValueChange={(value) => setEditStudent({ ...editStudent, class: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CLASSES.map((cls) => (
+                      <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-email">Email (Optional)</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={editStudent.email}
+                  onChange={(e) => setEditStudent({ ...editStudent, email: e.target.value })}
+                  placeholder="Enter email"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-parent">Parent Name (Optional)</Label>
+                <Input
+                  id="edit-parent"
+                  value={editStudent.parent_name}
+                  onChange={(e) => setEditStudent({ ...editStudent, parent_name: e.target.value })}
+                  placeholder="Enter parent name"
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button type="button" variant="outline" onClick={() => setIsEditStudentOpen(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button type="submit" className="flex-1">
+                  Save Changes
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Student</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete {studentToDelete?.name}? This will also delete all their payment records. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteStudent}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );
