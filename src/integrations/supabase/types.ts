@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      announcements: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          target_classes: string[] | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          target_classes?: string[] | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          target_classes?: string[] | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contact_submissions: {
         Row: {
           class_interested: string | null
@@ -71,6 +98,73 @@ export type Database = {
         }
         Relationships: []
       }
+      parent_messages: {
+        Row: {
+          created_at: string
+          id: string
+          is_from_parent: boolean
+          is_read: boolean
+          message: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_from_parent?: boolean
+          is_read?: boolean
+          message: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_from_parent?: boolean
+          is_read?: boolean
+          message?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parent_messages_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_concerns: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          student_id: string
+          title: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          student_id: string
+          title: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          student_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_concerns_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_payments: {
         Row: {
           amount: number
@@ -114,6 +208,7 @@ export type Database = {
       }
       students: {
         Row: {
+          access_code: string
           class: string
           created_at: string
           email: string | null
@@ -124,6 +219,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          access_code: string
           class: string
           created_at?: string
           email?: string | null
@@ -134,6 +230,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          access_code?: string
           class?: string
           created_at?: string
           email?: string | null

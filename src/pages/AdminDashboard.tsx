@@ -21,7 +21,12 @@ import {
   Pencil,
   Trash2,
   AlertTriangle,
-  TrendingUp
+  TrendingUp,
+  Bell,
+  MessageSquare,
+  Send,
+  Copy,
+  Key
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,6 +59,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.jpg";
@@ -76,6 +83,32 @@ interface Student {
   phone: string;
   class: string;
   parent_name: string | null;
+  created_at: string;
+  access_code: string;
+}
+
+interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  target_classes: string[];
+  created_at: string;
+}
+
+interface StudentConcern {
+  id: string;
+  student_id: string;
+  title: string;
+  content: string;
+  created_at: string;
+}
+
+interface ParentMessage {
+  id: string;
+  student_id: string;
+  message: string;
+  is_from_parent: boolean;
+  is_read: boolean;
   created_at: string;
 }
 
@@ -111,16 +144,38 @@ const AdminDashboard = () => {
   const [submissions, setSubmissions] = useState<ContactSubmission[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [payments, setPayments] = useState<StudentPayment[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [parentMessages, setParentMessages] = useState<ParentMessage[]>([]);
   const [visitStats, setVisitStats] = useState<VisitStats>({ total: 0, today: 0, thisWeek: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
   const [isEditStudentOpen, setIsEditStudentOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [isAddAnnouncementOpen, setIsAddAnnouncementOpen] = useState(false);
+  const [isAddConcernOpen, setIsAddConcernOpen] = useState(false);
+  const [isMessagesOpen, setIsMessagesOpen] = useState(false);
+  const [newlyAddedStudent, setNewlyAddedStudent] = useState<Student | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("500");
   const [selectedClassFilter, setSelectedClassFilter] = useState<string>("all");
+
+  // New announcement form state
+  const [newAnnouncement, setNewAnnouncement] = useState({
+    title: "",
+    content: "",
+    target_classes: [] as string[],
+  });
+
+  // New concern form state
+  const [newConcern, setNewConcern] = useState({
+    title: "",
+    content: "",
+  });
+
+  // Reply message state
+  const [replyMessage, setReplyMessage] = useState("");
 
   // New student form state
   const [newStudent, setNewStudent] = useState({
@@ -198,6 +253,26 @@ const AdminDashboard = () => {
         setPayments(paymentsData as StudentPayment[]);
       }
 
+      // Fetch announcements
+      const { data: announcementsData } = await supabase
+        .from("announcements")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (announcementsData) {
+        setAnnouncements(announcementsData as Announcement[]);
+      }
+
+      // Fetch parent messages
+      const { data: messagesData } = await supabase
+        .from("parent_messages")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (messagesData) {
+        setParentMessages(messagesData as ParentMessage[]);
+      }
+
       // Fetch visit stats
       const now = new Date();
       const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
@@ -272,22 +347,148 @@ const AdminDashboard = () => {
           phone: newStudent.phone,
           class: newStudent.class,
           parent_name: newStudent.parent_name || null,
-        })
+        } as any)
         .select()
         .single();
 
       if (error) throw error;
 
-      setStudents([data as Student, ...students]);
+      const addedStudent = data as Student;
+      setStudents([addedStudent, ...students]);
       setNewStudent({ name: "", email: "", phone: "", class: "", parent_name: "" });
       setIsAddStudentOpen(false);
-      toast({ title: "Student added successfully" });
+      setNewlyAddedStudent(addedStudent);
     } catch (error) {
       toast({
         title: "Error adding student",
         variant: "destructive",
       });
     }
+  };
+
+  const handleAddAnnouncement = async () => {
+    if (!newAnnouncement.title || !newAnnouncement.content) {
+      toast({
+        title: "Missing fields",
+        description: "Please fill title and content",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("announcements")
+        .insert({
+          title: newAnnouncement.title,
+          content: newAnnouncement.content,
+          target_classes: newAnnouncement.target_classes,
+        } as any)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setAnnouncements([data as Announcement, ...announcements]);
+      setNewAnnouncement({ title: "", content: "", target_classes: [] });
+      setIsAddAnnouncementOpen(false);
+      toast({ title: "Announcement created successfully" });
+    } catch (error) {
+      toast({
+        title: "Error creating announcement",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddConcern = async () => {
+    if (!selectedStudent || !newConcern.title || !newConcern.content) {
+      toast({
+        title: "Missing fields",
+        description: "Please fill title and content",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("student_concerns")
+        .insert({
+          student_id: selectedStudent.id,
+          title: newConcern.title,
+          content: newConcern.content,
+        } as any);
+
+      if (error) throw error;
+
+      setNewConcern({ title: "", content: "" });
+      setIsAddConcernOpen(false);
+      setSelectedStudent(null);
+      toast({ title: "Concern added successfully" });
+    } catch (error) {
+      toast({
+        title: "Error adding concern",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleReplyMessage = async () => {
+    if (!selectedStudent || !replyMessage.trim()) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("parent_messages")
+        .insert({
+          student_id: selectedStudent.id,
+          message: replyMessage.trim(),
+          is_from_parent: false,
+        } as any)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setParentMessages([data as ParentMessage, ...parentMessages]);
+      setReplyMessage("");
+      toast({ title: "Reply sent successfully" });
+    } catch (error) {
+      toast({
+        title: "Error sending reply",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getStudentMessages = (studentId: string) => {
+    return parentMessages.filter(m => m.student_id === studentId).sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+  };
+
+  const getUnreadMessagesCount = () => {
+    return parentMessages.filter(m => m.is_from_parent && !m.is_read).length;
+  };
+
+  const markMessageAsRead = async (messageId: string) => {
+    try {
+      await supabase
+        .from("parent_messages")
+        .update({ is_read: true })
+        .eq("id", messageId);
+      
+      setParentMessages(parentMessages.map(m => 
+        m.id === messageId ? { ...m, is_read: true } : m
+      ));
+    } catch (error) {
+      console.error("Error marking message as read", error);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copied to clipboard!" });
   };
 
   const handleRecordPayment = async () => {
@@ -832,24 +1033,35 @@ const AdminDashboard = () => {
 
         {/* Tabs for different sections */}
         <Tabs defaultValue="enquiries" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 lg:w-auto lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
             <TabsTrigger value="enquiries" className="gap-2">
               <FileText className="w-4 h-4" />
-              Enquiries
+              <span className="hidden sm:inline">Enquiries</span>
               {unreadCount > 0 && (
                 <Badge variant="destructive" className="ml-1">{unreadCount}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="students" className="gap-2">
               <GraduationCap className="w-4 h-4" />
-              Students
+              <span className="hidden sm:inline">Students</span>
               {studentsWithFeeDue.length > 0 && (
                 <Badge variant="destructive" className="ml-1">{studentsWithFeeDue.length}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="payments" className="gap-2">
               <IndianRupee className="w-4 h-4" />
-              Payments
+              <span className="hidden sm:inline">Payments</span>
+            </TabsTrigger>
+            <TabsTrigger value="announcements" className="gap-2">
+              <Bell className="w-4 h-4" />
+              <span className="hidden sm:inline">Announcements</span>
+            </TabsTrigger>
+            <TabsTrigger value="messages" className="gap-2">
+              <MessageSquare className="w-4 h-4" />
+              <span className="hidden sm:inline">Messages</span>
+              {getUnreadMessagesCount() > 0 && (
+                <Badge variant="destructive" className="ml-1">{getUnreadMessagesCount()}</Badge>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -1209,6 +1421,209 @@ const AdminDashboard = () => {
               </Card>
             </motion.div>
           </TabsContent>
+
+          {/* Announcements Tab */}
+          <TabsContent value="announcements">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="card-elevated">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Bell className="w-5 h-5" />
+                    Announcements
+                  </CardTitle>
+                  <Dialog open={isAddAnnouncementOpen} onOpenChange={setIsAddAnnouncementOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="w-4 h-4 mr-2" />
+                        New Announcement
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Create Announcement</DialogTitle>
+                        <DialogDescription>
+                          Create a new announcement for parents
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="announcement-title">Title *</Label>
+                          <Input
+                            id="announcement-title"
+                            value={newAnnouncement.title}
+                            onChange={(e) => setNewAnnouncement({ ...newAnnouncement, title: e.target.value })}
+                            placeholder="Enter announcement title"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="announcement-content">Content *</Label>
+                          <Textarea
+                            id="announcement-content"
+                            value={newAnnouncement.content}
+                            onChange={(e) => setNewAnnouncement({ ...newAnnouncement, content: e.target.value })}
+                            placeholder="Enter announcement content"
+                            rows={4}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Target Classes (leave empty for all)</Label>
+                          <div className="flex flex-wrap gap-2">
+                            {CLASSES.map((cls) => (
+                              <div key={cls} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`class-${cls}`}
+                                  checked={newAnnouncement.target_classes.includes(cls)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setNewAnnouncement({
+                                        ...newAnnouncement,
+                                        target_classes: [...newAnnouncement.target_classes, cls]
+                                      });
+                                    } else {
+                                      setNewAnnouncement({
+                                        ...newAnnouncement,
+                                        target_classes: newAnnouncement.target_classes.filter(c => c !== cls)
+                                      });
+                                    }
+                                  }}
+                                />
+                                <label htmlFor={`class-${cls}`} className="text-sm">{cls}</label>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex gap-3 pt-4">
+                          <Button variant="outline" onClick={() => setIsAddAnnouncementOpen(false)} className="flex-1">
+                            Cancel
+                          </Button>
+                          <Button onClick={handleAddAnnouncement} className="flex-1">
+                            Create Announcement
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </CardHeader>
+                <CardContent>
+                  {announcements.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <Bell className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No announcements yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {announcements.map((announcement) => (
+                        <motion.div
+                          key={announcement.id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="p-4 rounded-lg border bg-background"
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <h3 className="font-semibold">{announcement.title}</h3>
+                            <Badge variant="secondary" className="text-xs shrink-0">
+                              <Calendar className="w-3 h-3 mr-1" />
+                              {formatDate(announcement.created_at)}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap mb-2">
+                            {announcement.content}
+                          </p>
+                          {announcement.target_classes.length > 0 && (
+                            <div className="flex gap-1 flex-wrap">
+                              {announcement.target_classes.map((cls) => (
+                                <Badge key={cls} variant="outline" className="text-xs">
+                                  Class {cls}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                          {announcement.target_classes.length === 0 && (
+                            <Badge variant="outline" className="text-xs">All Classes</Badge>
+                          )}
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
+          {/* Messages Tab */}
+          <TabsContent value="messages">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="card-elevated">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5" />
+                    Parent Messages
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {parentMessages.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No messages from parents yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Group messages by student */}
+                      {Array.from(new Set(parentMessages.map(m => m.student_id))).map((studentId) => {
+                        const student = students.find(s => s.id === studentId);
+                        const studentMsgs = getStudentMessages(studentId);
+                        const hasUnread = studentMsgs.some(m => m.is_from_parent && !m.is_read);
+                        
+                        return (
+                          <motion.div
+                            key={studentId}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className={`p-4 rounded-lg border ${hasUnread ? "bg-primary/5 border-primary/20" : "bg-background"}`}
+                          >
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold">{student?.name || "Unknown"}</h3>
+                                <Badge variant="secondary">Class {student?.class}</Badge>
+                                {hasUnread && (
+                                  <Badge variant="destructive" className="text-xs">New</Badge>
+                                )}
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedStudent(student || null);
+                                  setIsMessagesOpen(true);
+                                  // Mark messages as read
+                                  studentMsgs.filter(m => m.is_from_parent && !m.is_read).forEach(m => {
+                                    markMessageAsRead(m.id);
+                                  });
+                                }}
+                              >
+                                <MessageSquare className="w-4 h-4 mr-1" />
+                                Open Chat
+                              </Button>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              {studentMsgs[studentMsgs.length - 1]?.message.substring(0, 100)}
+                              {studentMsgs[studentMsgs.length - 1]?.message.length > 100 ? "..." : ""}
+                            </p>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
         </Tabs>
 
         {/* Payment QR Dialog */}
@@ -1365,6 +1780,132 @@ const AdminDashboard = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Student Access Code Dialog */}
+        <Dialog open={!!newlyAddedStudent} onOpenChange={() => setNewlyAddedStudent(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Key className="w-5 h-5 text-primary" />
+                Student Added Successfully!
+              </DialogTitle>
+              <DialogDescription>
+                Share this access code with the parent to access the Parent Portal
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="p-6 bg-muted rounded-lg text-center">
+                <p className="text-sm text-muted-foreground mb-2">Access Code for {newlyAddedStudent?.name}</p>
+                <p className="text-3xl font-mono font-bold tracking-widest text-primary">
+                  {newlyAddedStudent?.access_code}
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => copyToClipboard(newlyAddedStudent?.access_code || "")}
+                  className="flex-1"
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy Code
+                </Button>
+                <Button onClick={() => setNewlyAddedStudent(null)} className="flex-1">
+                  Done
+                </Button>
+              </div>
+              <p className="text-xs text-center text-muted-foreground">
+                Parents can use this code at /parent to access announcements and messages
+              </p>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Messages Chat Dialog */}
+        <Dialog open={isMessagesOpen} onOpenChange={setIsMessagesOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MessageSquare className="w-5 h-5" />
+                Chat with {selectedStudent?.name}'s Parent
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="h-[300px] overflow-y-auto border rounded-lg p-4 space-y-3 bg-muted/30">
+                {selectedStudent && getStudentMessages(selectedStudent.id).map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex ${msg.is_from_parent ? "justify-start" : "justify-end"}`}
+                  >
+                    <div
+                      className={`max-w-[80%] p-3 rounded-lg ${
+                        msg.is_from_parent
+                          ? "bg-background border"
+                          : "bg-primary text-primary-foreground"
+                      }`}
+                    >
+                      <p className="text-sm">{msg.message}</p>
+                      <p className={`text-xs mt-1 ${msg.is_from_parent ? "text-muted-foreground" : "text-primary-foreground/70"}`}>
+                        {formatDate(msg.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Textarea
+                  placeholder="Type your reply..."
+                  value={replyMessage}
+                  onChange={(e) => setReplyMessage(e.target.value)}
+                  className="min-h-[60px]"
+                />
+                <Button onClick={handleReplyMessage} disabled={!replyMessage.trim()}>
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add Concern Dialog */}
+        <Dialog open={isAddConcernOpen} onOpenChange={setIsAddConcernOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Note for {selectedStudent?.name}</DialogTitle>
+              <DialogDescription>
+                This note will be visible to the parent in their portal
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="concern-title">Title *</Label>
+                <Input
+                  id="concern-title"
+                  value={newConcern.title}
+                  onChange={(e) => setNewConcern({ ...newConcern, title: e.target.value })}
+                  placeholder="Enter note title"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="concern-content">Content *</Label>
+                <Textarea
+                  id="concern-content"
+                  value={newConcern.content}
+                  onChange={(e) => setNewConcern({ ...newConcern, content: e.target.value })}
+                  placeholder="Enter note content"
+                  rows={4}
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button variant="outline" onClick={() => setIsAddConcernOpen(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button onClick={handleAddConcern} className="flex-1">
+                  Add Note
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
