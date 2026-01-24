@@ -26,7 +26,9 @@ import {
   MessageSquare,
   Send,
   Copy,
-  Key
+  Key,
+  FileCheck,
+  StickyNote
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -101,6 +103,8 @@ interface StudentConcern {
   title: string;
   content: string;
   created_at: string;
+  is_resolved: boolean;
+  resolved_at: string | null;
 }
 
 interface ParentMessage {
@@ -145,6 +149,8 @@ const AdminDashboard = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [payments, setPayments] = useState<StudentPayment[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [studentConcerns, setStudentConcerns] = useState<StudentConcern[]>([]);
+  const [isAccessCodeDialogOpen, setIsAccessCodeDialogOpen] = useState(false);
   const [parentMessages, setParentMessages] = useState<ParentMessage[]>([]);
   const [visitStats, setVisitStats] = useState<VisitStats>({ total: 0, today: 0, thisWeek: 0 });
   const [isLoading, setIsLoading] = useState(true);
@@ -261,6 +267,16 @@ const AdminDashboard = () => {
 
       if (announcementsData) {
         setAnnouncements(announcementsData as Announcement[]);
+      }
+
+      // Fetch student concerns
+      const { data: concernsData } = await supabase
+        .from("student_concerns")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (concernsData) {
+        setStudentConcerns(concernsData as StudentConcern[]);
       }
 
       // Fetch parent messages
@@ -401,6 +417,25 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleDeleteAnnouncement = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("announcements")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setAnnouncements(announcements.filter(a => a.id !== id));
+      toast({ title: "Announcement deleted successfully" });
+    } catch (error) {
+      toast({
+        title: "Error deleting announcement",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleAddConcern = async () => {
     if (!selectedStudent || !newConcern.title || !newConcern.content) {
       toast({
@@ -412,26 +447,54 @@ const AdminDashboard = () => {
     }
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("student_concerns")
         .insert({
           student_id: selectedStudent.id,
           title: newConcern.title,
           content: newConcern.content,
-        } as any);
+        } as any)
+        .select()
+        .single();
 
       if (error) throw error;
 
+      setStudentConcerns([data as StudentConcern, ...studentConcerns]);
       setNewConcern({ title: "", content: "" });
       setIsAddConcernOpen(false);
       setSelectedStudent(null);
-      toast({ title: "Concern added successfully" });
+      toast({ title: "Note added successfully" });
     } catch (error) {
       toast({
-        title: "Error adding concern",
+        title: "Error adding note",
         variant: "destructive",
       });
     }
+  };
+
+  const handleMarkConcernResolved = async (concernId: string) => {
+    try {
+      const { error } = await supabase
+        .from("student_concerns")
+        .update({ is_resolved: true, resolved_at: new Date().toISOString() })
+        .eq("id", concernId);
+
+      if (error) throw error;
+
+      setStudentConcerns(studentConcerns.map(c =>
+        c.id === concernId ? { ...c, is_resolved: true, resolved_at: new Date().toISOString() } : c
+      ));
+      toast({ title: "Note marked as resolved" });
+    } catch (error) {
+      toast({
+        title: "Error updating note",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getStudentConcerns = (studentId: string) => {
+    return studentConcerns.filter(c => c.student_id === studentId);
   };
 
   const handleReplyMessage = async () => {
@@ -1033,7 +1096,7 @@ const AdminDashboard = () => {
 
         {/* Tabs for different sections */}
         <Tabs defaultValue="enquiries" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-flex">
             <TabsTrigger value="enquiries" className="gap-2">
               <FileText className="w-4 h-4" />
               <span className="hidden sm:inline">Enquiries</span>
@@ -1055,6 +1118,13 @@ const AdminDashboard = () => {
             <TabsTrigger value="announcements" className="gap-2">
               <Bell className="w-4 h-4" />
               <span className="hidden sm:inline">Announcements</span>
+            </TabsTrigger>
+            <TabsTrigger value="notes" className="gap-2">
+              <StickyNote className="w-4 h-4" />
+              <span className="hidden sm:inline">Notes</span>
+              {studentConcerns.filter(c => !c.is_resolved).length > 0 && (
+                <Badge variant="secondary" className="ml-1">{studentConcerns.filter(c => !c.is_resolved).length}</Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="messages" className="gap-2">
               <MessageSquare className="w-4 h-4" />
@@ -1327,10 +1397,33 @@ const AdminDashboard = () => {
                               )}
                             </div>
 
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap gap-2">
                               <Button
                                 variant="ghost"
                                 size="sm"
+                                title="View Access Code"
+                                onClick={() => {
+                                  setSelectedStudent(student);
+                                  setIsAccessCodeDialogOpen(true);
+                                }}
+                              >
+                                <Key className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Add Note"
+                                onClick={() => {
+                                  setSelectedStudent(student);
+                                  setIsAddConcernOpen(true);
+                                }}
+                              >
+                                <StickyNote className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Edit Student"
                                 onClick={() => openEditDialog(student)}
                               >
                                 <Pencil className="w-4 h-4" />
@@ -1339,6 +1432,7 @@ const AdminDashboard = () => {
                                 variant="ghost"
                                 size="sm"
                                 className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                title="Delete Student"
                                 onClick={() => openDeleteDialog(student)}
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -1524,10 +1618,20 @@ const AdminDashboard = () => {
                         >
                           <div className="flex items-start justify-between gap-2 mb-2">
                             <h3 className="font-semibold">{announcement.title}</h3>
-                            <Badge variant="secondary" className="text-xs shrink-0">
-                              <Calendar className="w-3 h-3 mr-1" />
-                              {formatDate(announcement.created_at)}
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary" className="text-xs shrink-0">
+                                <Calendar className="w-3 h-3 mr-1" />
+                                {formatDate(announcement.created_at)}
+                              </Badge>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7 w-7 p-0"
+                                onClick={() => handleDeleteAnnouncement(announcement.id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
                           <p className="text-sm text-muted-foreground whitespace-pre-wrap mb-2">
                             {announcement.content}
@@ -1615,6 +1719,84 @@ const AdminDashboard = () => {
                               {studentMsgs[studentMsgs.length - 1]?.message.substring(0, 100)}
                               {studentMsgs[studentMsgs.length - 1]?.message.length > 100 ? "..." : ""}
                             </p>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
+          {/* Notes Tab */}
+          <TabsContent value="notes">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="card-elevated">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <StickyNote className="w-5 h-5" />
+                    Student Notes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {studentConcerns.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <StickyNote className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No notes added yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {studentConcerns.map((concern) => {
+                        const student = students.find(s => s.id === concern.student_id);
+                        return (
+                          <motion.div
+                            key={concern.id}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className={`p-4 rounded-lg border ${concern.is_resolved ? "bg-muted/50" : "bg-background"}`}
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="font-semibold">{concern.title}</h3>
+                                <Badge variant="secondary">{student?.name || "Unknown"}</Badge>
+                                <Badge variant="outline">Class {student?.class}</Badge>
+                                {concern.is_resolved && (
+                                  <Badge variant="default" className="bg-green-500">
+                                    <FileCheck className="w-3 h-3 mr-1" />
+                                    Resolved
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary" className="text-xs shrink-0">
+                                  <Calendar className="w-3 h-3 mr-1" />
+                                  {formatDate(concern.created_at)}
+                                </Badge>
+                                {!concern.is_resolved && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-green-600 hover:bg-green-50 h-7"
+                                    onClick={() => handleMarkConcernResolved(concern.id)}
+                                  >
+                                    <FileCheck className="w-4 h-4 mr-1" />
+                                    Resolve
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                              {concern.content}
+                            </p>
+                            {concern.resolved_at && (
+                              <p className="text-xs text-green-600 mt-2">
+                                Resolved on {formatDate(concern.resolved_at)}
+                              </p>
+                            )}
                           </motion.div>
                         );
                       })}
@@ -1903,6 +2085,46 @@ const AdminDashboard = () => {
                   Add Note
                 </Button>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* View Access Code Dialog */}
+        <Dialog open={isAccessCodeDialogOpen} onOpenChange={setIsAccessCodeDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Key className="w-5 h-5 text-primary" />
+                Access Code for {selectedStudent?.name}
+              </DialogTitle>
+              <DialogDescription>
+                Share this code with the parent to access the Parent Portal
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="p-6 bg-muted rounded-lg text-center">
+                <p className="text-sm text-muted-foreground mb-2">Student: {selectedStudent?.name}</p>
+                <p className="text-3xl font-mono font-bold tracking-widest text-primary">
+                  {selectedStudent?.access_code}
+                </p>
+                <p className="text-sm text-muted-foreground mt-2">Class: {selectedStudent?.class}</p>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => copyToClipboard(selectedStudent?.access_code || "")}
+                  className="flex-1"
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy Code
+                </Button>
+                <Button onClick={() => setIsAccessCodeDialogOpen(false)} className="flex-1">
+                  Done
+                </Button>
+              </div>
+              <p className="text-xs text-center text-muted-foreground">
+                Parents can use this code at /parent to access announcements and messages
+              </p>
             </div>
           </DialogContent>
         </Dialog>

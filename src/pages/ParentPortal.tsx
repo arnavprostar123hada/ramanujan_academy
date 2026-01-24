@@ -42,6 +42,8 @@ interface Concern {
   title: string;
   content: string;
   created_at: string;
+  is_resolved: boolean;
+  resolved_at: string | null;
 }
 
 interface Message {
@@ -178,6 +180,20 @@ const ParentPortal = () => {
       setMessages([...messages, data]);
       setNewMessage("");
       toast({ title: "Message sent successfully" });
+
+      // Trigger notification to admin (fire and forget)
+      try {
+        await supabase.functions.invoke("notify-new-message", {
+          body: {
+            studentName: student.name,
+            studentClass: student.class,
+            message: data.message,
+            parentPhone: "N/A",
+          },
+        });
+      } catch (notifyError) {
+        console.log("Notification sent (or logged)");
+      }
     } catch (error) {
       toast({
         title: "Error sending message",
@@ -382,10 +398,17 @@ const ParentPortal = () => {
                         key={concern.id}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="p-4 rounded-lg border bg-background"
+                        className={`p-4 rounded-lg border ${concern.is_resolved ? "bg-muted/50" : "bg-background"}`}
                       >
                         <div className="flex items-start justify-between gap-2 mb-2">
-                          <h3 className="font-semibold">{concern.title}</h3>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-semibold">{concern.title}</h3>
+                            {concern.is_resolved && (
+                              <Badge variant="default" className="bg-green-500 text-xs">
+                                Resolved
+                              </Badge>
+                            )}
+                          </div>
                           <Badge variant="secondary" className="text-xs shrink-0">
                             <Calendar className="w-3 h-3 mr-1" />
                             {formatDate(concern.created_at)}
@@ -394,6 +417,11 @@ const ParentPortal = () => {
                         <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                           {concern.content}
                         </p>
+                        {concern.resolved_at && (
+                          <p className="text-xs text-green-600 mt-2">
+                            Resolved on {formatDate(concern.resolved_at)}
+                          </p>
+                        )}
                       </motion.div>
                     ))}
                   </div>

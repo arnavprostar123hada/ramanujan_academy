@@ -138,6 +138,8 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          is_resolved: boolean
+          resolved_at: string | null
           student_id: string
           title: string
         }
@@ -145,6 +147,8 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          is_resolved?: boolean
+          resolved_at?: string | null
           student_id: string
           title: string
         }
@@ -152,6 +156,8 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          is_resolved?: boolean
+          resolved_at?: string | null
           student_id?: string
           title?: string
         }
