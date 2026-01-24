@@ -28,7 +28,9 @@ import {
   Copy,
   Key,
   FileCheck,
-  StickyNote
+  StickyNote,
+  BookOpen,
+  UserCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -127,6 +129,35 @@ interface StudentPayment {
   created_at: string;
 }
 
+interface Teacher {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string;
+  access_code: string;
+  assigned_classes: string[];
+  created_at: string;
+}
+
+interface ClassLog {
+  id: string;
+  teacher_id: string;
+  class: string;
+  content: string;
+  log_date: string;
+  created_at: string;
+}
+
+interface StudentComplaint {
+  id: string;
+  teacher_id: string;
+  student_id: string;
+  complaint: string;
+  is_sent_to_parent: boolean;
+  sent_at: string | null;
+  created_at: string;
+}
+
 interface VisitStats {
   total: number;
   today: number;
@@ -152,6 +183,9 @@ const AdminDashboard = () => {
   const [studentConcerns, setStudentConcerns] = useState<StudentConcern[]>([]);
   const [isAccessCodeDialogOpen, setIsAccessCodeDialogOpen] = useState(false);
   const [parentMessages, setParentMessages] = useState<ParentMessage[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [classLogs, setClassLogs] = useState<ClassLog[]>([]);
+  const [studentComplaints, setStudentComplaints] = useState<StudentComplaint[]>([]);
   const [visitStats, setVisitStats] = useState<VisitStats>({ total: 0, today: 0, thisWeek: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
@@ -161,6 +195,10 @@ const AdminDashboard = () => {
   const [isAddAnnouncementOpen, setIsAddAnnouncementOpen] = useState(false);
   const [isAddConcernOpen, setIsAddConcernOpen] = useState(false);
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
+  const [isAddTeacherOpen, setIsAddTeacherOpen] = useState(false);
+  const [isTeacherCodeDialogOpen, setIsTeacherCodeDialogOpen] = useState(false);
+  const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
+  const [newlyAddedTeacher, setNewlyAddedTeacher] = useState<Teacher | null>(null);
   const [newlyAddedStudent, setNewlyAddedStudent] = useState<Student | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
@@ -199,6 +237,14 @@ const AdminDashboard = () => {
     phone: "",
     class: "",
     parent_name: "",
+  });
+
+  // New teacher form state
+  const [newTeacher, setNewTeacher] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    assigned_classes: [] as string[],
   });
 
   useEffect(() => {
@@ -287,6 +333,36 @@ const AdminDashboard = () => {
 
       if (messagesData) {
         setParentMessages(messagesData as ParentMessage[]);
+      }
+
+      // Fetch teachers
+      const { data: teachersData } = await supabase
+        .from("teachers")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (teachersData) {
+        setTeachers(teachersData as Teacher[]);
+      }
+
+      // Fetch class logs
+      const { data: logsData } = await supabase
+        .from("class_logs")
+        .select("*")
+        .order("log_date", { ascending: false });
+
+      if (logsData) {
+        setClassLogs(logsData as ClassLog[]);
+      }
+
+      // Fetch student complaints
+      const { data: complaintsData } = await supabase
+        .from("student_complaints")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (complaintsData) {
+        setStudentComplaints(complaintsData as StudentComplaint[]);
       }
 
       // Fetch visit stats
@@ -495,6 +571,110 @@ const AdminDashboard = () => {
 
   const getStudentConcerns = (studentId: string) => {
     return studentConcerns.filter(c => c.student_id === studentId);
+  };
+
+  // Teacher management functions
+  const handleAddTeacher = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newTeacher.name || !newTeacher.phone) {
+      toast({
+        title: "Missing fields",
+        description: "Please fill name and phone",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("teachers")
+        .insert({
+          name: newTeacher.name,
+          email: newTeacher.email || null,
+          phone: newTeacher.phone,
+          assigned_classes: newTeacher.assigned_classes,
+        } as any)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const addedTeacher = data as Teacher;
+      setTeachers([addedTeacher, ...teachers]);
+      setNewTeacher({ name: "", email: "", phone: "", assigned_classes: [] });
+      setIsAddTeacherOpen(false);
+      setNewlyAddedTeacher(addedTeacher);
+    } catch (error) {
+      toast({
+        title: "Error adding teacher",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteTeacher = async (teacherId: string) => {
+    try {
+      const { error } = await supabase
+        .from("teachers")
+        .delete()
+        .eq("id", teacherId);
+
+      if (error) throw error;
+
+      setTeachers(teachers.filter(t => t.id !== teacherId));
+      toast({ title: "Teacher deleted successfully" });
+    } catch (error) {
+      toast({
+        title: "Error deleting teacher",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSendComplaintToParent = async (complaintId: string) => {
+    try {
+      const complaint = studentComplaints.find(c => c.id === complaintId);
+      if (!complaint) return;
+
+      const student = students.find(s => s.id === complaint.student_id);
+      const teacher = teachers.find(t => t.id === complaint.teacher_id);
+      
+      // Add as a concern visible to parent
+      await supabase
+        .from("student_concerns")
+        .insert({
+          student_id: complaint.student_id,
+          title: `Complaint from ${teacher?.name || "Teacher"}`,
+          content: complaint.complaint,
+        } as any);
+
+      // Mark complaint as sent
+      const { error } = await supabase
+        .from("student_complaints")
+        .update({ is_sent_to_parent: true, sent_at: new Date().toISOString() })
+        .eq("id", complaintId);
+
+      if (error) throw error;
+
+      setStudentComplaints(studentComplaints.map(c =>
+        c.id === complaintId ? { ...c, is_sent_to_parent: true, sent_at: new Date().toISOString() } : c
+      ));
+      
+      // Refresh concerns
+      fetchData();
+      toast({ title: "Complaint sent to parent successfully" });
+    } catch (error) {
+      toast({
+        title: "Error sending complaint",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getTeacherName = (teacherId: string) => {
+    const teacher = teachers.find(t => t.id === teacherId);
+    return teacher?.name || "Unknown Teacher";
   };
 
   const handleReplyMessage = async () => {
@@ -1096,7 +1276,7 @@ const AdminDashboard = () => {
 
         {/* Tabs for different sections */}
         <Tabs defaultValue="enquiries" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:inline-flex">
             <TabsTrigger value="enquiries" className="gap-2">
               <FileText className="w-4 h-4" />
               <span className="hidden sm:inline">Enquiries</span>
@@ -1111,6 +1291,10 @@ const AdminDashboard = () => {
                 <Badge variant="destructive" className="ml-1">{studentsWithFeeDue.length}</Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="teachers" className="gap-2">
+              <UserCheck className="w-4 h-4" />
+              <span className="hidden sm:inline">Teachers</span>
+            </TabsTrigger>
             <TabsTrigger value="payments" className="gap-2">
               <IndianRupee className="w-4 h-4" />
               <span className="hidden sm:inline">Payments</span>
@@ -1118,6 +1302,13 @@ const AdminDashboard = () => {
             <TabsTrigger value="announcements" className="gap-2">
               <Bell className="w-4 h-4" />
               <span className="hidden sm:inline">Announcements</span>
+            </TabsTrigger>
+            <TabsTrigger value="complaints" className="gap-2">
+              <AlertTriangle className="w-4 h-4" />
+              <span className="hidden sm:inline">Complaints</span>
+              {studentComplaints.filter(c => !c.is_sent_to_parent).length > 0 && (
+                <Badge variant="destructive" className="ml-1">{studentComplaints.filter(c => !c.is_sent_to_parent).length}</Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="notes" className="gap-2">
               <StickyNote className="w-4 h-4" />
@@ -1516,6 +1707,180 @@ const AdminDashboard = () => {
             </motion.div>
           </TabsContent>
 
+          {/* Teachers Tab */}
+          <TabsContent value="teachers">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="card-elevated">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <UserCheck className="w-5 h-5" />
+                    Teachers
+                  </CardTitle>
+                  <Dialog open={isAddTeacherOpen} onOpenChange={setIsAddTeacherOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Teacher
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add New Teacher</DialogTitle>
+                      </DialogHeader>
+                      <form onSubmit={handleAddTeacher} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="teacher-name">Teacher Name *</Label>
+                          <Input
+                            id="teacher-name"
+                            value={newTeacher.name}
+                            onChange={(e) => setNewTeacher({ ...newTeacher, name: e.target.value })}
+                            placeholder="Enter teacher name"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="teacher-phone">Phone Number *</Label>
+                          <Input
+                            id="teacher-phone"
+                            value={newTeacher.phone}
+                            onChange={(e) => setNewTeacher({ ...newTeacher, phone: e.target.value })}
+                            placeholder="Enter phone number"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="teacher-email">Email (Optional)</Label>
+                          <Input
+                            id="teacher-email"
+                            type="email"
+                            value={newTeacher.email}
+                            onChange={(e) => setNewTeacher({ ...newTeacher, email: e.target.value })}
+                            placeholder="Enter email"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Assigned Classes</Label>
+                          <div className="flex flex-wrap gap-2">
+                            {CLASSES.map((cls) => (
+                              <div key={cls} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`teacher-class-${cls}`}
+                                  checked={newTeacher.assigned_classes.includes(cls)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setNewTeacher({
+                                        ...newTeacher,
+                                        assigned_classes: [...newTeacher.assigned_classes, cls]
+                                      });
+                                    } else {
+                                      setNewTeacher({
+                                        ...newTeacher,
+                                        assigned_classes: newTeacher.assigned_classes.filter(c => c !== cls)
+                                      });
+                                    }
+                                  }}
+                                />
+                                <label htmlFor={`teacher-class-${cls}`} className="text-sm">{cls}</label>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex gap-3 pt-4">
+                          <Button type="button" variant="outline" onClick={() => setIsAddTeacherOpen(false)} className="flex-1">
+                            Cancel
+                          </Button>
+                          <Button type="submit" className="flex-1">
+                            Add Teacher
+                          </Button>
+                        </div>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </CardHeader>
+                <CardContent>
+                  {teachers.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <UserCheck className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No teachers added yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {teachers.map((teacher) => (
+                        <motion.div
+                          key={teacher.id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="p-4 rounded-lg border bg-background hover:border-primary/50 transition-colors"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div className="flex-1 min-w-[200px]">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h3 className="font-semibold">{teacher.name}</h3>
+                              </div>
+                              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                                <a href={`tel:${teacher.phone}`} className="flex items-center gap-1 hover:text-foreground">
+                                  <PhoneIcon className="w-3 h-3" />
+                                  {teacher.phone}
+                                </a>
+                                {teacher.email && (
+                                  <a href={`mailto:${teacher.email}`} className="flex items-center gap-1 hover:text-foreground">
+                                    <Mail className="w-3 h-3" />
+                                    {teacher.email}
+                                  </a>
+                                )}
+                              </div>
+                              {teacher.assigned_classes.length > 0 && (
+                                <div className="flex gap-1 flex-wrap mt-2">
+                                  {teacher.assigned_classes.map((cls) => (
+                                    <Badge key={cls} variant="outline" className="text-xs">
+                                      Class {cls}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2 mt-2">
+                                <span className="text-xs text-muted-foreground">
+                                  Logs: {classLogs.filter(l => l.teacher_id === teacher.id).length}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  Complaints: {studentComplaints.filter(c => c.teacher_id === teacher.id).length}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedTeacher(teacher);
+                                  setIsTeacherCodeDialogOpen(true);
+                                }}
+                              >
+                                <Key className="w-4 h-4 mr-1" />
+                                Code
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => handleDeleteTeacher(teacher.id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
           {/* Announcements Tab */}
           <TabsContent value="announcements">
             <motion.div
@@ -1719,6 +2084,86 @@ const AdminDashboard = () => {
                               {studentMsgs[studentMsgs.length - 1]?.message.substring(0, 100)}
                               {studentMsgs[studentMsgs.length - 1]?.message.length > 100 ? "..." : ""}
                             </p>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
+          {/* Complaints Tab */}
+          <TabsContent value="complaints">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="card-elevated">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5" />
+                    Teacher Complaints
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {studentComplaints.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <AlertTriangle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No complaints from teachers yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {studentComplaints.map((complaint) => {
+                        const student = students.find(s => s.id === complaint.student_id);
+                        return (
+                          <motion.div
+                            key={complaint.id}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className={`p-4 rounded-lg border ${complaint.is_sent_to_parent ? "bg-muted/50" : "bg-orange-50 border-orange-200"}`}
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge variant="secondary">{student?.name || "Unknown"}</Badge>
+                                <Badge variant="outline">Class {student?.class}</Badge>
+                                <span className="text-sm text-muted-foreground">
+                                  by {getTeacherName(complaint.teacher_id)}
+                                </span>
+                                {complaint.is_sent_to_parent && (
+                                  <Badge variant="default" className="bg-green-500">
+                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                    Sent to Parent
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="secondary" className="text-xs shrink-0">
+                                  <Calendar className="w-3 h-3 mr-1" />
+                                  {formatDate(complaint.created_at)}
+                                </Badge>
+                                {!complaint.is_sent_to_parent && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-orange-600 hover:bg-orange-50 h-7"
+                                    onClick={() => handleSendComplaintToParent(complaint.id)}
+                                  >
+                                    <Send className="w-4 h-4 mr-1" />
+                                    Send to Parent
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                              {complaint.complaint}
+                            </p>
+                            {complaint.sent_at && (
+                              <p className="text-xs text-green-600 mt-2">
+                                Sent on {formatDate(complaint.sent_at)}
+                              </p>
+                            )}
                           </motion.div>
                         );
                       })}
@@ -2085,6 +2530,84 @@ const AdminDashboard = () => {
                   Add Note
                 </Button>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Teacher Access Code Dialog */}
+        <Dialog open={isTeacherCodeDialogOpen} onOpenChange={setIsTeacherCodeDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Key className="w-5 h-5 text-green-600" />
+                Access Code for {selectedTeacher?.name}
+              </DialogTitle>
+              <DialogDescription>
+                Share this code with the teacher to access the Teacher Portal
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="p-6 bg-green-50 rounded-lg text-center border border-green-200">
+                <p className="text-sm text-muted-foreground mb-2">Teacher: {selectedTeacher?.name}</p>
+                <p className="text-3xl font-mono font-bold tracking-widest text-green-600">
+                  {selectedTeacher?.access_code}
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => copyToClipboard(selectedTeacher?.access_code || "")}
+                  className="flex-1"
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy Code
+                </Button>
+                <Button onClick={() => setIsTeacherCodeDialogOpen(false)} className="flex-1">
+                  Done
+                </Button>
+              </div>
+              <p className="text-xs text-center text-muted-foreground">
+                Teachers can use this code at /teacher to log class activities and complaints
+              </p>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Newly Added Teacher Dialog */}
+        <Dialog open={!!newlyAddedTeacher} onOpenChange={() => setNewlyAddedTeacher(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Key className="w-5 h-5 text-green-600" />
+                Teacher Added Successfully!
+              </DialogTitle>
+              <DialogDescription>
+                Share this access code with the teacher to access the Teacher Portal
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="p-6 bg-green-50 rounded-lg text-center border border-green-200">
+                <p className="text-sm text-muted-foreground mb-2">Access Code for {newlyAddedTeacher?.name}</p>
+                <p className="text-3xl font-mono font-bold tracking-widest text-green-600">
+                  {newlyAddedTeacher?.access_code}
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => copyToClipboard(newlyAddedTeacher?.access_code || "")}
+                  className="flex-1"
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy Code
+                </Button>
+                <Button onClick={() => setNewlyAddedTeacher(null)} className="flex-1">
+                  Done
+                </Button>
+              </div>
+              <p className="text-xs text-center text-muted-foreground">
+                Teachers can use this code at /teacher to log class activities and complaints
+              </p>
             </div>
           </DialogContent>
         </Dialog>
