@@ -41,6 +41,41 @@ export type Database = {
         }
         Relationships: []
       }
+      class_logs: {
+        Row: {
+          class: string
+          content: string
+          created_at: string
+          id: string
+          log_date: string
+          teacher_id: string
+        }
+        Insert: {
+          class: string
+          content: string
+          created_at?: string
+          id?: string
+          log_date?: string
+          teacher_id: string
+        }
+        Update: {
+          class?: string
+          content?: string
+          created_at?: string
+          id?: string
+          log_date?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_logs_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_submissions: {
         Row: {
           class_interested: string | null
@@ -129,6 +164,51 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_complaints: {
+        Row: {
+          complaint: string
+          created_at: string
+          id: string
+          is_sent_to_parent: boolean | null
+          sent_at: string | null
+          student_id: string
+          teacher_id: string
+        }
+        Insert: {
+          complaint: string
+          created_at?: string
+          id?: string
+          is_sent_to_parent?: boolean | null
+          sent_at?: string | null
+          student_id: string
+          teacher_id: string
+        }
+        Update: {
+          complaint?: string
+          created_at?: string
+          id?: string
+          is_sent_to_parent?: boolean | null
+          sent_at?: string | null
+          student_id?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_complaints_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_complaints_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
             referencedColumns: ["id"]
           },
         ]
@@ -243,6 +323,39 @@ export type Database = {
           id?: string
           name?: string
           parent_name?: string | null
+          phone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      teachers: {
+        Row: {
+          access_code: string
+          assigned_classes: string[] | null
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string
+          updated_at: string
+        }
+        Insert: {
+          access_code?: string
+          assigned_classes?: string[] | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          phone: string
+          updated_at?: string
+        }
+        Update: {
+          access_code?: string
+          assigned_classes?: string[] | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
           phone?: string
           updated_at?: string
         }
