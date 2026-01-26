@@ -10,7 +10,10 @@ import {
   Calendar,
   LogOut,
   ClipboardList,
-  Image as ImageIcon
+  Image as ImageIcon,
+  TrendingUp,
+  BarChart3,
+  FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +24,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.jpg";
+import { PerformanceComment, PerformanceBadge, getPerformanceComment } from "@/components/PerformanceComment";
+import { StudentTestAnalytics } from "@/components/TestAnalyticsChart";
 
 interface Student {
   id: string;
@@ -62,11 +67,13 @@ interface Test {
   test_date: string;
   max_marks: number;
   description: string | null;
+  is_notified: boolean;
 }
 
 interface TestResult {
   id: string;
   test_id: string;
+  student_id: string;
   marks_obtained: number;
   photo_url: string | null;
   remarks: string | null;
@@ -79,6 +86,8 @@ const ParentPortal = () => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [concerns, setConcerns] = useState<Concern[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [tests, setTests] = useState<Test[]>([]);
+  const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -159,6 +168,28 @@ const ParentPortal = () => {
 
       if (messagesData) {
         setMessages(messagesData);
+      }
+
+      // Fetch tests for this student's class
+      const { data: testsData } = await supabase
+        .from("tests")
+        .select("*")
+        .eq("class", studentData.class)
+        .order("test_date", { ascending: false });
+
+      if (testsData) {
+        setTests(testsData as Test[]);
+      }
+
+      // Fetch test results for this student
+      const { data: resultsData } = await supabase
+        .from("test_results")
+        .select("*")
+        .eq("student_id", studentData.id)
+        .order("created_at", { ascending: false });
+
+      if (resultsData) {
+        setTestResults(resultsData as TestResult[]);
       }
     } catch (error) {
       toast({
@@ -328,8 +359,12 @@ const ParentPortal = () => {
         </motion.div>
 
         {/* Tabs */}
-        <Tabs defaultValue="announcements" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="tests" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="tests" className="flex items-center gap-2">
+              <ClipboardList className="w-4 h-4" />
+              <span className="hidden sm:inline">Tests</span>
+            </TabsTrigger>
             <TabsTrigger value="announcements" className="flex items-center gap-2">
               <Bell className="w-4 h-4" />
               <span className="hidden sm:inline">Announcements</span>
@@ -343,6 +378,155 @@ const ParentPortal = () => {
               <span className="hidden sm:inline">Messages</span>
             </TabsTrigger>
           </TabsList>
+
+          {/* Tests Tab */}
+          <TabsContent value="tests" className="space-y-6">
+            {/* Upcoming Tests */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5" />
+                  Upcoming Tests
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const upcomingTests = tests.filter(t => new Date(t.test_date) >= new Date());
+                  if (upcomingTests.length === 0) {
+                    return (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <Calendar className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                        <p>No upcoming tests scheduled</p>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="space-y-3">
+                      {upcomingTests.map((test) => (
+                        <motion.div
+                          key={test.id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="p-4 rounded-lg border bg-blue-50 border-blue-200"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <h3 className="font-semibold">{test.title}</h3>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant="secondary">{test.subject}</Badge>
+                                <span className="text-sm text-muted-foreground">
+                                  Max: {test.max_marks} marks
+                                </span>
+                              </div>
+                              {test.description && (
+                                <p className="text-sm text-muted-foreground mt-2">{test.description}</p>
+                              )}
+                            </div>
+                            <Badge className="bg-blue-600 shrink-0">
+                              <Calendar className="w-3 h-3 mr-1" />
+                              {new Date(test.test_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                            </Badge>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+
+            {/* Test Results */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  Test Results
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {testResults.length === 0 ? (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <FileText className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                    <p>No test results yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {testResults.map((result) => {
+                      const test = tests.find(t => t.id === result.test_id);
+                      if (!test) return null;
+                      const percentage = Math.round((result.marks_obtained / test.max_marks) * 100);
+                      const { bgColor } = getPerformanceComment(percentage);
+                      
+                      return (
+                        <motion.div
+                          key={result.id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className={`p-4 rounded-lg border ${bgColor}`}
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-3">
+                            <div>
+                              <h3 className="font-semibold">{test.title}</h3>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant="secondary">{test.subject}</Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(test.test_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-2xl font-bold">{result.marks_obtained}<span className="text-base font-normal text-muted-foreground">/{test.max_marks}</span></p>
+                              <PerformanceBadge percentage={percentage} />
+                            </div>
+                          </div>
+                          
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <PerformanceComment percentage={percentage} size="sm" />
+                            {result.photo_url && (
+                              <a 
+                                href={result.photo_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
+                              >
+                                <ImageIcon className="w-4 h-4" />
+                                View Answer Sheet
+                              </a>
+                            )}
+                          </div>
+                          
+                          {result.remarks && (
+                            <p className="text-sm text-muted-foreground mt-2 italic">
+                              Teacher's remark: {result.remarks}
+                            </p>
+                          )}
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Performance Analytics */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5" />
+                  Performance Analytics
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {student && (
+                  <StudentTestAnalytics 
+                    studentId={student.id}
+                    tests={tests}
+                    testResults={testResults}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Announcements Tab */}
           <TabsContent value="announcements" className="space-y-4">

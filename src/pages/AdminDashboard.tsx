@@ -32,7 +32,9 @@ import {
   BookOpen,
   UserCheck,
   ClipboardList,
-  Image as ImageIcon
+  Image as ImageIcon,
+  BarChart3,
+  History
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -70,6 +72,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.jpg";
+import { TestAnalyticsChart } from "@/components/TestAnalyticsChart";
+import { PerformanceComment, PerformanceBadge, getPerformanceComment } from "@/components/PerformanceComment";
 
 interface ContactSubmission {
   id: string;
@@ -1327,7 +1331,7 @@ const AdminDashboard = () => {
 
         {/* Tabs for different sections */}
         <Tabs defaultValue="enquiries" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-9 lg:w-auto lg:inline-flex">
+          <TabsList className="flex flex-wrap gap-1 h-auto p-1">
             <TabsTrigger value="enquiries" className="gap-2">
               <FileText className="w-4 h-4" />
               <span className="hidden sm:inline">Enquiries</span>
@@ -1350,6 +1354,14 @@ const AdminDashboard = () => {
               <ClipboardList className="w-4 h-4" />
               <span className="hidden sm:inline">Tests</span>
               <Badge variant="secondary" className="ml-1">{tests.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="gap-2">
+              <BarChart3 className="w-4 h-4" />
+              <span className="hidden sm:inline">Analytics</span>
+            </TabsTrigger>
+            <TabsTrigger value="academic-records" className="gap-2">
+              <History className="w-4 h-4" />
+              <span className="hidden sm:inline">Records</span>
             </TabsTrigger>
             <TabsTrigger value="payments" className="gap-2">
               <IndianRupee className="w-4 h-4" />
@@ -1874,7 +1886,245 @@ const AdminDashboard = () => {
             </motion.div>
           </TabsContent>
 
-          {/* Teachers Tab */}
+          {/* Analytics Tab */}
+          <TabsContent value="analytics">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              {/* Analytics Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold">{tests.length}</p>
+                      <p className="text-sm text-muted-foreground">Total Tests</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold">{testResults.length}</p>
+                      <p className="text-sm text-muted-foreground">Results Recorded</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-green-600">
+                        {testResults.length > 0 
+                          ? `${Math.round(testResults.reduce((acc, r) => {
+                              const test = tests.find(t => t.id === r.test_id);
+                              return acc + (test ? (r.marks_obtained / test.max_marks) * 100 : 0);
+                            }, 0) / testResults.length)}%`
+                          : 'N/A'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Overall Average</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-blue-600">{[...new Set(tests.map(t => t.subject))].length}</p>
+                      <p className="text-sm text-muted-foreground">Subjects</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Class Filter for Analytics */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5" />
+                    Performance Analytics
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="mb-4">
+                    <Label className="mb-2 block">Filter by Class</Label>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant={selectedClassFilter === "all" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedClassFilter("all")}
+                      >
+                        All Classes
+                      </Button>
+                      {CLASSES.map((cls) => (
+                        <Button
+                          key={cls}
+                          variant={selectedClassFilter === cls ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setSelectedClassFilter(cls)}
+                        >
+                          {cls}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  <TestAnalyticsChart 
+                    tests={tests.map(t => ({ ...t, test_date: t.test_date }))}
+                    testResults={testResults}
+                    students={students}
+                    selectedClass={selectedClassFilter === "all" ? undefined : selectedClassFilter}
+                    showClassComparison={selectedClassFilter === "all"}
+                  />
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
+          {/* Academic Records Tab */}
+          <TabsContent value="academic-records">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="card-elevated">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="w-5 h-5" />
+                    Student Academic Records
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {/* Class Filter */}
+                  <div className="mb-6">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant={selectedClassFilter === "all" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedClassFilter("all")}
+                      >
+                        All ({students.length})
+                      </Button>
+                      {CLASSES.map((cls) => {
+                        const count = students.filter(s => s.class === cls).length;
+                        return (
+                          <Button
+                            key={cls}
+                            variant={selectedClassFilter === cls ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setSelectedClassFilter(cls)}
+                            className={count === 0 ? "opacity-50" : ""}
+                          >
+                            {cls} ({count})
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {students.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <History className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No students to show academic records</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {students
+                        .filter(student => selectedClassFilter === "all" || student.class === selectedClassFilter)
+                        .map((student) => {
+                          const studentResults = testResults.filter(r => r.student_id === student.id);
+                          const studentTestsWithResults = studentResults.map(result => {
+                            const test = tests.find(t => t.id === result.test_id);
+                            return test ? { ...result, test } : null;
+                          }).filter(Boolean) as Array<TestResult & { test: Test }>;
+                          
+                          const overallPercentage = studentTestsWithResults.length > 0
+                            ? Math.round(
+                                studentTestsWithResults.reduce((acc, r) => 
+                                  acc + (r.marks_obtained / r.test.max_marks) * 100, 0
+                                ) / studentTestsWithResults.length
+                              )
+                            : null;
+                          
+                          return (
+                            <motion.div
+                              key={student.id}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              className="p-4 rounded-lg border bg-background"
+                            >
+                              <div className="flex items-start justify-between gap-4 mb-4">
+                                <div>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h3 className="font-semibold">{student.name}</h3>
+                                    <Badge variant="secondary">Class {student.class}</Badge>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">
+                                    {studentTestsWithResults.length} test{studentTestsWithResults.length !== 1 ? 's' : ''} taken
+                                  </p>
+                                </div>
+                                {overallPercentage !== null && (
+                                  <div className="text-right">
+                                    <p className="text-xl font-bold">{overallPercentage}%</p>
+                                    <PerformanceComment percentage={overallPercentage} size="sm" showIcon={false} />
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {studentTestsWithResults.length === 0 ? (
+                                <p className="text-sm text-muted-foreground italic">No test records yet</p>
+                              ) : (
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-sm">
+                                    <thead>
+                                      <tr className="border-b">
+                                        <th className="text-left py-2 px-2 font-medium">Test</th>
+                                        <th className="text-left py-2 px-2 font-medium">Subject</th>
+                                        <th className="text-left py-2 px-2 font-medium">Date</th>
+                                        <th className="text-center py-2 px-2 font-medium">Marks</th>
+                                        <th className="text-center py-2 px-2 font-medium">%</th>
+                                        <th className="text-left py-2 px-2 font-medium">Grade</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {studentTestsWithResults
+                                        .sort((a, b) => new Date(b.test.test_date).getTime() - new Date(a.test.test_date).getTime())
+                                        .map((result) => {
+                                          const percentage = Math.round((result.marks_obtained / result.test.max_marks) * 100);
+                                          const { bgColor, color } = getPerformanceComment(percentage);
+                                          return (
+                                            <tr key={result.id} className="border-b last:border-0">
+                                              <td className="py-2 px-2">{result.test.title}</td>
+                                              <td className="py-2 px-2">
+                                                <Badge variant="outline" className="text-xs">{result.test.subject}</Badge>
+                                              </td>
+                                              <td className="py-2 px-2 text-muted-foreground">
+                                                {new Date(result.test.test_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
+                                              </td>
+                                              <td className="py-2 px-2 text-center font-medium">
+                                                {result.marks_obtained}/{result.test.max_marks}
+                                              </td>
+                                              <td className="py-2 px-2 text-center">
+                                                <span className={`font-bold ${color}`}>{percentage}%</span>
+                                              </td>
+                                              <td className="py-2 px-2">
+                                                <PerformanceBadge percentage={percentage} />
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </motion.div>
+                          );
+                        })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
           <TabsContent value="teachers">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
