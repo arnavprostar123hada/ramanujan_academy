@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,9 +7,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { BookOpen, AlertTriangle, LogOut, Calendar, User, Send } from "lucide-react";
+import { 
+  BookOpen, 
+  AlertTriangle, 
+  LogOut, 
+  Calendar, 
+  User, 
+  Send, 
+  ClipboardList, 
+  Upload, 
+  Image as ImageIcon,
+  Check,
+  X,
+  Loader2
+} from "lucide-react";
 import { format } from "date-fns";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface Teacher {
   id: string;
@@ -24,6 +45,7 @@ interface Student {
   id: string;
   name: string;
   class: string;
+  phone: string;
 }
 
 interface ClassLog {
@@ -46,6 +68,30 @@ interface StudentComplaint {
   students?: Student;
 }
 
+interface Test {
+  id: string;
+  teacher_id: string;
+  title: string;
+  subject: string;
+  class: string;
+  test_date: string;
+  max_marks: number;
+  description: string | null;
+  is_notified: boolean;
+  created_at: string;
+}
+
+interface TestResult {
+  id: string;
+  test_id: string;
+  student_id: string;
+  marks_obtained: number;
+  photo_url: string | null;
+  remarks: string | null;
+  is_notified: boolean;
+  created_at: string;
+}
+
 const CLASS_OPTIONS = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"];
 
 const TeacherDashboard = () => {
@@ -55,6 +101,8 @@ const TeacherDashboard = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [classLogs, setClassLogs] = useState<ClassLog[]>([]);
   const [complaints, setComplaints] = useState<StudentComplaint[]>([]);
+  const [tests, setTests] = useState<Test[]>([]);
+  const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -63,6 +111,25 @@ const TeacherDashboard = () => {
   const [logContent, setLogContent] = useState("");
   const [selectedStudent, setSelectedStudent] = useState("");
   const [complaintText, setComplaintText] = useState("");
+
+  // Test form states
+  const [isAddTestOpen, setIsAddTestOpen] = useState(false);
+  const [newTest, setNewTest] = useState({
+    title: "",
+    subject: "",
+    class: "",
+    test_date: "",
+    max_marks: "100",
+    description: "",
+  });
+
+  // Marks entry states
+  const [isEnterMarksOpen, setIsEnterMarksOpen] = useState(false);
+  const [selectedTest, setSelectedTest] = useState<Test | null>(null);
+  const [marksEntries, setMarksEntries] = useState<{[studentId: string]: { marks: string; remarks: string; photo: File | null; photoUrl: string | null }}>({});
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [currentUploadStudent, setCurrentUploadStudent] = useState<string | null>(null);
 
   const handleLogin = async () => {
     if (!accessCode.trim()) {
@@ -94,7 +161,7 @@ const TeacherDashboard = () => {
     // Fetch students for assigned classes
     const { data: studentsData } = await supabase
       .from("students")
-      .select("id, name, class")
+      .select("id, name, class, phone")
       .in("class", assignedClasses.length > 0 ? assignedClasses : CLASS_OPTIONS)
       .order("name");
     
@@ -117,6 +184,23 @@ const TeacherDashboard = () => {
       .order("created_at", { ascending: false });
     
     if (complaintsData) setComplaints(complaintsData as StudentComplaint[]);
+
+    // Fetch tests by this teacher
+    const { data: testsData } = await supabase
+      .from("tests")
+      .select("*")
+      .eq("teacher_id", teacherId)
+      .order("test_date", { ascending: false });
+    
+    if (testsData) setTests(testsData as Test[]);
+
+    // Fetch test results
+    const { data: resultsData } = await supabase
+      .from("test_results")
+      .select("*")
+      .order("created_at", { ascending: false });
+    
+    if (resultsData) setTestResults(resultsData as TestResult[]);
   };
 
   const handleLogout = () => {
@@ -171,6 +255,170 @@ const TeacherDashboard = () => {
     fetchData(teacher.id, teacher.assigned_classes || []);
   };
 
+  const handleAddTest = async () => {
+    if (!newTest.title || !newTest.subject || !newTest.class || !newTest.test_date || !teacher) {
+      toast({ title: "Error", description: "Please fill all required fields", variant: "destructive" });
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("tests")
+      .insert({
+        teacher_id: teacher.id,
+        title: newTest.title,
+        subject: newTest.subject,
+        class: newTest.class,
+        test_date: newTest.test_date,
+        max_marks: parseInt(newTest.max_marks) || 100,
+        description: newTest.description || null,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to create test", variant: "destructive" });
+      return;
+    }
+
+    // Send notifications to parents
+    const classStudents = students.filter(s => s.class === newTest.class);
+    for (const student of classStudents) {
+      try {
+        await supabase.functions.invoke("notify-test", {
+          body: {
+            type: "announcement",
+            studentName: student.name,
+            studentClass: student.class,
+            parentPhone: student.phone,
+            testTitle: newTest.title,
+            subject: newTest.subject,
+            testDate: newTest.test_date,
+          },
+        });
+      } catch (e) {
+        console.log("Notification sent/logged for", student.name);
+      }
+    }
+
+    // Mark as notified
+    await supabase
+      .from("tests")
+      .update({ is_notified: true })
+      .eq("id", data.id);
+
+    toast({ title: "Success", description: "Test created and parents notified!" });
+    setNewTest({ title: "", subject: "", class: "", test_date: "", max_marks: "100", description: "" });
+    setIsAddTestOpen(false);
+    fetchData(teacher.id, teacher.assigned_classes || []);
+  };
+
+  const openMarksEntry = (test: Test) => {
+    setSelectedTest(test);
+    // Initialize marks entries for students in this class
+    const classStudents = students.filter(s => s.class === test.class);
+    const existingResults = testResults.filter(r => r.test_id === test.id);
+    
+    const entries: {[studentId: string]: { marks: string; remarks: string; photo: File | null; photoUrl: string | null }} = {};
+    classStudents.forEach(student => {
+      const existing = existingResults.find(r => r.student_id === student.id);
+      entries[student.id] = {
+        marks: existing ? existing.marks_obtained.toString() : "",
+        remarks: existing?.remarks || "",
+        photo: null,
+        photoUrl: existing?.photo_url || null,
+      };
+    });
+    setMarksEntries(entries);
+    setIsEnterMarksOpen(true);
+  };
+
+  const handlePhotoUpload = async (studentId: string, file: File) => {
+    setIsUploading(true);
+    setCurrentUploadStudent(studentId);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${selectedTest?.id}/${studentId}_${Date.now()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from("test-photos")
+        .upload(fileName, file);
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("test-photos")
+        .getPublicUrl(fileName);
+
+      setMarksEntries(prev => ({
+        ...prev,
+        [studentId]: { ...prev[studentId], photo: file, photoUrl: publicUrl }
+      }));
+
+      toast({ title: "Photo uploaded successfully" });
+    } catch (error) {
+      toast({ title: "Error uploading photo", variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+      setCurrentUploadStudent(null);
+    }
+  };
+
+  const handleSaveMarks = async () => {
+    if (!selectedTest || !teacher) return;
+
+    setIsLoading(true);
+    const classStudents = students.filter(s => s.class === selectedTest.class);
+    
+    for (const student of classStudents) {
+      const entry = marksEntries[student.id];
+      if (entry.marks) {
+        const marksValue = parseFloat(entry.marks);
+        
+        // Upsert the result
+        const { error } = await supabase
+          .from("test_results")
+          .upsert({
+            test_id: selectedTest.id,
+            student_id: student.id,
+            marks_obtained: marksValue,
+            photo_url: entry.photoUrl,
+            remarks: entry.remarks || null,
+          }, {
+            onConflict: 'test_id,student_id'
+          });
+
+        if (error) {
+          console.error("Error saving marks for", student.name, error);
+          continue;
+        }
+
+        // Send notification
+        try {
+          await supabase.functions.invoke("notify-test", {
+            body: {
+              type: "result",
+              studentName: student.name,
+              studentClass: student.class,
+              parentPhone: student.phone,
+              testTitle: selectedTest.title,
+              marksObtained: marksValue,
+              maxMarks: selectedTest.max_marks,
+            },
+          });
+        } catch (e) {
+          console.log("Result notification sent/logged for", student.name);
+        }
+      }
+    }
+
+    toast({ title: "Success", description: "Marks saved and parents notified!" });
+    setIsEnterMarksOpen(false);
+    setSelectedTest(null);
+    fetchData(teacher.id, teacher.assigned_classes || []);
+    setIsLoading(false);
+  };
+
   // Check for stored session
   useEffect(() => {
     const storedCode = localStorage.getItem("teacher_access_code");
@@ -219,9 +467,13 @@ const TeacherDashboard = () => {
     );
   }
 
-  const filteredStudents = selectedClass
+  const filteredStudents = selectedClass && selectedClass !== "all"
     ? students.filter((s) => s.class === selectedClass)
     : students;
+
+  const getTestResults = (testId: string) => {
+    return testResults.filter(r => r.test_id === testId);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
@@ -241,9 +493,12 @@ const TeacherDashboard = () => {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
         <Tabs defaultValue="logs" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-2xl grid-cols-3">
             <TabsTrigger value="logs" className="flex items-center gap-2">
               <BookOpen className="w-4 h-4" /> Class Logs
+            </TabsTrigger>
+            <TabsTrigger value="tests" className="flex items-center gap-2">
+              <ClipboardList className="w-4 h-4" /> Tests
             </TabsTrigger>
             <TabsTrigger value="complaints" className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4" /> Complaints
@@ -312,6 +567,73 @@ const TeacherDashboard = () => {
                         <p className="text-sm">{log.content}</p>
                       </div>
                     ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tests Tab */}
+          <TabsContent value="tests" className="space-y-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <ClipboardList className="w-5 h-5" /> Tests & Results
+                  </CardTitle>
+                  <CardDescription>Announce tests and enter student marks</CardDescription>
+                </div>
+                <Button onClick={() => setIsAddTestOpen(true)} className="bg-green-600 hover:bg-green-700">
+                  <ClipboardList className="w-4 h-4 mr-2" /> Add Test
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {tests.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">No tests created yet</p>
+                ) : (
+                  <div className="space-y-4">
+                    {tests.map((test) => {
+                      const results = getTestResults(test.id);
+                      const classStudentsCount = students.filter(s => s.class === test.class).length;
+                      return (
+                        <div key={test.id} className="p-4 rounded-lg border bg-background hover:border-green-300 transition-colors">
+                          <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h3 className="font-semibold">{test.title}</h3>
+                                <Badge variant="secondary">{test.subject}</Badge>
+                                <Badge variant="outline">Class {test.class}</Badge>
+                              </div>
+                              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  {format(new Date(test.test_date), "PPP")}
+                                </span>
+                                <span>Max Marks: {test.max_marks}</span>
+                                <span>Results: {results.length}/{classStudentsCount}</span>
+                                {test.is_notified && (
+                                  <Badge className="bg-green-100 text-green-700">
+                                    <Check className="w-3 h-3 mr-1" />
+                                    Parents Notified
+                                  </Badge>
+                                )}
+                              </div>
+                              {test.description && (
+                                <p className="text-sm text-muted-foreground mt-2">{test.description}</p>
+                              )}
+                            </div>
+                            <Button
+                              variant="outline"
+                              onClick={() => openMarksEntry(test)}
+                              className="text-green-600 hover:bg-green-50"
+                            >
+                              <ClipboardList className="w-4 h-4 mr-2" />
+                              Enter Marks
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -418,6 +740,207 @@ const TeacherDashboard = () => {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Add Test Dialog */}
+      <Dialog open={isAddTestOpen} onOpenChange={setIsAddTestOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Test</DialogTitle>
+            <DialogDescription>
+              Announce a test. Parents will be notified automatically.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Test Title *</Label>
+                <Input
+                  value={newTest.title}
+                  onChange={(e) => setNewTest({ ...newTest, title: e.target.value })}
+                  placeholder="e.g., Unit Test 1"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Subject *</Label>
+                <Input
+                  value={newTest.subject}
+                  onChange={(e) => setNewTest({ ...newTest, subject: e.target.value })}
+                  placeholder="e.g., Mathematics"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Class *</Label>
+                <Select value={newTest.class} onValueChange={(v) => setNewTest({ ...newTest, class: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(teacher?.assigned_classes?.length ? teacher.assigned_classes : CLASS_OPTIONS).map((cls) => (
+                      <SelectItem key={cls} value={cls}>{cls} Class</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Test Date *</Label>
+                <Input
+                  type="date"
+                  value={newTest.test_date}
+                  onChange={(e) => setNewTest({ ...newTest, test_date: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Maximum Marks</Label>
+              <Input
+                type="number"
+                value={newTest.max_marks}
+                onChange={(e) => setNewTest({ ...newTest, max_marks: e.target.value })}
+                placeholder="100"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Description (Optional)</Label>
+              <Textarea
+                value={newTest.description}
+                onChange={(e) => setNewTest({ ...newTest, description: e.target.value })}
+                placeholder="Additional details about the test..."
+                rows={3}
+              />
+            </div>
+            <div className="flex gap-3 pt-4">
+              <Button variant="outline" onClick={() => setIsAddTestOpen(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button onClick={handleAddTest} className="flex-1 bg-green-600 hover:bg-green-700">
+                Create & Notify Parents
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Enter Marks Dialog */}
+      <Dialog open={isEnterMarksOpen} onOpenChange={setIsEnterMarksOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Enter Marks - {selectedTest?.title}</DialogTitle>
+            <DialogDescription>
+              {selectedTest?.subject} | Class {selectedTest?.class} | Max Marks: {selectedTest?.max_marks}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file && currentUploadStudent) {
+                  handlePhotoUpload(currentUploadStudent, file);
+                }
+              }}
+            />
+            
+            {selectedTest && students.filter(s => s.class === selectedTest.class).map((student) => (
+              <div key={student.id} className="p-4 border rounded-lg space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{student.name}</span>
+                  {marksEntries[student.id]?.photoUrl && (
+                    <Badge variant="outline" className="text-green-600">
+                      <ImageIcon className="w-3 h-3 mr-1" />
+                      Photo Attached
+                    </Badge>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Marks</Label>
+                    <Input
+                      type="number"
+                      placeholder={`/ ${selectedTest.max_marks}`}
+                      value={marksEntries[student.id]?.marks || ""}
+                      onChange={(e) => setMarksEntries(prev => ({
+                        ...prev,
+                        [student.id]: { ...prev[student.id], marks: e.target.value }
+                      }))}
+                      max={selectedTest.max_marks}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Remarks</Label>
+                    <Input
+                      placeholder="Optional"
+                      value={marksEntries[student.id]?.remarks || ""}
+                      onChange={(e) => setMarksEntries(prev => ({
+                        ...prev,
+                        [student.id]: { ...prev[student.id], remarks: e.target.value }
+                      }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Photo</Label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      disabled={isUploading && currentUploadStudent === student.id}
+                      onClick={() => {
+                        setCurrentUploadStudent(student.id);
+                        fileInputRef.current?.click();
+                      }}
+                    >
+                      {isUploading && currentUploadStudent === student.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : marksEntries[student.id]?.photoUrl ? (
+                        <Check className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Upload className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                {marksEntries[student.id]?.photoUrl && (
+                  <div className="flex items-center gap-2">
+                    <a 
+                      href={marksEntries[student.id].photoUrl!} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:underline"
+                    >
+                      View uploaded photo
+                    </a>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-destructive"
+                      onClick={() => setMarksEntries(prev => ({
+                        ...prev,
+                        [student.id]: { ...prev[student.id], photo: null, photoUrl: null }
+                      }))}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+            
+            <div className="flex gap-3 pt-4">
+              <Button variant="outline" onClick={() => setIsEnterMarksOpen(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button onClick={handleSaveMarks} className="flex-1 bg-green-600 hover:bg-green-700" disabled={isLoading}>
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Save & Notify Parents
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

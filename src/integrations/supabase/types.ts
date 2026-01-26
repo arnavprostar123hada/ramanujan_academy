@@ -361,6 +361,107 @@ export type Database = {
         }
         Relationships: []
       }
+      test_results: {
+        Row: {
+          created_at: string
+          id: string
+          is_notified: boolean
+          marks_obtained: number
+          photo_url: string | null
+          remarks: string | null
+          student_id: string
+          test_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_notified?: boolean
+          marks_obtained: number
+          photo_url?: string | null
+          remarks?: string | null
+          student_id: string
+          test_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_notified?: boolean
+          marks_obtained?: number
+          photo_url?: string | null
+          remarks?: string | null
+          student_id?: string
+          test_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_results_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_results_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tests: {
+        Row: {
+          class: string
+          created_at: string
+          description: string | null
+          id: string
+          is_notified: boolean
+          max_marks: number
+          subject: string
+          teacher_id: string | null
+          test_date: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          class: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_notified?: boolean
+          max_marks?: number
+          subject: string
+          teacher_id?: string | null
+          test_date: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          class?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_notified?: boolean
+          max_marks?: number
+          subject?: string
+          teacher_id?: string | null
+          test_date?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tests_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string

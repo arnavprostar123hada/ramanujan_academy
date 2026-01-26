@@ -8,8 +8,9 @@ import {
   User, 
   GraduationCap,
   Calendar,
-  ArrowLeft,
-  LogOut
+  LogOut,
+  ClipboardList,
+  Image as ImageIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +52,24 @@ interface Message {
   message: string;
   is_from_parent: boolean;
   created_at: string;
+}
+
+interface Test {
+  id: string;
+  title: string;
+  subject: string;
+  class: string;
+  test_date: string;
+  max_marks: number;
+  description: string | null;
+}
+
+interface TestResult {
+  id: string;
+  test_id: string;
+  marks_obtained: number;
+  photo_url: string | null;
+  remarks: string | null;
 }
 
 const ParentPortal = () => {
