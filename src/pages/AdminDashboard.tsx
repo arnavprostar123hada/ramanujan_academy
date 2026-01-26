@@ -30,7 +30,9 @@ import {
   FileCheck,
   StickyNote,
   BookOpen,
-  UserCheck
+  UserCheck,
+  ClipboardList,
+  Image as ImageIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -164,6 +166,30 @@ interface VisitStats {
   thisWeek: number;
 }
 
+interface Test {
+  id: string;
+  teacher_id: string | null;
+  title: string;
+  subject: string;
+  class: string;
+  test_date: string;
+  max_marks: number;
+  description: string | null;
+  is_notified: boolean;
+  created_at: string;
+}
+
+interface TestResult {
+  id: string;
+  test_id: string;
+  student_id: string;
+  marks_obtained: number;
+  photo_url: string | null;
+  remarks: string | null;
+  is_notified: boolean;
+  created_at: string;
+}
+
 const UPI_ID = "jadhavfivestar-3@okicici";
 
 const MONTHS = [
@@ -186,6 +212,8 @@ const AdminDashboard = () => {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [classLogs, setClassLogs] = useState<ClassLog[]>([]);
   const [studentComplaints, setStudentComplaints] = useState<StudentComplaint[]>([]);
+  const [tests, setTests] = useState<Test[]>([]);
+  const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [visitStats, setVisitStats] = useState<VisitStats>({ total: 0, today: 0, thisWeek: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
@@ -197,6 +225,9 @@ const AdminDashboard = () => {
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
   const [isAddTeacherOpen, setIsAddTeacherOpen] = useState(false);
   const [isTeacherCodeDialogOpen, setIsTeacherCodeDialogOpen] = useState(false);
+  const [isTestDetailsOpen, setIsTestDetailsOpen] = useState(false);
+  const [isEditTestOpen, setIsEditTestOpen] = useState(false);
+  const [selectedTestForDetails, setSelectedTestForDetails] = useState<Test | null>(null);
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
   const [newlyAddedTeacher, setNewlyAddedTeacher] = useState<Teacher | null>(null);
   const [newlyAddedStudent, setNewlyAddedStudent] = useState<Student | null>(null);
@@ -363,6 +394,26 @@ const AdminDashboard = () => {
 
       if (complaintsData) {
         setStudentComplaints(complaintsData as StudentComplaint[]);
+      }
+
+      // Fetch tests
+      const { data: testsData } = await supabase
+        .from("tests")
+        .select("*")
+        .order("test_date", { ascending: false });
+
+      if (testsData) {
+        setTests(testsData as Test[]);
+      }
+
+      // Fetch test results
+      const { data: testResultsData } = await supabase
+        .from("test_results")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (testResultsData) {
+        setTestResults(testResultsData as TestResult[]);
       }
 
       // Fetch visit stats
@@ -1276,7 +1327,7 @@ const AdminDashboard = () => {
 
         {/* Tabs for different sections */}
         <Tabs defaultValue="enquiries" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-9 lg:w-auto lg:inline-flex">
             <TabsTrigger value="enquiries" className="gap-2">
               <FileText className="w-4 h-4" />
               <span className="hidden sm:inline">Enquiries</span>
@@ -1294,6 +1345,11 @@ const AdminDashboard = () => {
             <TabsTrigger value="teachers" className="gap-2">
               <UserCheck className="w-4 h-4" />
               <span className="hidden sm:inline">Teachers</span>
+            </TabsTrigger>
+            <TabsTrigger value="tests" className="gap-2">
+              <ClipboardList className="w-4 h-4" />
+              <span className="hidden sm:inline">Tests</span>
+              <Badge variant="secondary" className="ml-1">{tests.length}</Badge>
             </TabsTrigger>
             <TabsTrigger value="payments" className="gap-2">
               <IndianRupee className="w-4 h-4" />
@@ -1695,6 +1751,117 @@ const AdminDashboard = () => {
                                 <p className="text-xs text-muted-foreground">
                                   {payment.paid_at ? formatDate(payment.paid_at) : "Pending"}
                                 </p>
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
+          {/* Tests Tab */}
+          <TabsContent value="tests">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="card-elevated">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ClipboardList className="w-5 h-5" />
+                    Tests & Results
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {tests.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <ClipboardList className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No tests created yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {tests.map((test) => {
+                        const teacher = teachers.find(t => t.id === test.teacher_id);
+                        const results = testResults.filter(r => r.test_id === test.id);
+                        const classStudentsCount = students.filter(s => s.class === test.class).length;
+                        const avgMarks = results.length > 0 
+                          ? (results.reduce((sum, r) => sum + r.marks_obtained, 0) / results.length).toFixed(1)
+                          : "N/A";
+                        
+                        return (
+                          <motion.div
+                            key={test.id}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="p-4 rounded-lg border bg-background hover:border-primary/50 transition-colors"
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                  <h3 className="font-semibold">{test.title}</h3>
+                                  <Badge variant="secondary">{test.subject}</Badge>
+                                  <Badge variant="outline">Class {test.class}</Badge>
+                                  {test.is_notified && (
+                                    <Badge className="bg-green-100 text-green-700">
+                                      <CheckCircle className="w-3 h-3 mr-1" />
+                                      Parents Notified
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    {formatDate(test.test_date)}
+                                  </span>
+                                  <span>Max: {test.max_marks}</span>
+                                  <span>Results: {results.length}/{classStudentsCount}</span>
+                                  <span>Avg: {avgMarks}</span>
+                                  {teacher && <span>Teacher: {teacher.name}</span>}
+                                </div>
+                                {test.description && (
+                                  <p className="text-sm text-muted-foreground mt-2">{test.description}</p>
+                                )}
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedTestForDetails(test);
+                                    setIsTestDetailsOpen(true);
+                                  }}
+                                >
+                                  <Eye className="w-4 h-4 mr-1" />
+                                  View Results
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedTestForDetails(test);
+                                    setIsEditTestOpen(true);
+                                  }}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive"
+                                  onClick={async () => {
+                                    if (confirm("Delete this test and all its results?")) {
+                                      await supabase.from("tests").delete().eq("id", test.id);
+                                      fetchData();
+                                      toast({ title: "Test deleted" });
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
                               </div>
                             </div>
                           </motion.div>
@@ -2648,6 +2815,45 @@ const AdminDashboard = () => {
               <p className="text-xs text-center text-muted-foreground">
                 Parents can use this code at /parent to access announcements and messages
               </p>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Test Details Dialog */}
+        <Dialog open={isTestDetailsOpen} onOpenChange={setIsTestDetailsOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{selectedTestForDetails?.title} - Results</DialogTitle>
+              <DialogDescription>
+                {selectedTestForDetails?.subject} | Class {selectedTestForDetails?.class} | Max: {selectedTestForDetails?.max_marks}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {selectedTestForDetails && students.filter(s => s.class === selectedTestForDetails.class).map((student) => {
+                const result = testResults.find(r => r.test_id === selectedTestForDetails.id && r.student_id === student.id);
+                return (
+                  <div key={student.id} className="p-3 border rounded-lg flex items-center justify-between">
+                    <div>
+                      <span className="font-medium">{student.name}</span>
+                      {result?.remarks && <p className="text-xs text-muted-foreground">{result.remarks}</p>}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {result ? (
+                        <>
+                          <span className="font-bold text-lg">{result.marks_obtained}/{selectedTestForDetails.max_marks}</span>
+                          {result.photo_url && (
+                            <a href={result.photo_url} target="_blank" rel="noopener noreferrer">
+                              <ImageIcon className="w-4 h-4 text-blue-600" />
+                            </a>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">Not entered</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </DialogContent>
         </Dialog>
