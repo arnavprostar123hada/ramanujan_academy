@@ -36,7 +36,9 @@ import {
   BarChart3,
   History,
   QrCode,
-  Download
+  Download,
+  List,
+  CalendarDays
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -77,6 +79,7 @@ import logo from "@/assets/logo.jpg";
 import { TestAnalyticsChart } from "@/components/TestAnalyticsChart";
 import { PerformanceComment, PerformanceBadge, getPerformanceComment } from "@/components/PerformanceComment";
 import { AccessCodeQR } from "@/components/AccessCodeQR";
+import { ClassLogsCalendar } from "@/components/ClassLogsCalendar";
 
 interface ContactSubmission {
   id: string;
@@ -244,6 +247,7 @@ const AdminDashboard = () => {
   const [selectedClassFilter, setSelectedClassFilter] = useState<string>("all");
   const [classLogsFilter, setClassLogsFilter] = useState<string>("all");
   const [classLogsTeacherFilter, setClassLogsTeacherFilter] = useState<string>("all");
+  const [classLogsViewMode, setClassLogsViewMode] = useState<"list" | "calendar">("list");
 
   // New announcement form state
   const [newAnnouncement, setNewAnnouncement] = useState({
@@ -2345,6 +2349,26 @@ const AdminDashboard = () => {
                       Teacher Class Logs
                     </CardTitle>
                     <div className="flex flex-wrap gap-2">
+                      <div className="flex border rounded-lg overflow-hidden">
+                        <Button
+                          variant={classLogsViewMode === "list" ? "default" : "ghost"}
+                          size="sm"
+                          className="rounded-none"
+                          onClick={() => setClassLogsViewMode("list")}
+                        >
+                          <List className="w-4 h-4 mr-1" />
+                          List
+                        </Button>
+                        <Button
+                          variant={classLogsViewMode === "calendar" ? "default" : "ghost"}
+                          size="sm"
+                          className="rounded-none"
+                          onClick={() => setClassLogsViewMode("calendar")}
+                        >
+                          <CalendarDays className="w-4 h-4 mr-1" />
+                          Calendar
+                        </Button>
+                      </div>
                       <Select value={classLogsFilter} onValueChange={setClassLogsFilter}>
                         <SelectTrigger className="w-[140px]">
                           <SelectValue placeholder="Filter Class" />
@@ -2377,6 +2401,13 @@ const AdminDashboard = () => {
                       <p>No class logs recorded yet</p>
                       <p className="text-sm mt-1">Teachers can add logs from the Teacher Dashboard</p>
                     </div>
+                  ) : classLogsViewMode === "calendar" ? (
+                    <ClassLogsCalendar 
+                      classLogs={classLogs}
+                      teachers={teachers}
+                      classFilter={classLogsFilter}
+                      teacherFilter={classLogsTeacherFilter}
+                    />
                   ) : (
                     <div className="space-y-4">
                       {/* Summary Stats */}
