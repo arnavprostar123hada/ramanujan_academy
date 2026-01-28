@@ -34,7 +34,9 @@ import {
   ClipboardList,
   Image as ImageIcon,
   BarChart3,
-  History
+  History,
+  QrCode,
+  Download
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,6 +76,7 @@ import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.jpg";
 import { TestAnalyticsChart } from "@/components/TestAnalyticsChart";
 import { PerformanceComment, PerformanceBadge, getPerformanceComment } from "@/components/PerformanceComment";
+import { AccessCodeQR } from "@/components/AccessCodeQR";
 
 interface ContactSubmission {
   id: string;
@@ -2827,40 +2830,32 @@ const AdminDashboard = () => {
 
         {/* Student Access Code Dialog */}
         <Dialog open={!!newlyAddedStudent} onOpenChange={() => setNewlyAddedStudent(null)}>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Key className="w-5 h-5 text-primary" />
+                <QrCode className="w-5 h-5 text-primary" />
                 Student Added Successfully!
               </DialogTitle>
               <DialogDescription>
-                Share this access code with the parent to access the Parent Portal
+                Share this code or QR with the parent to access the Parent Portal
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="p-6 bg-muted rounded-lg text-center">
-                <p className="text-sm text-muted-foreground mb-2">Access Code for {newlyAddedStudent?.name}</p>
-                <p className="text-3xl font-mono font-bold tracking-widest text-primary">
-                  {newlyAddedStudent?.access_code}
+            {newlyAddedStudent && (
+              <div className="space-y-4">
+                <AccessCodeQR 
+                  code={newlyAddedStudent.access_code}
+                  name={`${newlyAddedStudent.name} (Class ${newlyAddedStudent.class})`}
+                  type="student"
+                  showCard={false}
+                />
+                <p className="text-xs text-center text-muted-foreground">
+                  Parents can scan this QR or enter code at /parent
                 </p>
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => copyToClipboard(newlyAddedStudent?.access_code || "")}
-                  className="flex-1"
-                >
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copy Code
-                </Button>
-                <Button onClick={() => setNewlyAddedStudent(null)} className="flex-1">
+                <Button onClick={() => setNewlyAddedStudent(null)} className="w-full">
                   Done
                 </Button>
               </div>
-              <p className="text-xs text-center text-muted-foreground">
-                Parents can use this code at /parent to access announcements and messages
-              </p>
-            </div>
+            )}
           </DialogContent>
         </Dialog>
 
@@ -2953,119 +2948,94 @@ const AdminDashboard = () => {
 
         {/* Teacher Access Code Dialog */}
         <Dialog open={isTeacherCodeDialogOpen} onOpenChange={setIsTeacherCodeDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Key className="w-5 h-5 text-green-600" />
+                <QrCode className="w-5 h-5 text-green-600" />
                 Access Code for {selectedTeacher?.name}
               </DialogTitle>
               <DialogDescription>
-                Share this code with the teacher to access the Teacher Portal
+                Share this code or QR with the teacher to access the Teacher Portal
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="p-6 bg-green-50 rounded-lg text-center border border-green-200">
-                <p className="text-sm text-muted-foreground mb-2">Teacher: {selectedTeacher?.name}</p>
-                <p className="text-3xl font-mono font-bold tracking-widest text-green-600">
-                  {selectedTeacher?.access_code}
+            {selectedTeacher && (
+              <div className="space-y-4">
+                <AccessCodeQR 
+                  code={selectedTeacher.access_code}
+                  name={selectedTeacher.name}
+                  type="teacher"
+                  showCard={false}
+                />
+                <p className="text-xs text-center text-muted-foreground">
+                  Teachers can scan this QR or enter code at /teacher
                 </p>
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => copyToClipboard(selectedTeacher?.access_code || "")}
-                  className="flex-1"
-                >
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copy Code
-                </Button>
-                <Button onClick={() => setIsTeacherCodeDialogOpen(false)} className="flex-1">
+                <Button onClick={() => setIsTeacherCodeDialogOpen(false)} className="w-full">
                   Done
                 </Button>
               </div>
-              <p className="text-xs text-center text-muted-foreground">
-                Teachers can use this code at /teacher to log class activities and complaints
-              </p>
-            </div>
+            )}
           </DialogContent>
         </Dialog>
 
         {/* Newly Added Teacher Dialog */}
         <Dialog open={!!newlyAddedTeacher} onOpenChange={() => setNewlyAddedTeacher(null)}>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Key className="w-5 h-5 text-green-600" />
+                <QrCode className="w-5 h-5 text-green-600" />
                 Teacher Added Successfully!
               </DialogTitle>
               <DialogDescription>
-                Share this access code with the teacher to access the Teacher Portal
+                Share this code or QR with the teacher to access the Teacher Portal
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="p-6 bg-green-50 rounded-lg text-center border border-green-200">
-                <p className="text-sm text-muted-foreground mb-2">Access Code for {newlyAddedTeacher?.name}</p>
-                <p className="text-3xl font-mono font-bold tracking-widest text-green-600">
-                  {newlyAddedTeacher?.access_code}
+            {newlyAddedTeacher && (
+              <div className="space-y-4">
+                <AccessCodeQR 
+                  code={newlyAddedTeacher.access_code}
+                  name={newlyAddedTeacher.name}
+                  type="teacher"
+                  showCard={false}
+                />
+                <p className="text-xs text-center text-muted-foreground">
+                  Teachers can scan this QR or enter code at /teacher
                 </p>
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => copyToClipboard(newlyAddedTeacher?.access_code || "")}
-                  className="flex-1"
-                >
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copy Code
-                </Button>
-                <Button onClick={() => setNewlyAddedTeacher(null)} className="flex-1">
+                <Button onClick={() => setNewlyAddedTeacher(null)} className="w-full">
                   Done
                 </Button>
               </div>
-              <p className="text-xs text-center text-muted-foreground">
-                Teachers can use this code at /teacher to log class activities and complaints
-              </p>
-            </div>
+            )}
           </DialogContent>
         </Dialog>
 
         {/* View Access Code Dialog */}
         <Dialog open={isAccessCodeDialogOpen} onOpenChange={setIsAccessCodeDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Key className="w-5 h-5 text-primary" />
+                <QrCode className="w-5 h-5 text-primary" />
                 Access Code for {selectedStudent?.name}
               </DialogTitle>
               <DialogDescription>
-                Share this code with the parent to access the Parent Portal
+                Share this code or QR with the parent to access the Parent Portal
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="p-6 bg-muted rounded-lg text-center">
-                <p className="text-sm text-muted-foreground mb-2">Student: {selectedStudent?.name}</p>
-                <p className="text-3xl font-mono font-bold tracking-widest text-primary">
-                  {selectedStudent?.access_code}
+            {selectedStudent && (
+              <div className="space-y-4">
+                <AccessCodeQR 
+                  code={selectedStudent.access_code}
+                  name={`${selectedStudent.name} (Class ${selectedStudent.class})`}
+                  type="student"
+                  showCard={false}
+                />
+                <p className="text-xs text-center text-muted-foreground">
+                  Parents can scan this QR or enter code at /parent
                 </p>
-                <p className="text-sm text-muted-foreground mt-2">Class: {selectedStudent?.class}</p>
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => copyToClipboard(selectedStudent?.access_code || "")}
-                  className="flex-1"
-                >
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copy Code
-                </Button>
-                <Button onClick={() => setIsAccessCodeDialogOpen(false)} className="flex-1">
+                <Button onClick={() => setIsAccessCodeDialogOpen(false)} className="w-full">
                   Done
                 </Button>
               </div>
-              <p className="text-xs text-center text-muted-foreground">
-                Parents can use this code at /parent to access announcements and messages
-              </p>
-            </div>
+            )}
           </DialogContent>
         </Dialog>
 
