@@ -242,6 +242,8 @@ const AdminDashboard = () => {
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("500");
   const [selectedClassFilter, setSelectedClassFilter] = useState<string>("all");
+  const [classLogsFilter, setClassLogsFilter] = useState<string>("all");
+  const [classLogsTeacherFilter, setClassLogsTeacherFilter] = useState<string>("all");
 
   // New announcement form state
   const [newAnnouncement, setNewAnnouncement] = useState({
@@ -1334,68 +1336,96 @@ const AdminDashboard = () => {
 
         {/* Tabs for different sections */}
         <Tabs defaultValue="enquiries" className="space-y-6">
-          <TabsList className="flex flex-wrap gap-1 h-auto p-1">
-            <TabsTrigger value="enquiries" className="gap-2">
-              <FileText className="w-4 h-4" />
-              <span className="hidden sm:inline">Enquiries</span>
-              {unreadCount > 0 && (
-                <Badge variant="destructive" className="ml-1">{unreadCount}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="students" className="gap-2">
-              <GraduationCap className="w-4 h-4" />
-              <span className="hidden sm:inline">Students</span>
-              {studentsWithFeeDue.length > 0 && (
-                <Badge variant="destructive" className="ml-1">{studentsWithFeeDue.length}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="teachers" className="gap-2">
-              <UserCheck className="w-4 h-4" />
-              <span className="hidden sm:inline">Teachers</span>
-            </TabsTrigger>
-            <TabsTrigger value="tests" className="gap-2">
-              <ClipboardList className="w-4 h-4" />
-              <span className="hidden sm:inline">Tests</span>
-              <Badge variant="secondary" className="ml-1">{tests.length}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="gap-2">
-              <BarChart3 className="w-4 h-4" />
-              <span className="hidden sm:inline">Analytics</span>
-            </TabsTrigger>
-            <TabsTrigger value="academic-records" className="gap-2">
-              <History className="w-4 h-4" />
-              <span className="hidden sm:inline">Records</span>
-            </TabsTrigger>
-            <TabsTrigger value="payments" className="gap-2">
-              <IndianRupee className="w-4 h-4" />
-              <span className="hidden sm:inline">Payments</span>
-            </TabsTrigger>
-            <TabsTrigger value="announcements" className="gap-2">
-              <Bell className="w-4 h-4" />
-              <span className="hidden sm:inline">Announcements</span>
-            </TabsTrigger>
-            <TabsTrigger value="complaints" className="gap-2">
-              <AlertTriangle className="w-4 h-4" />
-              <span className="hidden sm:inline">Complaints</span>
-              {studentComplaints.filter(c => !c.is_sent_to_parent).length > 0 && (
-                <Badge variant="destructive" className="ml-1">{studentComplaints.filter(c => !c.is_sent_to_parent).length}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="notes" className="gap-2">
-              <StickyNote className="w-4 h-4" />
-              <span className="hidden sm:inline">Notes</span>
-              {studentConcerns.filter(c => !c.is_resolved).length > 0 && (
-                <Badge variant="secondary" className="ml-1">{studentConcerns.filter(c => !c.is_resolved).length}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="messages" className="gap-2">
-              <MessageSquare className="w-4 h-4" />
-              <span className="hidden sm:inline">Messages</span>
-              {getUnreadMessagesCount() > 0 && (
-                <Badge variant="destructive" className="ml-1">{getUnreadMessagesCount()}</Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
+          {/* Tab Categories */}
+          <div className="space-y-3">
+            {/* Tab Group Labels */}
+            <TabsList className="flex flex-wrap gap-1 h-auto p-2 bg-muted/50 rounded-xl">
+              {/* People Management */}
+              <div className="flex items-center gap-1 px-2 py-1 bg-blue-500/10 rounded-lg">
+                <span className="text-[10px] font-medium text-blue-600 uppercase tracking-wider mr-1 hidden md:inline">People</span>
+                <TabsTrigger value="enquiries" className="gap-1.5 data-[state=active]:bg-blue-500 data-[state=active]:text-white">
+                  <FileText className="w-4 h-4" />
+                  <span className="hidden sm:inline">Enquiries</span>
+                  {unreadCount > 0 && (
+                    <Badge variant="destructive" className="ml-1 h-5 px-1.5">{unreadCount}</Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="students" className="gap-1.5 data-[state=active]:bg-blue-500 data-[state=active]:text-white">
+                  <GraduationCap className="w-4 h-4" />
+                  <span className="hidden sm:inline">Students</span>
+                  {studentsWithFeeDue.length > 0 && (
+                    <Badge variant="destructive" className="ml-1 h-5 px-1.5">{studentsWithFeeDue.length}</Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="teachers" className="gap-1.5 data-[state=active]:bg-blue-500 data-[state=active]:text-white">
+                  <UserCheck className="w-4 h-4" />
+                  <span className="hidden sm:inline">Teachers</span>
+                </TabsTrigger>
+              </div>
+
+              {/* Academics */}
+              <div className="flex items-center gap-1 px-2 py-1 bg-green-500/10 rounded-lg">
+                <span className="text-[10px] font-medium text-green-600 uppercase tracking-wider mr-1 hidden md:inline">Academics</span>
+                <TabsTrigger value="tests" className="gap-1.5 data-[state=active]:bg-green-500 data-[state=active]:text-white">
+                  <ClipboardList className="w-4 h-4" />
+                  <span className="hidden sm:inline">Tests</span>
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5">{tests.length}</Badge>
+                </TabsTrigger>
+                <TabsTrigger value="class-logs" className="gap-1.5 data-[state=active]:bg-green-500 data-[state=active]:text-white">
+                  <BookOpen className="w-4 h-4" />
+                  <span className="hidden sm:inline">Class Logs</span>
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5">{classLogs.length}</Badge>
+                </TabsTrigger>
+                <TabsTrigger value="analytics" className="gap-1.5 data-[state=active]:bg-green-500 data-[state=active]:text-white">
+                  <BarChart3 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Analytics</span>
+                </TabsTrigger>
+                <TabsTrigger value="academic-records" className="gap-1.5 data-[state=active]:bg-green-500 data-[state=active]:text-white">
+                  <History className="w-4 h-4" />
+                  <span className="hidden sm:inline">Records</span>
+                </TabsTrigger>
+              </div>
+
+              {/* Finance */}
+              <div className="flex items-center gap-1 px-2 py-1 bg-amber-500/10 rounded-lg">
+                <span className="text-[10px] font-medium text-amber-600 uppercase tracking-wider mr-1 hidden md:inline">Finance</span>
+                <TabsTrigger value="payments" className="gap-1.5 data-[state=active]:bg-amber-500 data-[state=active]:text-white">
+                  <IndianRupee className="w-4 h-4" />
+                  <span className="hidden sm:inline">Payments</span>
+                </TabsTrigger>
+              </div>
+
+              {/* Communication */}
+              <div className="flex items-center gap-1 px-2 py-1 bg-purple-500/10 rounded-lg">
+                <span className="text-[10px] font-medium text-purple-600 uppercase tracking-wider mr-1 hidden md:inline">Comm</span>
+                <TabsTrigger value="announcements" className="gap-1.5 data-[state=active]:bg-purple-500 data-[state=active]:text-white">
+                  <Bell className="w-4 h-4" />
+                  <span className="hidden sm:inline">Announce</span>
+                </TabsTrigger>
+                <TabsTrigger value="complaints" className="gap-1.5 data-[state=active]:bg-purple-500 data-[state=active]:text-white">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span className="hidden sm:inline">Complaints</span>
+                  {studentComplaints.filter(c => !c.is_sent_to_parent).length > 0 && (
+                    <Badge variant="destructive" className="ml-1 h-5 px-1.5">{studentComplaints.filter(c => !c.is_sent_to_parent).length}</Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="notes" className="gap-1.5 data-[state=active]:bg-purple-500 data-[state=active]:text-white">
+                  <StickyNote className="w-4 h-4" />
+                  <span className="hidden sm:inline">Notes</span>
+                  {studentConcerns.filter(c => !c.is_resolved).length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-5 px-1.5">{studentConcerns.filter(c => !c.is_resolved).length}</Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="messages" className="gap-1.5 data-[state=active]:bg-purple-500 data-[state=active]:text-white">
+                  <MessageSquare className="w-4 h-4" />
+                  <span className="hidden sm:inline">Messages</span>
+                  {getUnreadMessagesCount() > 0 && (
+                    <Badge variant="destructive" className="ml-1 h-5 px-1.5">{getUnreadMessagesCount()}</Badge>
+                  )}
+                </TabsTrigger>
+              </div>
+            </TabsList>
+          </div>
 
           {/* Enquiries Tab */}
           <TabsContent value="enquiries">
@@ -2294,6 +2324,140 @@ const AdminDashboard = () => {
                           </div>
                         </motion.div>
                       ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
+          {/* Class Logs Tab */}
+          <TabsContent value="class-logs">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="card-elevated">
+                <CardHeader>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <CardTitle className="flex items-center gap-2">
+                      <BookOpen className="w-5 h-5 text-green-600" />
+                      Teacher Class Logs
+                    </CardTitle>
+                    <div className="flex flex-wrap gap-2">
+                      <Select value={classLogsFilter} onValueChange={setClassLogsFilter}>
+                        <SelectTrigger className="w-[140px]">
+                          <SelectValue placeholder="Filter Class" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Classes</SelectItem>
+                          {CLASSES.map((cls) => (
+                            <SelectItem key={cls} value={cls}>Class {cls}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={classLogsTeacherFilter} onValueChange={setClassLogsTeacherFilter}>
+                        <SelectTrigger className="w-[160px]">
+                          <SelectValue placeholder="Filter Teacher" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Teachers</SelectItem>
+                          {teachers.map((teacher) => (
+                            <SelectItem key={teacher.id} value={teacher.id}>{teacher.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {classLogs.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No class logs recorded yet</p>
+                      <p className="text-sm mt-1">Teachers can add logs from the Teacher Dashboard</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Summary Stats */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div className="p-4 rounded-lg bg-green-50 border border-green-200">
+                          <p className="text-sm text-green-600 font-medium">Total Logs</p>
+                          <p className="text-2xl font-bold text-green-700">{classLogs.length}</p>
+                        </div>
+                        <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
+                          <p className="text-sm text-blue-600 font-medium">This Week</p>
+                          <p className="text-2xl font-bold text-blue-700">
+                            {classLogs.filter(log => {
+                              const logDate = new Date(log.log_date);
+                              const weekAgo = new Date();
+                              weekAgo.setDate(weekAgo.getDate() - 7);
+                              return logDate >= weekAgo;
+                            }).length}
+                          </p>
+                        </div>
+                        <div className="p-4 rounded-lg bg-purple-50 border border-purple-200">
+                          <p className="text-sm text-purple-600 font-medium">Active Teachers</p>
+                          <p className="text-2xl font-bold text-purple-700">
+                            {new Set(classLogs.map(log => log.teacher_id)).size}
+                          </p>
+                        </div>
+                        <div className="p-4 rounded-lg bg-amber-50 border border-amber-200">
+                          <p className="text-sm text-amber-600 font-medium">Today</p>
+                          <p className="text-2xl font-bold text-amber-700">
+                            {classLogs.filter(log => {
+                              const today = new Date().toISOString().split('T')[0];
+                              return log.log_date === today;
+                            }).length}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Class Logs List */}
+                      <div className="space-y-3">
+                        {classLogs
+                          .filter(log => classLogsFilter === "all" || log.class === classLogsFilter)
+                          .filter(log => classLogsTeacherFilter === "all" || log.teacher_id === classLogsTeacherFilter)
+                          .map((log) => {
+                            const teacher = teachers.find(t => t.id === log.teacher_id);
+                            return (
+                              <motion.div
+                                key={log.id}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="p-4 rounded-lg border bg-background hover:border-green-300 transition-colors"
+                              >
+                                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                  <div className="flex-1">
+                                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                        Class {log.class}
+                                      </Badge>
+                                      <span className="text-sm text-muted-foreground flex items-center gap-1">
+                                        <Calendar className="w-3 h-3" />
+                                        {new Date(log.log_date).toLocaleDateString('en-IN', {
+                                          weekday: 'short',
+                                          day: 'numeric',
+                                          month: 'short',
+                                          year: 'numeric'
+                                        })}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm whitespace-pre-wrap">{log.content}</p>
+                                    {teacher && (
+                                      <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
+                                        <UserCheck className="w-3 h-3" />
+                                        <span className="font-medium">{teacher.name}</span>
+                                        <span>•</span>
+                                        <span>{teacher.phone}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </motion.div>
+                            );
+                          })}
+                      </div>
                     </div>
                   )}
                 </CardContent>
