@@ -1,7 +1,7 @@
 import { QRCodeSVG } from "qrcode.react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Copy, Download, QrCode } from "lucide-react";
+import { Copy, Download, QrCode, Mail, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface AccessCodeQRProps {
@@ -54,6 +54,28 @@ export const AccessCodeQR = ({
     img.src = url;
   };
 
+  const handleEmailShare = () => {
+    const subject = encodeURIComponent(`${type === "student" ? "Parent" : "Teacher"} Portal Access Code`);
+    const body = encodeURIComponent(
+      `Hello,\n\nHere is your access code for the ${type === "student" ? "Parent" : "Teacher"} Portal:\n\nAccess Code: ${code}\nName: ${name}\n\nYou can use this code to login to the portal and view ${type === "student" ? "your child's" : "your"} information.\n\nBest regards,\nRamanujan Academy`
+    );
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+    toast({ title: "Email client opened!" });
+  };
+
+  const handleWhatsAppShare = () => {
+    const message = encodeURIComponent(
+      `*${type === "student" ? "Parent" : "Teacher"} Portal Access*\n\n` +
+      `Hello! Here is your access code for the ${type === "student" ? "Parent" : "Teacher"} Portal:\n\n` +
+      `📋 *Access Code:* ${code}\n` +
+      `👤 *Name:* ${name}\n\n` +
+      `Use this code to login and view ${type === "student" ? "your child's academic" : "your class"} information.\n\n` +
+      `- Ramanujan Academy`
+    );
+    window.open(`https://wa.me/?text=${message}`, '_blank');
+    toast({ title: "WhatsApp opened!" });
+  };
+
   const qrContent = (
     <div id={`qr-${code}`} className="flex flex-col items-center gap-3">
       <div className="p-3 bg-white rounded-lg shadow-sm">
@@ -68,7 +90,7 @@ export const AccessCodeQR = ({
         <p className="font-mono text-lg font-bold tracking-wider">{code}</p>
         <p className="text-sm text-muted-foreground">{name}</p>
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2 justify-center">
         <Button variant="outline" size="sm" onClick={handleCopy}>
           <Copy className="w-3 h-3 mr-1" />
           Copy
@@ -76,6 +98,14 @@ export const AccessCodeQR = ({
         <Button variant="outline" size="sm" onClick={handleDownload}>
           <Download className="w-3 h-3 mr-1" />
           Save
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleEmailShare}>
+          <Mail className="w-3 h-3 mr-1" />
+          Email
+        </Button>
+        <Button variant="outline" size="sm" onClick={handleWhatsAppShare} className="text-green-600 hover:text-green-700">
+          <MessageCircle className="w-3 h-3 mr-1" />
+          WhatsApp
         </Button>
       </div>
     </div>
