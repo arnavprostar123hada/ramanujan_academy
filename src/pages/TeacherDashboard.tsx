@@ -21,7 +21,8 @@ import {
   Image as ImageIcon,
   Check,
   X,
-  Loader2
+  Loader2,
+  ScanLine
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -31,6 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { QRCodeScanner } from "@/components/QRCodeScanner";
 
 interface Teacher {
   id: string;
@@ -130,6 +132,7 @@ const TeacherDashboard = () => {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentUploadStudent, setCurrentUploadStudent] = useState<string | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
 
   const handleLogin = async () => {
     if (!accessCode.trim()) {
@@ -439,13 +442,41 @@ const TeacherDashboard = () => {
     }
   }, []);
 
+  const handleQRScan = (code: string) => {
+    setShowScanner(false);
+    setAccessCode(code.toUpperCase());
+    // Auto-login after scanning
+    supabase
+      .from("teachers")
+      .select("*")
+      .eq("access_code", code.toUpperCase())
+      .single()
+      .then(({ data, error }) => {
+        if (data && !error) {
+          setTeacher(data);
+          setIsLoggedIn(true);
+          localStorage.setItem("teacher_access_code", code.toUpperCase());
+          fetchData(data.id, data.assigned_classes || []);
+          toast({ title: "Login successful!" });
+        } else {
+          toast({ title: "Invalid QR code", variant: "destructive" });
+        }
+      });
+  };
+
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
+        {showScanner && (
+          <QRCodeScanner 
+            onScan={handleQRScan}
+            onClose={() => setShowScanner(false)}
+          />
+        )}
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl text-green-800">Teacher Portal</CardTitle>
-            <CardDescription>Enter your access code to login</CardDescription>
+            <CardDescription>Enter your access code or scan QR to login</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -460,6 +491,22 @@ const TeacherDashboard = () => {
             </div>
             <Button onClick={handleLogin} className="w-full bg-green-600 hover:bg-green-700" disabled={isLoading}>
               {isLoading ? "Logging in..." : "Login"}
+            </Button>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">Or</span>
+              </div>
+            </div>
+            <Button 
+              variant="outline" 
+              className="w-full" 
+              onClick={() => setShowScanner(true)}
+            >
+              <ScanLine className="w-4 h-4 mr-2" />
+              Scan QR Code
             </Button>
           </CardContent>
         </Card>

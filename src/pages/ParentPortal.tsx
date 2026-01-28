@@ -13,7 +13,9 @@ import {
   Image as ImageIcon,
   TrendingUp,
   BarChart3,
-  FileText
+  FileText,
+  ScanLine,
+  Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +28,8 @@ import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.jpg";
 import { PerformanceComment, PerformanceBadge, getPerformanceComment } from "@/components/PerformanceComment";
 import { StudentTestAnalytics } from "@/components/TestAnalyticsChart";
+import { QRCodeScanner } from "@/components/QRCodeScanner";
+import { StudentComparisonChart } from "@/components/StudentComparisonChart";
 
 interface Student {
   id: string;
@@ -88,9 +92,11 @@ const ParentPortal = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [tests, setTests] = useState<Test[]>([]);
   const [testResults, setTestResults] = useState<TestResult[]>([]);
+  const [allClassResults, setAllClassResults] = useState<TestResult[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
     // Check if there's a stored access code
@@ -191,6 +197,19 @@ const ParentPortal = () => {
       if (resultsData) {
         setTestResults(resultsData as TestResult[]);
       }
+
+      // Fetch all test results for the class (for comparison)
+      const classTestIds = testsData?.map(t => t.id) || [];
+      if (classTestIds.length > 0) {
+        const { data: allResultsData } = await supabase
+          .from("test_results")
+          .select("*")
+          .in("test_id", classTestIds);
+        
+        if (allResultsData) {
+          setAllClassResults(allResultsData as TestResult[]);
+        }
+      }
     } catch (error) {
       toast({
         title: "Error logging in",
@@ -262,9 +281,21 @@ const ParentPortal = () => {
     });
   };
 
+  const handleQRScan = (code: string) => {
+    setShowScanner(false);
+    setAccessCode(code.toUpperCase());
+    handleLogin(code.toUpperCase());
+  };
+
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
+        {showScanner && (
+          <QRCodeScanner 
+            onScan={handleQRScan}
+            onClose={() => setShowScanner(false)}
+          />
+        )}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -277,7 +308,7 @@ const ParentPortal = () => {
               </div>
               <CardTitle className="text-2xl">Parent Portal</CardTitle>
               <p className="text-muted-foreground text-sm">
-                Enter your child's access code to view announcements and communicate with teachers
+                Enter your child's access code or scan the QR code
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -296,6 +327,22 @@ const ParentPortal = () => {
                 disabled={isLoading}
               >
                 {isLoading ? "Verifying..." : "Access Portal"}
+              </Button>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">Or</span>
+                </div>
+              </div>
+              <Button 
+                variant="outline"
+                className="w-full" 
+                onClick={() => setShowScanner(true)}
+              >
+                <ScanLine className="w-4 h-4 mr-2" />
+                Scan QR Code
               </Button>
               <p className="text-xs text-center text-muted-foreground">
                 Access code was provided when your child was registered
@@ -360,14 +407,18 @@ const ParentPortal = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="tests" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="tests" className="flex items-center gap-2">
               <ClipboardList className="w-4 h-4" />
               <span className="hidden sm:inline">Tests</span>
             </TabsTrigger>
+            <TabsTrigger value="comparison" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">Compare</span>
+            </TabsTrigger>
             <TabsTrigger value="announcements" className="flex items-center gap-2">
               <Bell className="w-4 h-4" />
-              <span className="hidden sm:inline">Announcements</span>
+              <span className="hidden sm:inline">Announce</span>
             </TabsTrigger>
             <TabsTrigger value="concerns" className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4" />
@@ -375,7 +426,7 @@ const ParentPortal = () => {
             </TabsTrigger>
             <TabsTrigger value="messages" className="flex items-center gap-2">
               <MessageSquare className="w-4 h-4" />
-              <span className="hidden sm:inline">Messages</span>
+              <span className="hidden sm:inline">Chat</span>
             </TabsTrigger>
           </TabsList>
 
@@ -526,6 +577,19 @@ const ParentPortal = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Comparison Tab */}
+          <TabsContent value="comparison" className="space-y-6">
+            {student && (
+              <StudentComparisonChart
+                studentId={student.id}
+                studentName={student.name}
+                studentClass={student.class}
+                tests={tests}
+                testResults={allClassResults}
+              />
+            )}
           </TabsContent>
 
           {/* Announcements Tab */}
