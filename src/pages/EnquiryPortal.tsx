@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.jpg";
+import EnquirySuccessAnimation from "@/components/EnquirySuccessAnimation";
 
 const CLASSES = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"];
 const BOARDS = ["CBSE", "ICSE", "State Board", "IB", "IGCSE", "Other"];
@@ -21,6 +22,7 @@ const EnquiryPortal = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -103,30 +105,8 @@ const EnquiryPortal = () => {
 
       if (error) throw error;
 
-      toast({
-        title: "Enquiry Submitted Successfully! 🎉",
-        description: "The enquiry has been recorded.",
-      });
-
-      // Reset form
-      setFormData({
-        name: "",
-        class: "",
-        board: "",
-        date_of_birth: "",
-        gender: "",
-        parent_name: "",
-        parent_phone: "",
-        parent_email: "",
-        parent_occupation: "",
-        previous_school: "",
-        previous_percentage: "",
-        strong_subjects: [],
-        weak_subjects: [],
-        academic_notes: "",
-        source: "",
-        notes: "",
-      });
+      // Show success animation instead of just toast
+      setShowSuccessAnimation(true);
     } catch (error) {
       console.error("Error submitting enquiry:", error);
       toast({
@@ -139,14 +119,42 @@ const EnquiryPortal = () => {
     }
   };
 
+  const handleCloseSuccessAnimation = () => {
+    setShowSuccessAnimation(false);
+    // Reset form after animation closes
+    setFormData({
+      name: "",
+      class: "",
+      board: "",
+      date_of_birth: "",
+      gender: "",
+      parent_name: "",
+      parent_phone: "",
+      parent_email: "",
+      parent_occupation: "",
+      previous_school: "",
+      previous_percentage: "",
+      strong_subjects: [],
+      weak_subjects: [],
+      academic_notes: "",
+      source: "",
+      notes: "",
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
-      {/* Header */}
-      <header className="bg-card border-b sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
-              <ArrowLeft className="w-5 h-5" />
+    <>
+      <EnquirySuccessAnimation
+        isVisible={showSuccessAnimation}
+        onClose={handleCloseSuccessAnimation}
+      />
+      <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
+        {/* Header */}
+        <header className="bg-card border-b sticky top-0 z-10">
+          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
+                <ArrowLeft className="w-5 h-5" />
             </Button>
             <div className="flex items-center gap-3">
               <img src={logo} alt="Logo" className="w-10 h-10 rounded-full object-cover" />
@@ -447,6 +455,7 @@ const EnquiryPortal = () => {
         </motion.div>
       </main>
     </div>
+    </>
   );
 };
 
