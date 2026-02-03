@@ -38,7 +38,8 @@ import {
   QrCode,
   Download,
   List,
-  CalendarDays
+  CalendarDays,
+  UserPlus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,6 +81,7 @@ import { TestAnalyticsChart } from "@/components/TestAnalyticsChart";
 import { PerformanceComment, PerformanceBadge, getPerformanceComment } from "@/components/PerformanceComment";
 import { AccessCodeQR } from "@/components/AccessCodeQR";
 import { ClassLogsCalendar } from "@/components/ClassLogsCalendar";
+import { EnquiryManagement } from "@/components/admin/EnquiryManagement";
 
 interface ContactSubmission {
   id: string;
@@ -200,6 +202,31 @@ interface TestResult {
   created_at: string;
 }
 
+interface Enquiry {
+  id: string;
+  name: string;
+  class: string;
+  board: string;
+  date_of_birth: string | null;
+  gender: string;
+  parent_name: string;
+  parent_phone: string;
+  parent_email: string | null;
+  parent_occupation: string | null;
+  previous_school: string | null;
+  previous_percentage: number | null;
+  strong_subjects: string[] | null;
+  weak_subjects: string[] | null;
+  academic_notes: string | null;
+  source: string | null;
+  status: string;
+  followup_date: string | null;
+  notes: string | null;
+  created_at: string;
+  promoted_at: string | null;
+  promoted_student_id: string | null;
+}
+
 const UPI_ID = "jadhavfivestar-3@okicici";
 
 const MONTHS = [
@@ -224,6 +251,7 @@ const AdminDashboard = () => {
   const [studentComplaints, setStudentComplaints] = useState<StudentComplaint[]>([]);
   const [tests, setTests] = useState<Test[]>([]);
   const [testResults, setTestResults] = useState<TestResult[]>([]);
+  const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [visitStats, setVisitStats] = useState<VisitStats>({ total: 0, today: 0, thisWeek: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
@@ -427,6 +455,16 @@ const AdminDashboard = () => {
 
       if (testResultsData) {
         setTestResults(testResultsData as TestResult[]);
+      }
+
+      // Fetch enquiries
+      const { data: enquiriesData } = await supabase
+        .from("enquiries")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (enquiriesData) {
+        setEnquiries(enquiriesData as Enquiry[]);
       }
 
       // Fetch visit stats
@@ -1339,7 +1377,7 @@ const AdminDashboard = () => {
         )}
 
         {/* Tabs for different sections */}
-        <Tabs defaultValue="enquiries" className="space-y-6">
+        <Tabs defaultValue="walk-in-enquiries" className="space-y-6">
           {/* Tab Categories */}
           <div className="space-y-3">
             {/* Tab Group Labels */}
@@ -1347,9 +1385,16 @@ const AdminDashboard = () => {
               {/* People Management */}
               <div className="flex items-center gap-1 px-2 py-1 bg-blue-500/10 rounded-lg">
                 <span className="text-[10px] font-medium text-blue-600 uppercase tracking-wider mr-1 hidden md:inline">People</span>
+                <TabsTrigger value="walk-in-enquiries" className="gap-1.5 data-[state=active]:bg-blue-500 data-[state=active]:text-white">
+                  <UserPlus className="w-4 h-4" />
+                  <span className="hidden sm:inline">Walk-ins</span>
+                  {enquiries.filter(e => e.status === "pending").length > 0 && (
+                    <Badge variant="destructive" className="ml-1 h-5 px-1.5">{enquiries.filter(e => e.status === "pending").length}</Badge>
+                  )}
+                </TabsTrigger>
                 <TabsTrigger value="enquiries" className="gap-1.5 data-[state=active]:bg-blue-500 data-[state=active]:text-white">
                   <FileText className="w-4 h-4" />
-                  <span className="hidden sm:inline">Enquiries</span>
+                  <span className="hidden sm:inline">Form</span>
                   {unreadCount > 0 && (
                     <Badge variant="destructive" className="ml-1 h-5 px-1.5">{unreadCount}</Badge>
                   )}
@@ -1432,6 +1477,23 @@ const AdminDashboard = () => {
           </div>
 
           {/* Enquiries Tab */}
+          {/* Walk-in Enquiries Tab */}
+          <TabsContent value="walk-in-enquiries">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <div className="mb-4 flex justify-end">
+                <Button onClick={() => window.open("/enquiry", "_blank")}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add New Enquiry
+                </Button>
+              </div>
+              <EnquiryManagement enquiries={enquiries} onRefresh={fetchData} />
+            </motion.div>
+          </TabsContent>
+
+          {/* Form Submissions Tab */}
           <TabsContent value="enquiries">
             <motion.div
               initial={{ opacity: 0, y: 20 }}

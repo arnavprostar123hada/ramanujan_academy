@@ -109,6 +109,92 @@ export type Database = {
         }
         Relationships: []
       }
+      enquiries: {
+        Row: {
+          academic_notes: string | null
+          board: string
+          class: string
+          created_at: string
+          date_of_birth: string | null
+          followup_date: string | null
+          gender: string
+          id: string
+          name: string
+          notes: string | null
+          parent_email: string | null
+          parent_name: string
+          parent_occupation: string | null
+          parent_phone: string
+          previous_percentage: number | null
+          previous_school: string | null
+          promoted_at: string | null
+          promoted_student_id: string | null
+          source: string | null
+          status: string
+          strong_subjects: string[] | null
+          updated_at: string
+          weak_subjects: string[] | null
+        }
+        Insert: {
+          academic_notes?: string | null
+          board: string
+          class: string
+          created_at?: string
+          date_of_birth?: string | null
+          followup_date?: string | null
+          gender: string
+          id?: string
+          name: string
+          notes?: string | null
+          parent_email?: string | null
+          parent_name: string
+          parent_occupation?: string | null
+          parent_phone: string
+          previous_percentage?: number | null
+          previous_school?: string | null
+          promoted_at?: string | null
+          promoted_student_id?: string | null
+          source?: string | null
+          status?: string
+          strong_subjects?: string[] | null
+          updated_at?: string
+          weak_subjects?: string[] | null
+        }
+        Update: {
+          academic_notes?: string | null
+          board?: string
+          class?: string
+          created_at?: string
+          date_of_birth?: string | null
+          followup_date?: string | null
+          gender?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          parent_email?: string | null
+          parent_name?: string
+          parent_occupation?: string | null
+          parent_phone?: string
+          previous_percentage?: number | null
+          previous_school?: string | null
+          promoted_at?: string | null
+          promoted_student_id?: string | null
+          source?: string | null
+          status?: string
+          strong_subjects?: string[] | null
+          updated_at?: string
+          weak_subjects?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enquiries_promoted_student_id_fkey"
+            columns: ["promoted_student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       page_visits: {
         Row: {
           id: string
