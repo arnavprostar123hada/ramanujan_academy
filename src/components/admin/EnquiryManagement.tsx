@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -271,30 +271,28 @@ export const EnquiryManagement = ({ enquiries, onRefresh }: EnquiryManagementPro
 
         {/* Filters */}
         <div className="flex flex-wrap gap-3 mt-4">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="followup">Follow-up</SelectItem>
-              <SelectItem value="promoted">Promoted</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-            </SelectContent>
-          </Select>
+          <NativeSelect
+            value={statusFilter}
+            onValueChange={setStatusFilter}
+            className="w-[150px]"
+            options={[
+              { value: "all", label: "All Status" },
+              { value: "pending", label: "Pending" },
+              { value: "followup", label: "Follow-up" },
+              { value: "promoted", label: "Promoted" },
+              { value: "rejected", label: "Rejected" },
+            ]}
+          />
 
-          <Select value={classFilter} onValueChange={setClassFilter}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Filter by class" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Classes</SelectItem>
-              {CLASSES.map(cls => (
-                <SelectItem key={cls} value={cls}>{cls}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <NativeSelect
+            value={classFilter}
+            onValueChange={setClassFilter}
+            className="w-[150px]"
+            options={[
+              { value: "all", label: "All Classes" },
+              ...CLASSES.map((cls) => ({ value: cls, label: cls })),
+            ]}
+          />
         </div>
       </CardHeader>
       
@@ -486,19 +484,16 @@ export const EnquiryManagement = ({ enquiries, onRefresh }: EnquiryManagementPro
                           <div className="flex flex-wrap gap-2 pt-2 border-t">
                             {enquiry.status !== "promoted" && (
                               <>
-                                <Select
+                                <NativeSelect
                                   value={enquiry.status}
                                   onValueChange={(value) => handleStatusChange(enquiry.id, value)}
-                                >
-                                  <SelectTrigger className="w-[140px]">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="pending">Pending</SelectItem>
-                                    <SelectItem value="followup">Follow-up</SelectItem>
-                                    <SelectItem value="rejected">Rejected</SelectItem>
-                                  </SelectContent>
-                                </Select>
+                                  className="w-[140px]"
+                                  options={[
+                                    { value: "pending", label: "Pending" },
+                                    { value: "followup", label: "Follow-up" },
+                                    { value: "rejected", label: "Rejected" },
+                                  ]}
+                                />
 
                                 {/* Follow-up Date Picker */}
                                 <Popover>

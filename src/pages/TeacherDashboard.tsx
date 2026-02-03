@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -565,16 +565,15 @@ const TeacherDashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Select Class</Label>
-                    <Select value={selectedClass} onValueChange={setSelectedClass}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose a class" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(teacher?.assigned_classes?.length ? teacher.assigned_classes : CLASS_OPTIONS).map((cls) => (
-                          <SelectItem key={cls} value={cls}>{cls} Class</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <NativeSelect
+                      value={selectedClass}
+                      onValueChange={setSelectedClass}
+                      placeholder="Choose a class"
+                      options={(teacher?.assigned_classes?.length ? teacher.assigned_classes : CLASS_OPTIONS).map((cls) => ({
+                        value: cls,
+                        label: `${cls} Class`,
+                      }))}
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -700,32 +699,29 @@ const TeacherDashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Filter by Class</Label>
-                    <Select value={selectedClass} onValueChange={setSelectedClass}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="All classes" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Classes</SelectItem>
-                        {(teacher?.assigned_classes?.length ? teacher.assigned_classes : CLASS_OPTIONS).map((cls) => (
-                          <SelectItem key={cls} value={cls}>{cls} Class</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <NativeSelect
+                      value={selectedClass}
+                      onValueChange={setSelectedClass}
+                      options={[
+                        { value: "all", label: "All Classes" },
+                        ...(teacher?.assigned_classes?.length ? teacher.assigned_classes : CLASS_OPTIONS).map((cls) => ({
+                          value: cls,
+                          label: `${cls} Class`,
+                        })),
+                      ]}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Select Student</Label>
-                    <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose a student" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {filteredStudents.map((student) => (
-                          <SelectItem key={student.id} value={student.id}>
-                            {student.name} ({student.class})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <NativeSelect
+                      value={selectedStudent}
+                      onValueChange={setSelectedStudent}
+                      placeholder="Choose a student"
+                      options={filteredStudents.map((student) => ({
+                        value: student.id,
+                        label: `${student.name} (${student.class})`,
+                      }))}
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -819,16 +815,16 @@ const TeacherDashboard = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Class *</Label>
-                <Select value={newTest.class} onValueChange={(v) => setNewTest({ ...newTest, class: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select class" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(teacher?.assigned_classes?.length ? teacher.assigned_classes : CLASS_OPTIONS).map((cls) => (
-                      <SelectItem key={cls} value={cls}>{cls} Class</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <NativeSelect
+                  value={newTest.class}
+                  onValueChange={(v) => setNewTest({ ...newTest, class: v })}
+                  placeholder="Select class"
+                  options={(teacher?.assigned_classes?.length ? teacher.assigned_classes : CLASS_OPTIONS).map((cls) => ({
+                    value: cls,
+                    label: `${cls} Class`,
+                  }))}
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label>Test Date *</Label>

@@ -65,13 +65,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
@@ -1624,19 +1618,14 @@ const AdminDashboard = () => {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="class">Class *</Label>
-                          <Select
+                          <NativeSelect
+                            id="class"
                             value={newStudent.class}
                             onValueChange={(value) => setNewStudent({ ...newStudent, class: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select class" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {CLASSES.map((cls) => (
-                                <SelectItem key={cls} value={cls}>{cls}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            placeholder="Select class"
+                            options={CLASSES.map((cls) => ({ value: cls, label: cls }))}
+                            required
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="email">Email (Optional)</Label>
@@ -2431,28 +2420,24 @@ const AdminDashboard = () => {
                           Calendar
                         </Button>
                       </div>
-                      <Select value={classLogsFilter} onValueChange={setClassLogsFilter}>
-                        <SelectTrigger className="w-[140px]">
-                          <SelectValue placeholder="Filter Class" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Classes</SelectItem>
-                          {CLASSES.map((cls) => (
-                            <SelectItem key={cls} value={cls}>Class {cls}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select value={classLogsTeacherFilter} onValueChange={setClassLogsTeacherFilter}>
-                        <SelectTrigger className="w-[160px]">
-                          <SelectValue placeholder="Filter Teacher" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Teachers</SelectItem>
-                          {teachers.map((teacher) => (
-                            <SelectItem key={teacher.id} value={teacher.id}>{teacher.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <NativeSelect
+                        value={classLogsFilter}
+                        onValueChange={setClassLogsFilter}
+                        className="w-[140px]"
+                        options={[
+                          { value: "all", label: "All Classes" },
+                          ...CLASSES.map((cls) => ({ value: cls, label: `Class ${cls}` })),
+                        ]}
+                      />
+                      <NativeSelect
+                        value={classLogsTeacherFilter}
+                        onValueChange={setClassLogsTeacherFilter}
+                        className="w-[160px]"
+                        options={[
+                          { value: "all", label: "All Teachers" },
+                          ...teachers.map((t) => ({ value: t.id, label: t.name })),
+                        ]}
+                      />
                     </div>
                   </div>
                 </CardHeader>
@@ -3019,19 +3004,14 @@ const AdminDashboard = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-class">Class *</Label>
-                <Select
+                <NativeSelect
+                  id="edit-class"
                   value={editStudent.class}
                   onValueChange={(value) => setEditStudent({ ...editStudent, class: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select class" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CLASSES.map((cls) => (
-                      <SelectItem key={cls} value={cls}>{cls}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Select class"
+                  options={CLASSES.map((cls) => ({ value: cls, label: cls }))}
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-email">Email (Optional)</Label>

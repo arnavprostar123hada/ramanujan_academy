@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -206,53 +206,41 @@ const EnquiryPortal = () => {
 
                     <div className="space-y-2">
                       <Label htmlFor="class">Standard/Class *</Label>
-                      <Select
+                      <NativeSelect
+                        id="class"
                         value={formData.class}
                         onValueChange={(value) => setFormData({ ...formData, class: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select class" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {CLASSES.map((cls) => (
-                            <SelectItem key={cls} value={cls}>{cls}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select class"
+                        options={CLASSES.map((cls) => ({ value: cls, label: cls }))}
+                        required
+                      />
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="board">Board *</Label>
-                      <Select
+                      <NativeSelect
+                        id="board"
                         value={formData.board}
                         onValueChange={(value) => setFormData({ ...formData, board: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select board" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {BOARDS.map((board) => (
-                            <SelectItem key={board} value={board}>{board}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select board"
+                        options={BOARDS.map((b) => ({ value: b, label: b }))}
+                        required
+                      />
                     </div>
 
                     <div className="space-y-2">
                       <Label>Gender *</Label>
-                      <Select
+                      <NativeSelect
                         value={formData.gender}
                         onValueChange={(value) => setFormData({ ...formData, gender: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select gender" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="male">Male</SelectItem>
-                          <SelectItem value="female">Female</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select gender"
+                        options={[
+                          { value: "male", label: "Male" },
+                          { value: "female", label: "Female" },
+                          { value: "other", label: "Other" },
+                        ]}
+                        required
+                      />
                     </div>
 
                     <div className="space-y-2">

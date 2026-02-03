@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { NativeSelect } from "@/components/ui/native-select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
@@ -237,21 +237,17 @@ const ContactForm = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="class">Class Interested In *</Label>
-                <Select
+                <NativeSelect
+                  id="class"
                   value={formData.classInterested}
                   onValueChange={(value) => setFormData({ ...formData, classInterested: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a class" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {["5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"].map((cls) => (
-                      <SelectItem key={cls} value={cls}>
-                        Class {cls}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Select a class"
+                  options={["5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"].map((cls) => ({
+                    value: cls,
+                    label: `Class ${cls}`,
+                  }))}
+                  required
+                />
               </div>
 
               <div className="space-y-2">
