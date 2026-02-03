@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { format } from "date-fns";
 import { 
   UserPlus, 
   Phone, 
-  Mail, 
   Calendar, 
-  GraduationCap, 
   ChevronDown, 
   ChevronUp,
   CheckCircle,
@@ -14,19 +13,13 @@ import {
   ArrowUpRight,
   BookOpen,
   User,
-  Building
+  Trash2,
+  CalendarIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,8 +30,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
 interface Enquiry {
   id: string;
@@ -92,8 +92,10 @@ export const EnquiryManagement = ({ enquiries, onRefresh }: EnquiryManagementPro
   const [classFilter, setClassFilter] = useState<string>("all");
   const [expandedEnquiry, setExpandedEnquiry] = useState<string | null>(null);
   const [promoteDialogOpen, setPromoteDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedEnquiry, setSelectedEnquiry] = useState<Enquiry | null>(null);
   const [isPromoting, setIsPromoting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const filteredEnquiries = enquiries.filter(e => {
     if (statusFilter !== "all" && e.status !== statusFilter) return false;
@@ -133,6 +135,59 @@ export const EnquiryManagement = ({ enquiries, onRefresh }: EnquiryManagementPro
         title: "Error updating status",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleFollowupDateChange = async (enquiryId: string, date: Date | undefined) => {
+    try {
+      const { error } = await supabase
+        .from("enquiries")
+        .update({ 
+          followup_date: date ? format(date, "yyyy-MM-dd") : null,
+          status: date ? "followup" : "pending"
+        })
+        .eq("id", enquiryId);
+
+      if (error) throw error;
+
+      toast({ title: "Follow-up date updated" });
+      onRefresh();
+    } catch (error) {
+      toast({
+        title: "Error updating follow-up date",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteEnquiry = async () => {
+    if (!selectedEnquiry) return;
+    setIsDeleting(true);
+
+    try {
+      const { error } = await supabase
+        .from("enquiries")
+        .delete()
+        .eq("id", selectedEnquiry.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Enquiry Deleted",
+        description: `${selectedEnquiry.name}'s enquiry has been removed.`,
+      });
+
+      setDeleteDialogOpen(false);
+      setSelectedEnquiry(null);
+      onRefresh();
+    } catch (error) {
+      console.error("Error deleting enquiry:", error);
+      toast({
+        title: "Error deleting enquiry",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -445,6 +500,34 @@ export const EnquiryManagement = ({ enquiries, onRefresh }: EnquiryManagementPro
                                   </SelectContent>
                                 </Select>
 
+                                {/* Follow-up Date Picker */}
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      className={cn(
+                                        "w-[180px] justify-start text-left font-normal",
+                                        !enquiry.followup_date && "text-muted-foreground"
+                                      )}
+                                    >
+                                      <CalendarIcon className="mr-2 h-4 w-4" />
+                                      {enquiry.followup_date 
+                                        ? format(new Date(enquiry.followup_date), "PPP") 
+                                        : "Set follow-up"}
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="start">
+                                    <CalendarComponent
+                                      mode="single"
+                                      selected={enquiry.followup_date ? new Date(enquiry.followup_date) : undefined}
+                                      onSelect={(date) => handleFollowupDateChange(enquiry.id, date)}
+                                      disabled={(date) => date < new Date()}
+                                      initialFocus
+                                      className="p-3 pointer-events-auto"
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+
                                 <Button
                                   onClick={() => {
                                     setSelectedEnquiry(enquiry);
@@ -471,6 +554,20 @@ export const EnquiryManagement = ({ enquiries, onRefresh }: EnquiryManagementPro
                                 WhatsApp
                               </Button>
                             </a>
+
+                            {/* Delete Button */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => {
+                                setSelectedEnquiry(enquiry);
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </Button>
                           </div>
                         </div>
                       </motion.div>
@@ -501,6 +598,29 @@ export const EnquiryManagement = ({ enquiries, onRefresh }: EnquiryManagementPro
               className="bg-green-600 hover:bg-green-700"
             >
               {isPromoting ? "Promoting..." : "Promote"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Enquiry</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{selectedEnquiry?.name}</strong>'s enquiry?
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteEnquiry}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {isDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
