@@ -414,6 +414,103 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_attendance: {
+        Row: {
+          attendance_date: string
+          created_at: string
+          id: string
+          status: string
+          teacher_id: string
+        }
+        Insert: {
+          attendance_date: string
+          created_at?: string
+          id?: string
+          status?: string
+          teacher_id: string
+        }
+        Update: {
+          attendance_date?: string
+          created_at?: string
+          id?: string
+          status?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_attendance_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_salary_records: {
+        Row: {
+          base_salary: number
+          bonus: number
+          calculated_salary: number
+          created_at: string
+          days_absent: number
+          days_present: number
+          deductions: number
+          final_salary: number
+          half_days: number
+          id: string
+          month: string
+          notes: string | null
+          paid_at: string | null
+          teacher_id: string
+          total_days: number
+          year: number
+        }
+        Insert: {
+          base_salary?: number
+          bonus?: number
+          calculated_salary?: number
+          created_at?: string
+          days_absent?: number
+          days_present?: number
+          deductions?: number
+          final_salary?: number
+          half_days?: number
+          id?: string
+          month: string
+          notes?: string | null
+          paid_at?: string | null
+          teacher_id: string
+          total_days?: number
+          year: number
+        }
+        Update: {
+          base_salary?: number
+          bonus?: number
+          calculated_salary?: number
+          created_at?: string
+          days_absent?: number
+          days_present?: number
+          deductions?: number
+          final_salary?: number
+          half_days?: number
+          id?: string
+          month?: string
+          notes?: string | null
+          paid_at?: string | null
+          teacher_id?: string
+          total_days?: number
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_salary_records_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teachers: {
         Row: {
           access_code: string
@@ -421,6 +518,7 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          monthly_salary: number | null
           name: string
           phone: string
           updated_at: string
@@ -431,6 +529,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          monthly_salary?: number | null
           name: string
           phone: string
           updated_at?: string
@@ -441,6 +540,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          monthly_salary?: number | null
           name?: string
           phone?: string
           updated_at?: string
