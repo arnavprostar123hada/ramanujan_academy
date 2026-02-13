@@ -256,6 +256,7 @@ const AdminDashboard = () => {
   const [isAddConcernOpen, setIsAddConcernOpen] = useState(false);
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
   const [isAddTeacherOpen, setIsAddTeacherOpen] = useState(false);
+  const [isEditTeacherOpen, setIsEditTeacherOpen] = useState(false);
   const [isTeacherCodeDialogOpen, setIsTeacherCodeDialogOpen] = useState(false);
   const [isTestDetailsOpen, setIsTestDetailsOpen] = useState(false);
   const [isEditTestOpen, setIsEditTestOpen] = useState(false);
@@ -307,6 +308,14 @@ const AdminDashboard = () => {
 
   // New teacher form state
   const [newTeacher, setNewTeacher] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    assigned_classes: [] as string[],
+  });
+
+  // Edit teacher form state
+  const [editTeacher, setEditTeacher] = useState({
     name: "",
     email: "",
     phone: "",
@@ -704,6 +713,47 @@ const AdminDashboard = () => {
     } catch (error) {
       toast({
         title: "Error adding teacher",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditTeacher = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTeacher) return;
+
+    if (!editTeacher.name || !editTeacher.phone) {
+      toast({
+        title: "Missing fields",
+        description: "Please fill name and phone",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("teachers")
+        .update({
+          name: editTeacher.name,
+          email: editTeacher.email || null,
+          phone: editTeacher.phone,
+          assigned_classes: editTeacher.assigned_classes,
+        })
+        .eq("id", selectedTeacher.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const updatedTeacher = data as Teacher;
+      setTeachers(teachers.map(t => t.id === updatedTeacher.id ? updatedTeacher : t));
+      setIsEditTeacherOpen(false);
+      setSelectedTeacher(null);
+      toast({ title: "Teacher updated successfully" });
+    } catch (error) {
+      toast({
+        title: "Error updating teacher",
         variant: "destructive",
       });
     }
@@ -2361,6 +2411,23 @@ const AdminDashboard = () => {
                                 size="sm"
                                 onClick={() => {
                                   setSelectedTeacher(teacher);
+                                  setEditTeacher({
+                                    name: teacher.name,
+                                    email: teacher.email || "",
+                                    phone: teacher.phone,
+                                    assigned_classes: teacher.assigned_classes || [],
+                                  });
+                                  setIsEditTeacherOpen(true);
+                                }}
+                              >
+                                <Pencil className="w-4 h-4 mr-1" />
+                                Edit
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedTeacher(teacher);
                                   setIsTeacherCodeDialogOpen(true);
                                 }}
                               >
@@ -3211,6 +3278,82 @@ const AdminDashboard = () => {
                 </Button>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Teacher Dialog */}
+        <Dialog open={isEditTeacherOpen} onOpenChange={setIsEditTeacherOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Teacher</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleEditTeacher} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-teacher-name">Teacher Name *</Label>
+                <Input
+                  id="edit-teacher-name"
+                  value={editTeacher.name}
+                  onChange={(e) => setEditTeacher({ ...editTeacher, name: e.target.value })}
+                  placeholder="Enter teacher name"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-teacher-phone">Phone Number *</Label>
+                <Input
+                  id="edit-teacher-phone"
+                  value={editTeacher.phone}
+                  onChange={(e) => setEditTeacher({ ...editTeacher, phone: e.target.value })}
+                  placeholder="Enter phone number"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-teacher-email">Email (Optional)</Label>
+                <Input
+                  id="edit-teacher-email"
+                  type="email"
+                  value={editTeacher.email}
+                  onChange={(e) => setEditTeacher({ ...editTeacher, email: e.target.value })}
+                  placeholder="Enter email"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Assigned Classes</Label>
+                <div className="flex flex-wrap gap-2">
+                  {CLASSES.map((cls) => (
+                    <div key={cls} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`edit-teacher-class-${cls}`}
+                        checked={editTeacher.assigned_classes.includes(cls)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setEditTeacher({
+                              ...editTeacher,
+                              assigned_classes: [...editTeacher.assigned_classes, cls]
+                            });
+                          } else {
+                            setEditTeacher({
+                              ...editTeacher,
+                              assigned_classes: editTeacher.assigned_classes.filter(c => c !== cls)
+                            });
+                          }
+                        }}
+                      />
+                      <label htmlFor={`edit-teacher-class-${cls}`} className="text-sm">{cls}</label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button type="button" variant="outline" onClick={() => setIsEditTeacherOpen(false)} className="flex-1">
+                  Cancel
+                </Button>
+                <Button type="submit" className="flex-1">
+                  Save Changes
+                </Button>
+              </div>
+            </form>
           </DialogContent>
         </Dialog>
 
