@@ -76,6 +76,7 @@ import { PerformanceComment, PerformanceBadge, getPerformanceComment } from "@/c
 import { AccessCodeQR } from "@/components/AccessCodeQR";
 import { ClassLogsCalendar } from "@/components/ClassLogsCalendar";
 import { EnquiryManagement } from "@/components/admin/EnquiryManagement";
+import { TeacherSalaryManagement } from "@/components/admin/TeacherSalaryManagement";
 
 interface ContactSubmission {
   id: string;
@@ -1486,6 +1487,10 @@ const AdminDashboard = () => {
                   <IndianRupee className="w-4 h-4" />
                   <span className="hidden sm:inline">Payments</span>
                 </TabsTrigger>
+                <TabsTrigger value="teacher-salary" className="gap-1.5 data-[state=active]:bg-amber-500 data-[state=active]:text-white">
+                  <UserCheck className="w-4 h-4" />
+                  <span className="hidden sm:inline">Salary</span>
+                </TabsTrigger>
               </div>
 
               {/* Communication */}
@@ -2607,6 +2612,16 @@ const AdminDashboard = () => {
                   )}
                 </CardContent>
               </Card>
+            </motion.div>
+          </TabsContent>
+
+          {/* Teacher Salary Tab */}
+          <TabsContent value="teacher-salary">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <TeacherSalaryManagement teachers={teachers} onRefresh={fetchData} />
             </motion.div>
           </TabsContent>
 
