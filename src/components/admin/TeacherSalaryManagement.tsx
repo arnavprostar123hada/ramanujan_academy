@@ -200,9 +200,9 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
     const halfDays = monthAttendance.filter((a) => a.status === "half_day").length;
     const absent = monthAttendance.filter((a) => a.status === "absent").length;
     const baseSalary = (calcTeacher as any).monthly_salary || 0;
-    const effectiveDays = present + halfDays * 0.5;
+    const totalWorkingDays = present + halfDays * 0.5;
     const perDay = daysInMonth > 0 ? baseSalary / daysInMonth : 0;
-    const calculated = perDay * effectiveDays;
+    const calculated = totalWorkingDays * perDay;
     const bonus = parseFloat(calcBonus) || 0;
     const deductions = parseFloat(calcDeductions) || 0;
     const finalSalary = calculated + bonus - deductions;
@@ -214,7 +214,7 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
       daysAbsent: absent,
       baseSalary,
       perDay: Math.round(perDay),
-      effectiveDays,
+      totalWorkingDays,
       calculated: Math.round(calculated),
       bonus,
       deductions,
@@ -624,7 +624,7 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
 
       {/* Salary Calculation Dialog */}
       <Dialog open={isCalcDialogOpen} onOpenChange={setIsCalcDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Calculate Salary — {calcTeacher?.name}</DialogTitle>
             <DialogDescription>
@@ -677,8 +677,8 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
                     <span className="font-medium">{calcData.totalDays}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Effective Working Days</span>
-                    <span className="font-medium">{calcData.effectiveDays}</span>
+                    <span className="text-muted-foreground">Total Working Days</span>
+                    <span className="font-medium">{calcData.totalWorkingDays}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Base Monthly Salary</span>
@@ -689,7 +689,7 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
                     <span className="font-medium">₹{calcData.perDay.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between border-t pt-1">
-                    <span className="text-muted-foreground">Calculated (Days × Rate)</span>
+                    <span className="text-muted-foreground">Total (Working Days × Per Day)</span>
                     <span className="font-medium">₹{calcData.calculated.toLocaleString()}</span>
                   </div>
                 </div>
