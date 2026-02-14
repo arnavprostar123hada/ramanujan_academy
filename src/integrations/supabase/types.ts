@@ -417,22 +417,31 @@ export type Database = {
       teacher_attendance: {
         Row: {
           attendance_date: string
+          check_in_time: string | null
+          check_out_time: string | null
           created_at: string
           id: string
+          is_late: boolean | null
           status: string
           teacher_id: string
         }
         Insert: {
           attendance_date: string
+          check_in_time?: string | null
+          check_out_time?: string | null
           created_at?: string
           id?: string
+          is_late?: boolean | null
           status?: string
           teacher_id: string
         }
         Update: {
           attendance_date?: string
+          check_in_time?: string | null
+          check_out_time?: string | null
           created_at?: string
           id?: string
+          is_late?: boolean | null
           status?: string
           teacher_id?: string
         }
@@ -517,6 +526,8 @@ export type Database = {
           assigned_classes: string[] | null
           created_at: string
           email: string | null
+          expected_check_in: string | null
+          expected_check_out: string | null
           id: string
           monthly_salary: number | null
           name: string
@@ -528,6 +539,8 @@ export type Database = {
           assigned_classes?: string[] | null
           created_at?: string
           email?: string | null
+          expected_check_in?: string | null
+          expected_check_out?: string | null
           id?: string
           monthly_salary?: number | null
           name: string
@@ -539,6 +552,8 @@ export type Database = {
           assigned_classes?: string[] | null
           created_at?: string
           email?: string | null
+          expected_check_in?: string | null
+          expected_check_out?: string | null
           id?: string
           monthly_salary?: number | null
           name?: string

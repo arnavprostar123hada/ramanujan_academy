@@ -1,10 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
-import { format, getDaysInMonth, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
+import { format, getDaysInMonth } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -27,12 +26,10 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   IndianRupee,
   Calendar,
-  UserCheck,
-  CheckCircle,
-  XCircle,
-  Clock,
   Calculator,
   Pencil,
+  Clock,
+  AlertTriangle,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -45,6 +42,8 @@ interface Teacher {
   assigned_classes: string[];
   created_at: string;
   monthly_salary?: number;
+  expected_check_in?: string;
+  expected_check_out?: string;
 }
 
 interface TeacherAttendance {
@@ -52,6 +51,9 @@ interface TeacherAttendance {
   teacher_id: string;
   attendance_date: string;
   status: string;
+  check_in_time: string | null;
+  check_out_time: string | null;
+  is_late: boolean;
   created_at: string;
 }
 
@@ -97,6 +99,20 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
   const [salaryEditTeacher, setSalaryEditTeacher] = useState<Teacher | null>(null);
   const [salaryAmount, setSalaryAmount] = useState("");
 
+  // Timing edit
+  const [isTimingDialogOpen, setIsTimingDialogOpen] = useState(false);
+  const [timingTeacher, setTimingTeacher] = useState<Teacher | null>(null);
+  const [expectedCheckIn, setExpectedCheckIn] = useState("09:00");
+  const [expectedCheckOut, setExpectedCheckOut] = useState("17:00");
+
+  // Attendance detail dialog
+  const [isAttendanceDetailOpen, setIsAttendanceDetailOpen] = useState(false);
+  const [detailTeacherId, setDetailTeacherId] = useState("");
+  const [detailDate, setDetailDate] = useState("");
+  const [detailCheckIn, setDetailCheckIn] = useState("");
+  const [detailCheckOut, setDetailCheckOut] = useState("");
+  const [detailStatus, setDetailStatus] = useState("present");
+
   // Salary calculation dialog
   const [isCalcDialogOpen, setIsCalcDialogOpen] = useState(false);
   const [calcTeacher, setCalcTeacher] = useState<Teacher | null>(null);
@@ -119,7 +135,7 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
       .from("teacher_attendance")
       .select("*")
       .order("attendance_date", { ascending: false });
-    if (data) setAttendance(data as TeacherAttendance[]);
+    if (data) setAttendance(data as unknown as TeacherAttendance[]);
   };
 
   const fetchSalaryRecords = async () => {
@@ -130,7 +146,6 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
     if (data) setSalaryRecords(data as SalaryRecord[]);
   };
 
-  // Set monthly salary for a teacher
   const handleSetSalary = async () => {
     if (!salaryEditTeacher || !salaryAmount) return;
     try {
@@ -147,45 +162,116 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
     }
   };
 
-  // Mark attendance
-  const handleMarkAttendance = async (teacherId: string, date: string, status: string) => {
+  const handleSetTiming = async () => {
+    if (!timingTeacher) return;
     try {
-      // Upsert
+      const { error } = await supabase
+        .from("teachers")
+        .update({ expected_check_in: expectedCheckIn, expected_check_out: expectedCheckOut } as any)
+        .eq("id", timingTeacher.id);
+      if (error) throw error;
+      toast({ title: `Timing updated for ${timingTeacher.name}` });
+      setIsTimingDialogOpen(false);
+      onRefresh();
+    } catch {
+      toast({ title: "Error setting timing", variant: "destructive" });
+    }
+  };
+
+  // Check if late (more than 15 min after expected)
+  const isLateCheck = (teacherId: string, checkInTime: string): boolean => {
+    const teacher = teachers.find((t) => t.id === teacherId);
+    if (!teacher) return false;
+    const expectedIn = (teacher as any).expected_check_in || "09:00:00";
+    const expectedMinutes = timeToMinutes(expectedIn);
+    const actualMinutes = timeToMinutes(checkInTime);
+    return actualMinutes > expectedMinutes + 15;
+  };
+
+  const timeToMinutes = (time: string): number => {
+    const parts = time.split(":");
+    return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+  };
+
+  // Count late marks for a teacher in a month
+  const getLateCount = (teacherId: string, monthIndex: number, year: number): number => {
+    return attendance.filter(
+      (a) =>
+        a.teacher_id === teacherId &&
+        a.is_late &&
+        new Date(a.attendance_date).getMonth() === monthIndex &&
+        new Date(a.attendance_date).getFullYear() === year
+    ).length;
+  };
+
+  // Save attendance with check-in/out times
+  const handleSaveAttendanceDetail = async () => {
+    if (!detailTeacherId || !detailDate) return;
+    try {
+      const isLate = detailCheckIn ? isLateCheck(detailTeacherId, detailCheckIn) : false;
       const existing = attendance.find(
-        (a) => a.teacher_id === teacherId && a.attendance_date === date
+        (a) => a.teacher_id === detailTeacherId && a.attendance_date === detailDate
       );
+
       if (existing) {
-        if (existing.status === status) {
-          // Remove attendance
-          await supabase.from("teacher_attendance").delete().eq("id", existing.id);
-          setAttendance((prev) => prev.filter((a) => a.id !== existing.id));
-          return;
-        }
         const { data, error } = await supabase
           .from("teacher_attendance")
-          .update({ status })
+          .update({
+            status: detailStatus,
+            check_in_time: detailCheckIn || null,
+            check_out_time: detailCheckOut || null,
+            is_late: isLate,
+          } as any)
           .eq("id", existing.id)
           .select()
           .single();
         if (error) throw error;
         setAttendance((prev) =>
-          prev.map((a) => (a.id === existing.id ? (data as TeacherAttendance) : a))
+          prev.map((a) => (a.id === existing.id ? (data as unknown as TeacherAttendance) : a))
         );
       } else {
         const { data, error } = await supabase
           .from("teacher_attendance")
-          .insert({ teacher_id: teacherId, attendance_date: date, status } as any)
+          .insert({
+            teacher_id: detailTeacherId,
+            attendance_date: detailDate,
+            status: detailStatus,
+            check_in_time: detailCheckIn || null,
+            check_out_time: detailCheckOut || null,
+            is_late: isLate,
+          } as any)
           .select()
           .single();
         if (error) throw error;
-        setAttendance((prev) => [data as TeacherAttendance, ...prev]);
+        setAttendance((prev) => [data as unknown as TeacherAttendance, ...prev]);
       }
+
+      toast({
+        title: `Attendance saved${isLate ? " (Late)" : ""}`,
+        description: isLate ? "Teacher arrived more than 15 min late" : undefined,
+      });
+      setIsAttendanceDetailOpen(false);
     } catch {
-      toast({ title: "Error marking attendance", variant: "destructive" });
+      toast({ title: "Error saving attendance", variant: "destructive" });
     }
   };
 
-  // Calculate salary
+  // Quick toggle (keeps old behavior for fast marking)
+  const handleQuickToggle = (teacherId: string, dateStr: string) => {
+    const teacher = teachers.find((t) => t.id === teacherId);
+    const existing = attendance.find(
+      (a) => a.teacher_id === teacherId && a.attendance_date === dateStr
+    );
+    // Open detail dialog for setting times
+    setDetailTeacherId(teacherId);
+    setDetailDate(dateStr);
+    setDetailCheckIn(existing?.check_in_time?.substring(0, 5) || "");
+    setDetailCheckOut(existing?.check_out_time?.substring(0, 5) || "");
+    setDetailStatus(existing?.status || "present");
+    setIsAttendanceDetailOpen(true);
+  };
+
+  // Salary calculation with late mark deduction (3 lates = 1 absent day)
   const calcData = useMemo(() => {
     if (!calcTeacher) return null;
     const monthIndex = MONTHS.indexOf(calcMonth);
@@ -199,10 +285,14 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
     const present = monthAttendance.filter((a) => a.status === "present").length;
     const halfDays = monthAttendance.filter((a) => a.status === "half_day").length;
     const absent = monthAttendance.filter((a) => a.status === "absent").length;
+    const lateCount = monthAttendance.filter((a) => a.is_late).length;
+    const latePenaltyDays = Math.floor(lateCount / 3); // 3 lates = 1 day deducted
+
     const baseSalary = (calcTeacher as any).monthly_salary || 0;
-    const totalWorkingDays = present + halfDays * 0.5;
+    const totalWorkingDays = present + halfDays * 0.5 - latePenaltyDays;
+    const effectiveWorkingDays = Math.max(0, totalWorkingDays);
     const perDay = daysInMonth > 0 ? baseSalary / daysInMonth : 0;
-    const calculated = totalWorkingDays * perDay;
+    const calculated = effectiveWorkingDays * perDay;
     const bonus = parseFloat(calcBonus) || 0;
     const deductions = parseFloat(calcDeductions) || 0;
     const finalSalary = calculated + bonus - deductions;
@@ -212,9 +302,11 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
       daysPresent: present,
       halfDays,
       daysAbsent: absent,
+      lateCount,
+      latePenaltyDays,
       baseSalary,
       perDay: Math.round(perDay),
-      totalWorkingDays,
+      totalWorkingDays: effectiveWorkingDays,
       calculated: Math.round(calculated),
       bonus,
       deductions,
@@ -253,16 +345,15 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
     }
   };
 
-  // Attendance grid data
   const daysInSelectedMonth = getDaysInMonth(new Date(attendanceYear, attendanceMonth));
   const daysArray = Array.from({ length: daysInSelectedMonth }, (_, i) => i + 1);
 
   const filteredTeachers =
     selectedTeacher === "all" ? teachers : teachers.filter((t) => t.id === selectedTeacher);
 
-  const getAttendanceStatus = (teacherId: string, day: number) => {
+  const getAttendanceForDay = (teacherId: string, day: number): TeacherAttendance | undefined => {
     const dateStr = `${attendanceYear}-${String(attendanceMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    return attendance.find((a) => a.teacher_id === teacherId && a.attendance_date === dateStr)?.status || null;
+    return attendance.find((a) => a.teacher_id === teacherId && a.attendance_date === dateStr);
   };
 
   return (
@@ -292,7 +383,7 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <IndianRupee className="w-5 h-5" />
-                Teacher Salaries
+                Teacher Salaries & Timing
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -300,29 +391,47 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
                 {teachers.map((teacher) => (
                   <div
                     key={teacher.id}
-                    className="flex items-center justify-between p-4 rounded-lg border bg-background"
+                    className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-lg border bg-background"
                   >
-                    <div>
+                    <div className="flex-1 min-w-[180px]">
                       <h3 className="font-semibold">{teacher.name}</h3>
                       <p className="text-sm text-muted-foreground">
-                        Monthly Salary:{" "}
+                        Salary:{" "}
                         <span className="font-bold text-primary">
                           ₹{((teacher as any).monthly_salary || 0).toLocaleString()}
                         </span>
                       </p>
+                      <p className="text-xs text-muted-foreground">
+                        Timing: {(teacher as any).expected_check_in?.substring(0, 5) || "09:00"} — {(teacher as any).expected_check_out?.substring(0, 5) || "17:00"}
+                      </p>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSalaryEditTeacher(teacher);
-                        setSalaryAmount(String((teacher as any).monthly_salary || ""));
-                        setIsSalaryDialogOpen(true);
-                      }}
-                    >
-                      <Pencil className="w-4 h-4 mr-1" />
-                      Set Salary
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSalaryEditTeacher(teacher);
+                          setSalaryAmount(String((teacher as any).monthly_salary || ""));
+                          setIsSalaryDialogOpen(true);
+                        }}
+                      >
+                        <Pencil className="w-4 h-4 mr-1" />
+                        Salary
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setTimingTeacher(teacher);
+                          setExpectedCheckIn((teacher as any).expected_check_in?.substring(0, 5) || "09:00");
+                          setExpectedCheckOut((teacher as any).expected_check_out?.substring(0, 5) || "17:00");
+                          setIsTimingDialogOpen(true);
+                        }}
+                      >
+                        <Clock className="w-4 h-4 mr-1" />
+                        Timing
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 {teachers.length === 0 && (
@@ -373,7 +482,7 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
               </div>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-4 mb-4 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-4 mb-4 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <span className="w-3 h-3 rounded-full bg-green-500" /> Present
                 </span>
@@ -383,8 +492,30 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
                 <span className="flex items-center gap-1">
                   <span className="w-3 h-3 rounded-full bg-red-500" /> Absent
                 </span>
-                <span className="text-muted-foreground ml-2">Click to mark, click again to change</span>
+                <span className="flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3 text-orange-500" /> Late
+                </span>
+                <span className="text-muted-foreground ml-2">Click any cell to set time & status</span>
               </div>
+
+              {/* Late marks summary */}
+              {filteredTeachers.map((teacher) => {
+                const lateCount = getLateCount(teacher.id, attendanceMonth, attendanceYear);
+                const penaltyDays = Math.floor(lateCount / 3);
+                if (lateCount === 0) return null;
+                return (
+                  <div key={`late-${teacher.id}`} className="mb-2 p-2 rounded bg-orange-50 border border-orange-200 text-sm flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-orange-500" />
+                    <span className="font-medium">{teacher.name}:</span>
+                    <span>{lateCount} late mark{lateCount > 1 ? "s" : ""}</span>
+                    {penaltyDays > 0 && (
+                      <span className="text-red-600 font-medium">
+                        → {penaltyDays} day{penaltyDays > 1 ? "s" : ""} deducted (3 lates = 1 day)
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
 
               <div className="overflow-x-auto">
                 <Table>
@@ -396,21 +527,25 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
                           {day}
                         </TableHead>
                       ))}
-                      <TableHead className="text-center min-w-[50px]">P</TableHead>
-                      <TableHead className="text-center min-w-[50px]">H</TableHead>
-                      <TableHead className="text-center min-w-[50px]">A</TableHead>
+                      <TableHead className="text-center min-w-[40px]">P</TableHead>
+                      <TableHead className="text-center min-w-[40px]">H</TableHead>
+                      <TableHead className="text-center min-w-[40px]">A</TableHead>
+                      <TableHead className="text-center min-w-[40px]">L</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredTeachers.map((teacher) => {
                       const presentCount = daysArray.filter(
-                        (d) => getAttendanceStatus(teacher.id, d) === "present"
+                        (d) => getAttendanceForDay(teacher.id, d)?.status === "present"
                       ).length;
                       const halfCount = daysArray.filter(
-                        (d) => getAttendanceStatus(teacher.id, d) === "half_day"
+                        (d) => getAttendanceForDay(teacher.id, d)?.status === "half_day"
                       ).length;
                       const absentCount = daysArray.filter(
-                        (d) => getAttendanceStatus(teacher.id, d) === "absent"
+                        (d) => getAttendanceForDay(teacher.id, d)?.status === "absent"
+                      ).length;
+                      const lateCount = daysArray.filter(
+                        (d) => getAttendanceForDay(teacher.id, d)?.is_late
                       ).length;
 
                       return (
@@ -419,14 +554,16 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
                             {teacher.name}
                           </TableCell>
                           {daysArray.map((day) => {
-                            const status = getAttendanceStatus(teacher.id, day);
+                            const att = getAttendanceForDay(teacher.id, day);
+                            const status = att?.status || null;
+                            const isLate = att?.is_late || false;
                             const dateStr = `${attendanceYear}-${String(attendanceMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
                             const isToday = dateStr === format(new Date(), "yyyy-MM-dd");
                             const isFuture = new Date(dateStr) > new Date();
                             return (
                               <TableCell key={day} className="text-center px-0.5 py-1">
                                 <button
-                                  className={`w-8 h-8 rounded-md text-xs font-medium transition-colors ${
+                                  className={`w-8 h-8 rounded-md text-xs font-medium transition-colors relative ${
                                     status === "present"
                                       ? "bg-green-500 text-white"
                                       : status === "half_day"
@@ -439,17 +576,7 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
                                       ? "bg-muted/30 text-muted-foreground/50"
                                       : "bg-muted/50 hover:bg-muted"
                                   }`}
-                                  onClick={() => {
-                                    const nextStatus =
-                                      status === null
-                                        ? "present"
-                                        : status === "present"
-                                        ? "half_day"
-                                        : status === "half_day"
-                                        ? "absent"
-                                        : "present";
-                                    handleMarkAttendance(teacher.id, dateStr, nextStatus);
-                                  }}
+                                  onClick={() => handleQuickToggle(teacher.id, dateStr)}
                                 >
                                   {status === "present"
                                     ? "P"
@@ -458,6 +585,9 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
                                     : status === "absent"
                                     ? "A"
                                     : ""}
+                                  {isLate && (
+                                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full border border-white" />
+                                  )}
                                 </button>
                               </TableCell>
                             );
@@ -470,6 +600,9 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
                           </TableCell>
                           <TableCell className="text-center font-bold text-red-600">
                             {absentCount}
+                          </TableCell>
+                          <TableCell className="text-center font-bold text-orange-600">
+                            {lateCount}
                           </TableCell>
                         </TableRow>
                       );
@@ -622,6 +755,109 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
         </DialogContent>
       </Dialog>
 
+      {/* Set Timing Dialog */}
+      <Dialog open={isTimingDialogOpen} onOpenChange={setIsTimingDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set Expected Timing</DialogTitle>
+            <DialogDescription>
+              Set expected check-in & check-out time for {timingTeacher?.name}. Late mark is applied if teacher arrives more than 15 minutes after check-in time.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Check-in Time</Label>
+                <Input
+                  type="time"
+                  value={expectedCheckIn}
+                  onChange={(e) => setExpectedCheckIn(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Check-out Time</Label>
+                <Input
+                  type="time"
+                  value={expectedCheckOut}
+                  onChange={(e) => setExpectedCheckOut(e.target.value)}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              ⚠️ 3 late marks = 1 day salary deduction in payroll
+            </p>
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => setIsTimingDialogOpen(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button onClick={handleSetTiming} className="flex-1">
+                Save Timing
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Attendance Detail Dialog */}
+      <Dialog open={isAttendanceDetailOpen} onOpenChange={setIsAttendanceDetailOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Mark Attendance</DialogTitle>
+            <DialogDescription>
+              {teachers.find((t) => t.id === detailTeacherId)?.name} — {detailDate}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <NativeSelect
+                value={detailStatus}
+                onValueChange={setDetailStatus}
+                options={[
+                  { value: "present", label: "Present" },
+                  { value: "half_day", label: "Half Day" },
+                  { value: "absent", label: "Absent" },
+                ]}
+              />
+            </div>
+            {detailStatus !== "absent" && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Check-in Time</Label>
+                  <Input
+                    type="time"
+                    value={detailCheckIn}
+                    onChange={(e) => setDetailCheckIn(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Check-out Time</Label>
+                  <Input
+                    type="time"
+                    value={detailCheckOut}
+                    onChange={(e) => setDetailCheckOut(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+            {detailCheckIn && detailStatus !== "absent" && isLateCheck(detailTeacherId, detailCheckIn) && (
+              <div className="p-2 rounded bg-orange-50 border border-orange-200 text-sm flex items-center gap-2 text-orange-700">
+                <AlertTriangle className="w-4 h-4" />
+                Late! More than 15 min after expected time
+              </div>
+            )}
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={() => setIsAttendanceDetailOpen(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button onClick={handleSaveAttendanceDetail} className="flex-1">
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Salary Calculation Dialog */}
       <Dialog open={isCalcDialogOpen} onOpenChange={setIsCalcDialogOpen}>
         <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
@@ -656,20 +892,31 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
 
             {calcData && (
               <div className="space-y-3 p-4 rounded-lg bg-muted/50 border">
-                <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="grid grid-cols-4 gap-2 text-center">
                   <div className="p-2 rounded bg-green-50 border border-green-200">
                     <p className="text-lg font-bold text-green-700">{calcData.daysPresent}</p>
                     <p className="text-xs text-green-600">Present</p>
                   </div>
                   <div className="p-2 rounded bg-amber-50 border border-amber-200">
                     <p className="text-lg font-bold text-amber-700">{calcData.halfDays}</p>
-                    <p className="text-xs text-amber-600">Half Days</p>
+                    <p className="text-xs text-amber-600">Half</p>
                   </div>
                   <div className="p-2 rounded bg-red-50 border border-red-200">
                     <p className="text-lg font-bold text-red-700">{calcData.daysAbsent}</p>
                     <p className="text-xs text-red-600">Absent</p>
                   </div>
+                  <div className="p-2 rounded bg-orange-50 border border-orange-200">
+                    <p className="text-lg font-bold text-orange-700">{calcData.lateCount}</p>
+                    <p className="text-xs text-orange-600">Late</p>
+                  </div>
                 </div>
+
+                {calcData.latePenaltyDays > 0 && (
+                  <div className="p-2 rounded bg-orange-50 border border-orange-200 text-sm text-orange-700 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    {calcData.lateCount} lates → {calcData.latePenaltyDays} day{calcData.latePenaltyDays > 1 ? "s" : ""} deducted
+                  </div>
+                )}
 
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
