@@ -30,6 +30,7 @@ import {
   Pencil,
   Clock,
   AlertTriangle,
+  Upload,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -256,9 +257,103 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
     }
   };
 
+  // ESSL file upload handler
+  const handleESSLUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const lines = text.split("\n").filter((l) => l.trim());
+      let imported = 0;
+      let skipped = 0;
+
+      for (const line of lines) {
+        // Common ESSL formats: "ID, Name, Date, Time" or "ID\tName\tDate\tTime"
+        const parts = line.split(/[,\t]+/).map((p) => p.trim().replace(/"/g, ""));
+        if (parts.length < 4) continue;
+
+        // Try to extract date and time
+        // Typical: parts could be [EmpID, Name, Date(DD-MM-YYYY or YYYY-MM-DD), Time(HH:MM or HH:MM:SS)]
+        const empIdOrName = parts[1]?.toLowerCase();
+        let dateStr = parts[2];
+        const timeStr = parts[3];
+
+        if (!dateStr || !timeStr) { skipped++; continue; }
+
+        // Normalize date to YYYY-MM-DD
+        if (dateStr.match(/^\d{2}[-/]\d{2}[-/]\d{4}$/)) {
+          // DD-MM-YYYY or DD/MM/YYYY
+          const [d, m, y] = dateStr.split(/[-/]/);
+          dateStr = `${y}-${m}-${d}`;
+        } else if (dateStr.match(/^\d{2}[-/]\d{2}[-/]\d{2}$/)) {
+          // DD-MM-YY
+          const [d, m, y] = dateStr.split(/[-/]/);
+          dateStr = `20${y}-${m}-${d}`;
+        }
+
+        if (!dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) { skipped++; continue; }
+
+        // Normalize time to HH:MM
+        const normalizedTime = timeStr.substring(0, 5);
+        if (!normalizedTime.match(/^\d{2}:\d{2}$/)) { skipped++; continue; }
+
+        // Match teacher by name (case-insensitive partial match)
+        const teacher = teachers.find((t) =>
+          t.name.toLowerCase().includes(empIdOrName) ||
+          empIdOrName.includes(t.name.toLowerCase())
+        );
+        if (!teacher) { skipped++; continue; }
+
+        // Check if record exists for this teacher+date
+        const existing = attendance.find(
+          (a) => a.teacher_id === teacher.id && a.attendance_date === dateStr
+        );
+
+        const isLate = isLateCheck(teacher.id, normalizedTime);
+
+        if (existing) {
+          // If existing has no check-out, treat this as check-out
+          if (existing.check_in_time && !existing.check_out_time) {
+            await supabase
+              .from("teacher_attendance")
+              .update({ check_out_time: normalizedTime } as any)
+              .eq("id", existing.id);
+          }
+          // If both exist, update check-out if time is later
+          else if (existing.check_out_time && normalizedTime > existing.check_out_time) {
+            await supabase
+              .from("teacher_attendance")
+              .update({ check_out_time: normalizedTime } as any)
+              .eq("id", existing.id);
+          }
+        } else {
+          await supabase.from("teacher_attendance").insert({
+            teacher_id: teacher.id,
+            attendance_date: dateStr,
+            status: "present",
+            check_in_time: normalizedTime,
+            check_out_time: null,
+            is_late: isLate,
+          } as any);
+          imported++;
+        }
+      }
+
+      await fetchAttendance();
+      toast({
+        title: "ESSL Import Complete",
+        description: `${imported} records imported, ${skipped} skipped`,
+      });
+    } catch {
+      toast({ title: "Error reading ESSL file", variant: "destructive" });
+    }
+    // Reset file input
+    event.target.value = "";
+  };
+
   // Quick toggle (keeps old behavior for fast marking)
   const handleQuickToggle = (teacherId: string, dateStr: string) => {
-    const teacher = teachers.find((t) => t.id === teacherId);
     const existing = attendance.find(
       (a) => a.teacher_id === teacherId && a.attendance_date === dateStr
     );
@@ -286,7 +381,8 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
     const halfDays = monthAttendance.filter((a) => a.status === "half_day").length;
     const absent = monthAttendance.filter((a) => a.status === "absent").length;
     const lateCount = monthAttendance.filter((a) => a.is_late).length;
-    const latePenaltyDays = Math.floor(lateCount / 3); // 3 lates = 1 day deducted
+    const latePenaltySets = Math.floor(lateCount / 3); // 3 lates = 1 half day
+    const latePenaltyDays = latePenaltySets * 0.5;
 
     const baseSalary = (calcTeacher as any).monthly_salary || 0;
     const totalWorkingDays = present + halfDays * 0.5 - latePenaltyDays;
@@ -453,7 +549,21 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
                   <Calendar className="w-5 h-5" />
                   Teacher Attendance
                 </CardTitle>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept=".csv,.txt,.dat"
+                      className="hidden"
+                      onChange={handleESSLUpload}
+                    />
+                    <Button variant="outline" size="sm" asChild>
+                      <span>
+                        <Upload className="w-4 h-4 mr-1" />
+                        Import ESSL
+                      </span>
+                    </Button>
+                  </label>
                   <NativeSelect
                     value={String(attendanceMonth)}
                     onValueChange={(v) => setAttendanceMonth(parseInt(v))}
@@ -501,16 +611,17 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
               {/* Late marks summary */}
               {filteredTeachers.map((teacher) => {
                 const lateCount = getLateCount(teacher.id, attendanceMonth, attendanceYear);
-                const penaltyDays = Math.floor(lateCount / 3);
+                const penaltySets = Math.floor(lateCount / 3);
+                const penaltyHalfDays = penaltySets * 0.5;
                 if (lateCount === 0) return null;
                 return (
                   <div key={`late-${teacher.id}`} className="mb-2 p-2 rounded bg-orange-50 border border-orange-200 text-sm flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 text-orange-500" />
                     <span className="font-medium">{teacher.name}:</span>
                     <span>{lateCount} late mark{lateCount > 1 ? "s" : ""}</span>
-                    {penaltyDays > 0 && (
+                    {penaltySets > 0 && (
                       <span className="text-red-600 font-medium">
-                        → {penaltyDays} day{penaltyDays > 1 ? "s" : ""} deducted (3 lates = 1 day)
+                        → {penaltyHalfDays} half day{penaltyHalfDays > 0.5 ? "s" : ""} deducted (3 lates = 1 half day)
                       </span>
                     )}
                   </div>
@@ -784,7 +895,7 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              ⚠️ 3 late marks = 1 day salary deduction in payroll
+              ⚠️ 3 late marks = 1 half day salary deduction in payroll
             </p>
             <div className="flex gap-3">
               <Button variant="outline" onClick={() => setIsTimingDialogOpen(false)} className="flex-1">
@@ -914,7 +1025,7 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
                 {calcData.latePenaltyDays > 0 && (
                   <div className="p-2 rounded bg-orange-50 border border-orange-200 text-sm text-orange-700 flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4" />
-                    {calcData.lateCount} lates → {calcData.latePenaltyDays} day{calcData.latePenaltyDays > 1 ? "s" : ""} deducted
+                    {calcData.lateCount} lates → {calcData.latePenaltyDays} half day{calcData.latePenaltyDays > 0.5 ? "s" : ""} deducted (3 lates = 1 half day)
                   </div>
                 )}
 
