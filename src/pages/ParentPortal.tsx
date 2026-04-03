@@ -31,6 +31,7 @@ import { PerformanceComment, PerformanceBadge, getPerformanceComment } from "@/c
 import { StudentTestAnalytics } from "@/components/TestAnalyticsChart";
 import { QRCodeScanner } from "@/components/QRCodeScanner";
 import { StudentComparisonChart } from "@/components/StudentComparisonChart";
+import StudyAssistant from "@/components/StudyAssistant";
 
 interface Student {
   id: string;
