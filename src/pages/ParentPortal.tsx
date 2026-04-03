@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { 
   Bell, 
   MessageSquare, 
@@ -12,11 +12,12 @@ import {
   ClipboardList,
   Image as ImageIcon,
   TrendingUp,
-  BarChart3,
   FileText,
   ScanLine,
   Users,
-  Sparkles
+  Sparkles,
+  KeyRound,
+  Phone
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -99,9 +100,13 @@ const ParentPortal = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  
+  // Username/Phone login state
+  const [loginMode, setLoginMode] = useState<"code" | "phone">("code");
+  const [studentName, setStudentName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
 
   useEffect(() => {
-    // Check if there's a stored access code
     const storedCode = localStorage.getItem("parent_access_code");
     if (storedCode) {
       setAccessCode(storedCode);
@@ -109,114 +114,122 @@ const ParentPortal = () => {
     }
   }, []);
 
+  const fetchStudentData = async (studentData: Student) => {
+    setStudent(studentData);
+    setIsLoggedIn(true);
+
+    // Fetch announcements
+    const { data: announcementsData } = await supabase
+      .from("announcements")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (announcementsData) {
+      const filtered = announcementsData.filter(
+        (a) => a.target_classes.length === 0 || a.target_classes.includes(studentData.class)
+      );
+      setAnnouncements(filtered);
+    }
+
+    // Fetch concerns
+    const { data: concernsData } = await supabase
+      .from("student_concerns")
+      .select("*")
+      .eq("student_id", studentData.id)
+      .order("created_at", { ascending: false });
+    if (concernsData) setConcerns(concernsData);
+
+    // Fetch messages
+    const { data: messagesData } = await supabase
+      .from("parent_messages")
+      .select("*")
+      .eq("student_id", studentData.id)
+      .order("created_at", { ascending: true });
+    if (messagesData) setMessages(messagesData);
+
+    // Fetch tests
+    const { data: testsData } = await supabase
+      .from("tests")
+      .select("*")
+      .eq("class", studentData.class)
+      .order("test_date", { ascending: false });
+    if (testsData) setTests(testsData as Test[]);
+
+    // Fetch test results
+    const { data: resultsData } = await supabase
+      .from("test_results")
+      .select("*")
+      .eq("student_id", studentData.id)
+      .order("created_at", { ascending: false });
+    if (resultsData) setTestResults(resultsData as TestResult[]);
+
+    // Fetch class results for comparison
+    const classTestIds = testsData?.map(t => t.id) || [];
+    if (classTestIds.length > 0) {
+      const { data: allResultsData } = await supabase
+        .from("test_results")
+        .select("*")
+        .in("test_id", classTestIds);
+      if (allResultsData) setAllClassResults(allResultsData as TestResult[]);
+    }
+  };
+
   const handleLogin = async (code?: string) => {
     const codeToUse = code || accessCode.trim().toUpperCase();
     if (!codeToUse) {
-      toast({
-        title: "Please enter access code",
-        variant: "destructive",
-      });
+      toast({ title: "Please enter access code", variant: "destructive" });
       return;
     }
 
     setIsLoading(true);
     try {
-      // Find student by access code
-      const { data: studentData, error: studentError } = await supabase
+      const { data: studentData, error } = await supabase
         .from("students")
         .select("id, name, class, parent_name, access_code")
         .eq("access_code", codeToUse)
         .single();
 
-      if (studentError || !studentData) {
-        toast({
-          title: "Invalid access code",
-          description: "Please check your code and try again",
-          variant: "destructive",
-        });
+      if (error || !studentData) {
+        toast({ title: "Invalid access code", description: "Please check your code and try again", variant: "destructive" });
         localStorage.removeItem("parent_access_code");
         setIsLoading(false);
         return;
       }
 
-      setStudent(studentData);
       localStorage.setItem("parent_access_code", codeToUse);
-      setIsLoggedIn(true);
+      await fetchStudentData(studentData);
+    } catch {
+      toast({ title: "Error logging in", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-      // Fetch announcements for this student's class
-      const { data: announcementsData } = await supabase
-        .from("announcements")
-        .select("*")
-        .order("created_at", { ascending: false });
+  const handlePhoneLogin = async () => {
+    if (!studentName.trim() || !phoneNumber.trim()) {
+      toast({ title: "Please enter student name and phone number", variant: "destructive" });
+      return;
+    }
 
-      if (announcementsData) {
-        const filteredAnnouncements = announcementsData.filter(
-          (a) => a.target_classes.length === 0 || a.target_classes.includes(studentData.class)
-        );
-        setAnnouncements(filteredAnnouncements);
+    setIsLoading(true);
+    try {
+      const { data: studentData, error } = await supabase
+        .from("students")
+        .select("id, name, class, parent_name, access_code")
+        .ilike("name", studentName.trim())
+        .eq("phone", phoneNumber.trim())
+        .single();
+
+      if (error || !studentData) {
+        toast({ title: "Student not found", description: "Please check the name and phone number", variant: "destructive" });
+        setIsLoading(false);
+        return;
       }
 
-      // Fetch concerns for this student
-      const { data: concernsData } = await supabase
-        .from("student_concerns")
-        .select("*")
-        .eq("student_id", studentData.id)
-        .order("created_at", { ascending: false });
-
-      if (concernsData) {
-        setConcerns(concernsData);
-      }
-
-      // Fetch messages
-      const { data: messagesData } = await supabase
-        .from("parent_messages")
-        .select("*")
-        .eq("student_id", studentData.id)
-        .order("created_at", { ascending: true });
-
-      if (messagesData) {
-        setMessages(messagesData);
-      }
-
-      // Fetch tests for this student's class
-      const { data: testsData } = await supabase
-        .from("tests")
-        .select("*")
-        .eq("class", studentData.class)
-        .order("test_date", { ascending: false });
-
-      if (testsData) {
-        setTests(testsData as Test[]);
-      }
-
-      // Fetch test results for this student
-      const { data: resultsData } = await supabase
-        .from("test_results")
-        .select("*")
-        .eq("student_id", studentData.id)
-        .order("created_at", { ascending: false });
-
-      if (resultsData) {
-        setTestResults(resultsData as TestResult[]);
-      }
-
-      // Fetch all test results for the class (for comparison)
-      const classTestIds = testsData?.map(t => t.id) || [];
-      if (classTestIds.length > 0) {
-        const { data: allResultsData } = await supabase
-          .from("test_results")
-          .select("*")
-          .in("test_id", classTestIds);
-        
-        if (allResultsData) {
-          setAllClassResults(allResultsData as TestResult[]);
-        }
-      }
-    } catch (error) {
-      toast({
-        title: "Error logging in",
-        variant: "destructive",
-      });
+      localStorage.setItem("parent_access_code", studentData.access_code);
+      await fetchStudentData(studentData);
+    } catch {
+      toast({ title: "Error logging in", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -227,6 +240,8 @@ const ParentPortal = () => {
     setStudent(null);
     setIsLoggedIn(false);
     setAccessCode("");
+    setStudentName("");
+    setPhoneNumber("");
     setAnnouncements([]);
     setConcerns([]);
     setMessages([]);
@@ -252,7 +267,6 @@ const ParentPortal = () => {
       setNewMessage("");
       toast({ title: "Message sent successfully" });
 
-      // Trigger notification to admin (fire and forget)
       try {
         await supabase.functions.invoke("notify-new-message", {
           body: {
@@ -262,14 +276,11 @@ const ParentPortal = () => {
             parentPhone: "N/A",
           },
         });
-      } catch (notifyError) {
+      } catch {
         console.log("Notification sent (or logged)");
       }
-    } catch (error) {
-      toast({
-        title: "Error sending message",
-        variant: "destructive",
-      });
+    } catch {
+      toast({ title: "Error sending message", variant: "destructive" });
     }
   };
 
@@ -299,37 +310,117 @@ const ParentPortal = () => {
           />
         )}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, type: "spring" }}
           className="w-full max-w-md"
         >
-          <Card className="border-primary/20">
-            <CardHeader className="text-center space-y-4">
-              <div className="flex justify-center">
-                <img src={logo} alt="Ramanujan Academy" className="w-20 h-20 rounded-full object-cover" />
+          <Card className="border-primary/20 shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-br from-primary/10 via-accent/5 to-secondary/10 p-6">
+              <CardHeader className="text-center space-y-4 p-0">
+                <motion.div
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.2, type: "spring" }}
+                  className="flex justify-center"
+                >
+                  <div className="relative">
+                    <img src={logo} alt="Ramanujan Academy" className="w-20 h-20 rounded-full object-cover ring-4 ring-primary/20 shadow-lg" />
+                    <motion.div
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ repeat: Infinity, duration: 2 }}
+                      className="absolute -top-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center"
+                    >
+                      <GraduationCap className="w-3.5 h-3.5 text-primary-foreground" />
+                    </motion.div>
+                  </div>
+                </motion.div>
+                <div>
+                  <CardTitle className="text-2xl">Parent Portal</CardTitle>
+                  <p className="text-muted-foreground text-sm mt-1">
+                    Ramanujan Academy
+                  </p>
+                </div>
+              </CardHeader>
+            </div>
+
+            <CardContent className="p-6 space-y-4">
+              {/* Login Mode Toggle */}
+              <div className="flex rounded-lg border bg-muted/50 p-1">
+                <button
+                  onClick={() => setLoginMode("code")}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium transition-all ${
+                    loginMode === "code" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  <KeyRound className="w-4 h-4" /> Access Code
+                </button>
+                <button
+                  onClick={() => setLoginMode("phone")}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-sm font-medium transition-all ${
+                    loginMode === "phone" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  <Phone className="w-4 h-4" /> Name & Phone
+                </button>
               </div>
-              <CardTitle className="text-2xl">Parent Portal</CardTitle>
-              <p className="text-muted-foreground text-sm">
-                Enter your child's access code or scan the QR code
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Input
-                  placeholder="Enter Access Code (e.g., ABC12345)"
-                  value={accessCode}
-                  onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
-                  className="text-center text-lg tracking-widest uppercase"
-                  maxLength={8}
-                />
-              </div>
-              <Button 
-                className="w-full" 
-                onClick={() => handleLogin()}
-                disabled={isLoading}
-              >
-                {isLoading ? "Verifying..." : "Access Portal"}
-              </Button>
+
+              <AnimatePresence mode="wait">
+                {loginMode === "code" ? (
+                  <motion.div
+                    key="code"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    className="space-y-3"
+                  >
+                    <Input
+                      placeholder="Enter Access Code (e.g., ABC12345)"
+                      value={accessCode}
+                      onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                      className="text-center text-lg tracking-widest uppercase h-12"
+                      maxLength={8}
+                    />
+                    <Button 
+                      className="w-full h-11" 
+                      onClick={() => handleLogin()}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? "Verifying..." : "Access Portal"}
+                    </Button>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="phone"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    className="space-y-3"
+                  >
+                    <Input
+                      placeholder="Student's Full Name"
+                      value={studentName}
+                      onChange={(e) => setStudentName(e.target.value)}
+                      className="h-11"
+                    />
+                    <Input
+                      placeholder="Registered Phone Number"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      className="h-11"
+                      type="tel"
+                    />
+                    <Button 
+                      className="w-full h-11" 
+                      onClick={handlePhoneLogin}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? "Verifying..." : "Login with Phone"}
+                    </Button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t" />
@@ -340,7 +431,7 @@ const ParentPortal = () => {
               </div>
               <Button 
                 variant="outline"
-                className="w-full" 
+                className="w-full h-11" 
                 onClick={() => setShowScanner(true)}
               >
                 <ScanLine className="w-4 h-4 mr-2" />
@@ -360,43 +451,48 @@ const ParentPortal = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       {/* Header */}
       <header className="bg-background/80 backdrop-blur-lg border-b sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img src={logo} alt="Logo" className="w-10 h-10 rounded-full object-cover" />
+              <img src={logo} alt="Logo" className="w-10 h-10 rounded-full object-cover ring-2 ring-primary/20" />
               <div>
-                <h1 className="font-bold text-lg">Parent Portal</h1>
-                <p className="text-sm text-muted-foreground">Ramanujan Academy</p>
+                <h1 className="font-bold text-lg leading-tight">Parent Portal</h1>
+                <p className="text-xs text-muted-foreground">Ramanujan Academy</p>
               </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
+            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
+              <LogOut className="w-4 h-4 mr-1.5" />
               Logout
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6 space-y-6">
+      <main className="container mx-auto px-4 py-5 space-y-5">
         {/* Student Info */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <Card className="bg-primary/5 border-primary/20">
+          <Card className="bg-gradient-to-r from-primary/5 via-accent/5 to-secondary/5 border-primary/20 shadow-md">
             <CardContent className="py-4">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-                  <User className="w-6 h-6 text-primary" />
-                </div>
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", delay: 0.2 }}
+                  className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center ring-2 ring-primary/10"
+                >
+                  <User className="w-7 h-7 text-primary" />
+                </motion.div>
                 <div>
-                  <h2 className="font-semibold text-lg">{student?.name}</h2>
+                  <h2 className="font-bold text-lg">{student?.name}</h2>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <GraduationCap className="w-4 h-4" />
                     <span>Class {student?.class}</span>
                     {student?.parent_name && (
                       <>
-                        <span>•</span>
+                        <span className="text-muted">•</span>
                         <span>Parent: {student.parent_name}</span>
                       </>
                     )}
@@ -409,180 +505,188 @@ const ParentPortal = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="tests" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="tests" className="flex items-center gap-1">
+          <TabsList className="grid w-full grid-cols-6 h-auto p-1">
+            <TabsTrigger value="tests" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-2 px-1 text-[10px] sm:text-sm">
               <ClipboardList className="w-4 h-4" />
-              <span className="hidden sm:inline">Tests</span>
+              <span>Tests</span>
             </TabsTrigger>
-            <TabsTrigger value="ai" className="flex items-center gap-1">
+            <TabsTrigger value="ai" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-2 px-1 text-[10px] sm:text-sm">
               <Sparkles className="w-4 h-4" />
-              <span className="hidden sm:inline">AI</span>
+              <span>AI</span>
             </TabsTrigger>
-            <TabsTrigger value="comparison" className="flex items-center gap-1">
+            <TabsTrigger value="comparison" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-2 px-1 text-[10px] sm:text-sm">
               <Users className="w-4 h-4" />
-              <span className="hidden sm:inline">Compare</span>
+              <span>Compare</span>
             </TabsTrigger>
-            <TabsTrigger value="announcements" className="flex items-center gap-1">
+            <TabsTrigger value="announcements" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-2 px-1 text-[10px] sm:text-sm">
               <Bell className="w-4 h-4" />
-              <span className="hidden sm:inline">Announce</span>
+              <span>Announce</span>
             </TabsTrigger>
-            <TabsTrigger value="concerns" className="flex items-center gap-1">
+            <TabsTrigger value="concerns" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-2 px-1 text-[10px] sm:text-sm">
               <AlertCircle className="w-4 h-4" />
-              <span className="hidden sm:inline">Notes</span>
+              <span>Notes</span>
             </TabsTrigger>
-            <TabsTrigger value="messages" className="flex items-center gap-1">
+            <TabsTrigger value="messages" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-2 px-1 text-[10px] sm:text-sm">
               <MessageSquare className="w-4 h-4" />
-              <span className="hidden sm:inline">Chat</span>
+              <span>Chat</span>
             </TabsTrigger>
           </TabsList>
 
           {/* Tests Tab */}
           <TabsContent value="tests" className="space-y-6">
             {/* Upcoming Tests */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5" />
-                  Upcoming Tests
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {(() => {
-                  const upcomingTests = tests.filter(t => new Date(t.test_date) >= new Date());
-                  if (upcomingTests.length === 0) {
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+              <Card className="shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-primary" />
+                    Upcoming Tests
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const upcomingTests = tests.filter(t => new Date(t.test_date) >= new Date());
+                    if (upcomingTests.length === 0) {
+                      return (
+                        <div className="text-center py-6 text-muted-foreground">
+                          <Calendar className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                          <p>No upcoming tests scheduled</p>
+                        </div>
+                      );
+                    }
                     return (
-                      <div className="text-center py-6 text-muted-foreground">
-                        <Calendar className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                        <p>No upcoming tests scheduled</p>
+                      <div className="space-y-3">
+                        {upcomingTests.map((test, idx) => (
+                          <motion.div
+                            key={test.id}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: idx * 0.1 }}
+                            className="p-4 rounded-xl border bg-primary/5 border-primary/20"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <h3 className="font-semibold">{test.title}</h3>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge variant="secondary">{test.subject}</Badge>
+                                  <span className="text-sm text-muted-foreground">
+                                    Max: {test.max_marks} marks
+                                  </span>
+                                </div>
+                                {test.description && (
+                                  <p className="text-sm text-muted-foreground mt-2">{test.description}</p>
+                                )}
+                              </div>
+                              <Badge className="bg-primary shrink-0">
+                                <Calendar className="w-3 h-3 mr-1" />
+                                {new Date(test.test_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                              </Badge>
+                            </div>
+                          </motion.div>
+                        ))}
                       </div>
                     );
-                  }
-                  return (
-                    <div className="space-y-3">
-                      {upcomingTests.map((test) => (
-                        <motion.div
-                          key={test.id}
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="p-4 rounded-lg border bg-blue-50 border-blue-200"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <h3 className="font-semibold">{test.title}</h3>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Badge variant="secondary">{test.subject}</Badge>
-                                <span className="text-sm text-muted-foreground">
-                                  Max: {test.max_marks} marks
-                                </span>
-                              </div>
-                              {test.description && (
-                                <p className="text-sm text-muted-foreground mt-2">{test.description}</p>
-                              )}
-                            </div>
-                            <Badge className="bg-blue-600 shrink-0">
-                              <Calendar className="w-3 h-3 mr-1" />
-                              {new Date(test.test_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                            </Badge>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  );
-                })()}
-              </CardContent>
-            </Card>
+                  })()}
+                </CardContent>
+              </Card>
+            </motion.div>
 
             {/* Test Results */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Test Results
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {testResults.length === 0 ? (
-                  <div className="text-center py-6 text-muted-foreground">
-                    <FileText className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                    <p>No test results yet</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {testResults.map((result) => {
-                      const test = tests.find(t => t.id === result.test_id);
-                      if (!test) return null;
-                      const percentage = Math.round((result.marks_obtained / test.max_marks) * 100);
-                      const { bgColor } = getPerformanceComment(percentage);
-                      
-                      return (
-                        <motion.div
-                          key={result.id}
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className={`p-4 rounded-lg border ${bgColor}`}
-                        >
-                          <div className="flex items-start justify-between gap-2 mb-3">
-                            <div>
-                              <h3 className="font-semibold">{test.title}</h3>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Badge variant="secondary">{test.subject}</Badge>
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(test.test_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
-                                </span>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+              <Card className="shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-primary" />
+                    Test Results
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {testResults.length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <FileText className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                      <p>No test results yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {testResults.map((result, idx) => {
+                        const test = tests.find(t => t.id === result.test_id);
+                        if (!test) return null;
+                        const percentage = Math.round((result.marks_obtained / test.max_marks) * 100);
+                        const { bgColor } = getPerformanceComment(percentage);
+                        
+                        return (
+                          <motion.div
+                            key={result.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: idx * 0.05 }}
+                            className={`p-4 rounded-xl border shadow-sm ${bgColor}`}
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-3">
+                              <div>
+                                <h3 className="font-semibold">{test.title}</h3>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge variant="secondary">{test.subject}</Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    {new Date(test.test_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-2xl font-bold">{result.marks_obtained}<span className="text-base font-normal text-muted-foreground">/{test.max_marks}</span></p>
+                                <PerformanceBadge percentage={percentage} />
                               </div>
                             </div>
-                            <div className="text-right">
-                              <p className="text-2xl font-bold">{result.marks_obtained}<span className="text-base font-normal text-muted-foreground">/{test.max_marks}</span></p>
-                              <PerformanceBadge percentage={percentage} />
+                            
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <PerformanceComment percentage={percentage} size="sm" />
+                              {result.photo_url && (
+                                <a 
+                                  href={result.photo_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 text-sm text-primary hover:underline"
+                                >
+                                  <ImageIcon className="w-4 h-4" />
+                                  View Answer Sheet
+                                </a>
+                              )}
                             </div>
-                          </div>
-                          
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <PerformanceComment percentage={percentage} size="sm" />
-                            {result.photo_url && (
-                              <a 
-                                href={result.photo_url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
-                              >
-                                <ImageIcon className="w-4 h-4" />
-                                View Answer Sheet
-                              </a>
+                            
+                            {result.remarks && (
+                              <p className="text-sm text-muted-foreground mt-2 italic">
+                                Teacher's remark: {result.remarks}
+                              </p>
                             )}
-                          </div>
-                          
-                          {result.remarks && (
-                            <p className="text-sm text-muted-foreground mt-2 italic">
-                              Teacher's remark: {result.remarks}
-                            </p>
-                          )}
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
 
             {/* Performance Analytics */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5" />
-                  Performance Analytics
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {student && (
-                  <StudentTestAnalytics 
-                    studentId={student.id}
-                    tests={tests}
-                    testResults={testResults}
-                  />
-                )}
-              </CardContent>
-            </Card>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              <Card className="shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-primary" />
+                    Performance Analytics
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {student && (
+                    <StudentTestAnalytics 
+                      studentId={student.id}
+                      tests={tests}
+                      testResults={testResults}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
           </TabsContent>
 
           {/* AI Study Assistant Tab */}
@@ -605,10 +709,10 @@ const ParentPortal = () => {
 
           {/* Announcements Tab */}
           <TabsContent value="announcements" className="space-y-4">
-            <Card>
+            <Card className="shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Bell className="w-5 h-5" />
+                  <Bell className="w-5 h-5 text-primary" />
                   Announcements
                 </CardTitle>
               </CardHeader>
@@ -620,12 +724,13 @@ const ParentPortal = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {announcements.map((announcement) => (
+                    {announcements.map((announcement, idx) => (
                       <motion.div
                         key={announcement.id}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="p-4 rounded-lg border bg-background"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.05 }}
+                        className="p-4 rounded-xl border bg-background shadow-sm"
                       >
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <h3 className="font-semibold">{announcement.title}</h3>
@@ -656,10 +761,10 @@ const ParentPortal = () => {
 
           {/* Concerns Tab */}
           <TabsContent value="concerns" className="space-y-4">
-            <Card>
+            <Card className="shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5" />
+                  <AlertCircle className="w-5 h-5 text-primary" />
                   Notes from Teachers
                 </CardTitle>
               </CardHeader>
@@ -671,12 +776,13 @@ const ParentPortal = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {concerns.map((concern) => (
+                    {concerns.map((concern, idx) => (
                       <motion.div
                         key={concern.id}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className={`p-4 rounded-lg border ${concern.is_resolved ? "bg-muted/50" : "bg-background"}`}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.05 }}
+                        className={`p-4 rounded-xl border shadow-sm ${concern.is_resolved ? "bg-muted/50" : "bg-background"}`}
                       >
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -710,30 +816,33 @@ const ParentPortal = () => {
 
           {/* Messages Tab */}
           <TabsContent value="messages" className="space-y-4">
-            <Card>
+            <Card className="shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5" />
+                  <MessageSquare className="w-5 h-5 text-primary" />
                   Messages
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="h-[300px] overflow-y-auto border rounded-lg p-4 space-y-3 bg-muted/30">
+                <div className="h-[300px] overflow-y-auto border rounded-xl p-4 space-y-3 bg-muted/20">
                   {messages.length === 0 ? (
                     <div className="h-full flex items-center justify-center text-muted-foreground">
                       <p>No messages yet. Start a conversation!</p>
                     </div>
                   ) : (
-                    messages.map((msg) => (
-                      <div
+                    messages.map((msg, idx) => (
+                      <motion.div
                         key={msg.id}
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.02 }}
                         className={`flex ${msg.is_from_parent ? "justify-end" : "justify-start"}`}
                       >
                         <div
-                          className={`max-w-[80%] p-3 rounded-lg ${
+                          className={`max-w-[80%] p-3 rounded-2xl ${
                             msg.is_from_parent
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-background border"
+                              ? "bg-primary text-primary-foreground rounded-br-sm"
+                              : "bg-background border shadow-sm rounded-bl-sm"
                           }`}
                         >
                           <p className="text-sm">{msg.message}</p>
@@ -741,7 +850,7 @@ const ParentPortal = () => {
                             {formatDate(msg.created_at)}
                           </p>
                         </div>
-                      </div>
+                      </motion.div>
                     ))
                   )}
                 </div>
@@ -752,7 +861,7 @@ const ParentPortal = () => {
                     onChange={(e) => setNewMessage(e.target.value)}
                     className="min-h-[60px]"
                   />
-                  <Button onClick={handleSendMessage} disabled={!newMessage.trim()}>
+                  <Button onClick={handleSendMessage} disabled={!newMessage.trim()} className="shrink-0">
                     <Send className="w-4 h-4" />
                   </Button>
                 </div>
