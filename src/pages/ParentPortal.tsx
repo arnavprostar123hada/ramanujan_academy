@@ -409,24 +409,28 @@ const ParentPortal = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="tests" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="tests" className="flex items-center gap-2">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="tests" className="flex items-center gap-1">
               <ClipboardList className="w-4 h-4" />
               <span className="hidden sm:inline">Tests</span>
             </TabsTrigger>
-            <TabsTrigger value="comparison" className="flex items-center gap-2">
+            <TabsTrigger value="ai" className="flex items-center gap-1">
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">AI</span>
+            </TabsTrigger>
+            <TabsTrigger value="comparison" className="flex items-center gap-1">
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">Compare</span>
             </TabsTrigger>
-            <TabsTrigger value="announcements" className="flex items-center gap-2">
+            <TabsTrigger value="announcements" className="flex items-center gap-1">
               <Bell className="w-4 h-4" />
               <span className="hidden sm:inline">Announce</span>
             </TabsTrigger>
-            <TabsTrigger value="concerns" className="flex items-center gap-2">
+            <TabsTrigger value="concerns" className="flex items-center gap-1">
               <AlertCircle className="w-4 h-4" />
               <span className="hidden sm:inline">Notes</span>
             </TabsTrigger>
-            <TabsTrigger value="messages" className="flex items-center gap-2">
+            <TabsTrigger value="messages" className="flex items-center gap-1">
               <MessageSquare className="w-4 h-4" />
               <span className="hidden sm:inline">Chat</span>
             </TabsTrigger>
