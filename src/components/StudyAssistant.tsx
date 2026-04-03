@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot, Send, Sparkles, Network, StickyNote, Plus, Trash2, Save,
-  BookOpen, Loader2, ChevronRight, ChevronDown, X, FileText
+  BookOpen, Loader2, ChevronRight, ChevronDown, X, FileText, ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +30,44 @@ interface Note {
   updatedAt: string;
 }
 
+// ─── Robust JSON extractor ───
+function extractJsonFromResponse(response: string): MindMapNode | null {
+  let cleaned = response
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .trim();
+
+  const jsonStart = cleaned.search(/\{/);
+  const jsonEnd = cleaned.lastIndexOf("}");
+  if (jsonStart === -1 || jsonEnd === -1) return null;
+
+  cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+
+  // Remove control characters
+  cleaned = cleaned.replace(/[\x00-\x1F\x7F]/g, (ch) => {
+    if (ch === "\n" || ch === "\r" || ch === "\t") return ch;
+    return "";
+  });
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // Fix common LLM JSON issues
+    cleaned = cleaned
+      .replace(/,\s*}/g, "}")
+      .replace(/,\s*]/g, "]")
+      .replace(/'/g, '"')
+      .replace(/(\w+)\s*:/g, '"$1":')
+      .replace(/""+/g, '"');
+
+    try {
+      return JSON.parse(cleaned);
+    } catch {
+      return null;
+    }
+  }
+}
+
 // ─── Streaming helper ───
 async function streamChat({
   messages, mode, onDelta, onDone,
@@ -49,8 +87,8 @@ async function streamChat({
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
-  let done = false;
-  while (!done) {
+  let streamDone = false;
+  while (!streamDone) {
     const { done: d, value } = await reader.read();
     if (d) break;
     buf += decoder.decode(value, { stream: true });
@@ -60,7 +98,7 @@ async function streamChat({
       if (line.endsWith("\r")) line = line.slice(0, -1);
       if (line.startsWith(":") || !line.trim() || !line.startsWith("data: ")) continue;
       const json = line.slice(6).trim();
-      if (json === "[DONE]") { done = true; break; }
+      if (json === "[DONE]") { streamDone = true; break; }
       try {
         const p = JSON.parse(json);
         const c = p.choices?.[0]?.delta?.content;
@@ -75,11 +113,11 @@ async function streamChat({
 const MindMapNodeView = ({ node, depth = 0 }: { node: MindMapNode; depth?: number }) => {
   const [open, setOpen] = useState(true);
   const colors = [
-    "border-blue-400 bg-blue-50 text-blue-800",
-    "border-emerald-400 bg-emerald-50 text-emerald-800",
-    "border-purple-400 bg-purple-50 text-purple-800",
-    "border-amber-400 bg-amber-50 text-amber-800",
-    "border-rose-400 bg-rose-50 text-rose-800",
+    "border-l-4 border-blue-400 bg-blue-50/80",
+    "border-l-4 border-emerald-400 bg-emerald-50/80",
+    "border-l-4 border-purple-400 bg-purple-50/80",
+    "border-l-4 border-amber-400 bg-amber-50/80",
+    "border-l-4 border-rose-400 bg-rose-50/80",
   ];
   const color = colors[depth % colors.length];
   const hasChildren = node.children && node.children.length > 0;
@@ -92,15 +130,15 @@ const MindMapNodeView = ({ node, depth = 0 }: { node: MindMapNode; depth?: numbe
       className="ml-2"
     >
       <div
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-l-4 ${color} mb-1.5 cursor-pointer transition-all hover:shadow-sm`}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-r-lg ${color} mb-1.5 cursor-pointer transition-all hover:shadow-sm`}
         onClick={() => hasChildren && setOpen(!open)}
       >
         {hasChildren ? (
-          open ? <ChevronDown className="w-3.5 h-3.5 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+          open ? <ChevronDown className="w-3.5 h-3.5 shrink-0 text-foreground" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0 text-foreground" />
         ) : (
-          <span className="w-2 h-2 rounded-full bg-current shrink-0" />
+          <span className="w-2 h-2 rounded-full bg-foreground/50 shrink-0" />
         )}
-        <span className="text-sm font-medium">{node.title}</span>
+        <span className="text-sm font-medium text-foreground">{node.title}</span>
       </div>
       <AnimatePresence>
         {open && hasChildren && (
@@ -194,11 +232,11 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
         mode: "mindmap",
         onDelta: (c) => { raw += c; },
         onDone: () => {
-          try {
-            const clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-            setMindMapData(JSON.parse(clean));
-          } catch {
-            toast({ title: "Failed to parse mind map", variant: "destructive" });
+          const parsed = extractJsonFromResponse(raw);
+          if (parsed) {
+            setMindMapData(parsed);
+          } else {
+            toast({ title: "Failed to parse mind map. Try again.", variant: "destructive" });
           }
           setIsMindMapLoading(false);
         },
@@ -258,8 +296,8 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <Card className="border-primary/20 overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-primary/10 via-purple-500/10 to-blue-500/10 pb-4">
+      <Card className="border-primary/20 overflow-hidden shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-primary/10 via-accent/10 to-secondary/10 pb-4">
           <CardTitle className="flex items-center gap-2">
             <motion.div
               animate={{ rotate: [0, 15, -15, 0] }}
@@ -277,14 +315,17 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
 
         <CardContent className="p-0">
           <Tabs defaultValue="chat" className="w-full">
-            <TabsList className="w-full rounded-none grid grid-cols-3 h-11 bg-muted/50">
-              <TabsTrigger value="chat" className="flex items-center gap-1.5 text-xs sm:text-sm">
+            <TabsList className="w-full rounded-none grid grid-cols-4 h-11 bg-muted/50">
+              <TabsTrigger value="chat" className="flex items-center gap-1 text-xs sm:text-sm">
                 <Bot className="w-4 h-4" /> Ask AI
               </TabsTrigger>
-              <TabsTrigger value="mindmap" className="flex items-center gap-1.5 text-xs sm:text-sm">
+              <TabsTrigger value="notebook" className="flex items-center gap-1 text-xs sm:text-sm">
+                <BookOpen className="w-4 h-4" /> NotebookLM
+              </TabsTrigger>
+              <TabsTrigger value="mindmap" className="flex items-center gap-1 text-xs sm:text-sm">
                 <Network className="w-4 h-4" /> Mind Map
               </TabsTrigger>
-              <TabsTrigger value="notes" className="flex items-center gap-1.5 text-xs sm:text-sm">
+              <TabsTrigger value="notes" className="flex items-center gap-1 text-xs sm:text-sm">
                 <StickyNote className="w-4 h-4" /> Notes
               </TabsTrigger>
             </TabsList>
@@ -322,7 +363,7 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
                           : "bg-background border shadow-sm rounded-bl-sm"
                       }`}>
                         {msg.role === "assistant" ? (
-                          <div className="prose prose-sm max-w-none dark:prose-invert">
+                          <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                             <ReactMarkdown>{msg.content}</ReactMarkdown>
                           </div>
                         ) : msg.content}
@@ -355,6 +396,81 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
                   <Send className="w-4 h-4" />
                 </Button>
               </form>
+            </TabsContent>
+
+            {/* ─── NotebookLM Tab ─── */}
+            <TabsContent value="notebook" className="m-0 p-4 space-y-4">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-center space-y-4"
+              >
+                <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
+                  <BookOpen className="w-10 h-10 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-foreground">Google NotebookLM</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Use Google's powerful AI notebook to study smarter. Upload your sources, ask questions, and get AI-generated summaries.
+                  </p>
+                </div>
+
+                <div className="grid gap-3 text-left">
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 border"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-sm font-bold text-primary">1</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">Upload Your Sources</p>
+                      <p className="text-xs text-muted-foreground">Add PDFs, Google Docs, websites, or text to NotebookLM</p>
+                    </div>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 border"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-sm font-bold text-primary">2</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">Ask Questions</p>
+                      <p className="text-xs text-muted-foreground">AI answers based on your uploaded sources with citations</p>
+                    </div>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 border"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-sm font-bold text-primary">3</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">Generate Audio Overviews</p>
+                      <p className="text-xs text-muted-foreground">Get podcast-style audio summaries of your study material</p>
+                    </div>
+                  </motion.div>
+                </div>
+
+                <Button
+                  className="w-full gap-2 h-12 text-base font-semibold"
+                  onClick={() => window.open("https://notebooklm.google.com/", "_blank")}
+                >
+                  <ExternalLink className="w-5 h-5" />
+                  Open Google NotebookLM
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Sign in with your Google account to use all NotebookLM features for free.
+                </p>
+              </motion.div>
             </TabsContent>
 
             {/* ─── Mind Map Tab ─── */}
