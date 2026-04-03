@@ -585,6 +585,11 @@ const ParentPortal = () => {
             </Card>
           </TabsContent>
 
+          {/* AI Study Assistant Tab */}
+          <TabsContent value="ai" className="space-y-4">
+            {student && <StudyAssistant studentName={student.name} />}
+          </TabsContent>
+
           {/* Comparison Tab */}
           <TabsContent value="comparison" className="space-y-6">
             {student && (
