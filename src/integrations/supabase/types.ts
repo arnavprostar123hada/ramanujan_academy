@@ -254,6 +254,33 @@ export type Database = {
           },
         ]
       }
+      ra_points: {
+        Row: {
+          created_at: string
+          id: string
+          last_reset: string
+          points: number
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_reset?: string
+          points?: number
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_reset?: string
+          points?: number
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       student_complaints: {
         Row: {
           complaint: string

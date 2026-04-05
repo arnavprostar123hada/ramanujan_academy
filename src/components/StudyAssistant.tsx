@@ -2,9 +2,9 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot, Send, Sparkles, Network, StickyNote, Plus, Trash2, Save,
-  BookOpen, Loader2, ChevronRight, ChevronDown, X, FileText,
+  BookOpen, Loader2, ChevronRight, X, FileText,
   Trophy, Brain, Wand2, CheckCircle2, XCircle, Upload, Star,
-  ExternalLink, Award, Medal, Crown
+  ExternalLink, Award, Medal, Crown, Image as ImageIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,8 +13,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
+import { supabase } from "@/integrations/supabase/client";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/study-assistant`;
+const EXTRACT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`;
 
 type Msg = { role: "user" | "assistant"; content: string };
 interface MindMapNode { title: string; children: MindMapNode[]; }
@@ -22,38 +24,82 @@ interface Note { id: string; title: string; content: string; createdAt: string; 
 interface QuizQuestion { question: string; options: string[]; correct: number; explanation: string; }
 interface Quiz { title: string; questions: QuizQuestion[]; }
 
-// ─── RA Points Manager ───
-function getRAPoints(): { points: number; lastReset: string } {
-  try {
-    const stored = JSON.parse(localStorage.getItem("ra_points") || "{}");
-    const now = new Date();
-    const lastReset = stored.lastReset ? new Date(stored.lastReset) : null;
-    if (!lastReset || now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear()) {
-      const fresh = { points: 100, lastReset: now.toISOString() };
-      localStorage.setItem("ra_points", JSON.stringify(fresh));
-      return fresh;
-    }
-    return stored;
-  } catch { return { points: 100, lastReset: new Date().toISOString() }; }
-}
+// ─── RA Points (DB-backed) ───
+function useRAPoints(studentId: string) {
+  const [points, setPoints] = useState(100);
+  const [loaded, setLoaded] = useState(false);
 
-function useRAPoints() {
-  const [data, setData] = useState(getRAPoints);
-  const spend = (n: number) => {
-    const cur = getRAPoints();
-    if (cur.points < n) return false;
-    const next = { ...cur, points: cur.points - n };
-    localStorage.setItem("ra_points", JSON.stringify(next));
-    setData(next);
+  useEffect(() => {
+    if (!studentId) return;
+    const load = async () => {
+      const { data } = await supabase
+        .from("ra_points")
+        .select("*")
+        .eq("student_id", studentId)
+        .maybeSingle();
+      if (data) {
+        const lastReset = new Date(data.last_reset);
+        const now = new Date();
+        if (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear()) {
+          await supabase.from("ra_points").update({ points: 100, last_reset: now.toISOString(), updated_at: now.toISOString() }).eq("student_id", studentId);
+          setPoints(100);
+        } else {
+          setPoints(data.points);
+        }
+      } else {
+        await supabase.from("ra_points").insert({ student_id: studentId, points: 100 });
+        setPoints(100);
+      }
+      setLoaded(true);
+    };
+    load();
+  }, [studentId]);
+
+  const updateDB = async (newPoints: number) => {
+    setPoints(newPoints);
+    await supabase.from("ra_points").update({ points: newPoints, updated_at: new Date().toISOString() }).eq("student_id", studentId);
+  };
+
+  const spend = async (n: number) => {
+    if (points < n) return false;
+    await updateDB(points - n);
     return true;
   };
-  const earn = (n: number) => {
-    const cur = getRAPoints();
-    const next = { ...cur, points: cur.points + n };
-    localStorage.setItem("ra_points", JSON.stringify(next));
-    setData(next);
+  const earn = async (n: number) => {
+    await updateDB(points + n);
   };
-  return { points: data.points, spend, earn };
+
+  return { points, spend, earn, loaded };
+}
+
+// ─── Leaderboard (DB-backed) ───
+function useLeaderboard() {
+  const [leaderboard, setLeaderboard] = useState<{ name: string; points: number; student_id: string }[]>([]);
+  const load = async () => {
+    const { data: raData } = await supabase.from("ra_points").select("student_id, points").order("points", { ascending: false }).limit(20);
+    if (!raData?.length) return;
+    const studentIds = raData.map(r => r.student_id);
+    const { data: students } = await supabase.from("students").select("id, name").in("id", studentIds);
+    if (!students) return;
+    const nameMap = new Map(students.map(s => [s.id, s.name]));
+    setLeaderboard(raData.filter(r => nameMap.has(r.student_id)).map(r => ({ name: nameMap.get(r.student_id)!, points: r.points, student_id: r.student_id })));
+  };
+  useEffect(() => { load(); }, []);
+  return { leaderboard, refresh: load };
+}
+
+// ─── Extract text from file via edge function ───
+async function extractTextFromFile(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const resp = await fetch(EXTRACT_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+    body: formData,
+  });
+  if (!resp.ok) throw new Error("Failed to extract text");
+  const data = await resp.json();
+  return data.text || "";
 }
 
 // ─── JSON extractor ───
@@ -118,74 +164,141 @@ async function fetchAI(messages: Msg[], mode: string, sourceText?: string) {
   return resp.json();
 }
 
-// ─── Tree Mind Map (like NotebookLM reference) ───
-const TreeNode = ({ node, depth = 0, isLast = false }: { node: MindMapNode; depth?: number; isLast?: boolean }) => {
-  const [open, setOpen] = useState(true);
-  const hasChildren = node.children?.length > 0;
-  const bgColors = [
-    "bg-[hsl(var(--primary)/0.15)] border-[hsl(var(--primary)/0.4)]",
-    "bg-[hsl(var(--accent)/0.15)] border-[hsl(var(--accent)/0.4)]",
-    "bg-[hsl(var(--secondary)/0.2)] border-[hsl(var(--secondary)/0.4)]",
-    "bg-muted/60 border-muted-foreground/20",
-  ];
-  const colorClass = bgColors[Math.min(depth, bgColors.length - 1)];
+// ─── Organic Mind Map (NotebookLM-style with curved branches) ───
+const BRANCH_COLORS = [
+  "hsl(var(--primary))",
+  "hsl(160, 60%, 40%)",
+  "hsl(200, 70%, 45%)",
+  "hsl(280, 50%, 50%)",
+  "hsl(30, 70%, 50%)",
+  "hsl(340, 60%, 50%)",
+  "hsl(100, 50%, 40%)",
+  "hsl(220, 60%, 50%)",
+];
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: -10 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: depth * 0.03, duration: 0.3 }}
-      className="relative"
-    >
-      {/* Connector lines */}
-      {depth > 0 && (
-        <div className="absolute left-[-20px] top-0 h-[18px] w-[20px] border-l-2 border-b-2 border-muted-foreground/20 rounded-bl-lg" />
-      )}
-      {depth > 0 && !isLast && (
-        <div className="absolute left-[-20px] top-0 bottom-0 border-l-2 border-muted-foreground/20" />
-      )}
+interface OrganicNodeProps {
+  node: MindMapNode;
+  x: number;
+  y: number;
+  angle: number;
+  depth: number;
+  branchColor: string;
+  parentX?: number;
+  parentY?: number;
+}
 
-      <div
-        onClick={() => hasChildren && setOpen(!open)}
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium mb-2 cursor-pointer transition-all hover:shadow-md ${colorClass}`}
-      >
-        {hasChildren && (
-          <motion.div animate={{ rotate: open ? 90 : 0 }} transition={{ duration: 0.2 }}>
-            <ChevronRight className="w-3 h-3 shrink-0 text-muted-foreground" />
-          </motion.div>
-        )}
-        {!hasChildren && <span className="w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0" />}
-        <span>{node.title}</span>
-      </div>
-
-      <AnimatePresence>
-        {open && hasChildren && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="ml-[20px] relative"
-          >
-            {node.children.map((c, i) => (
-              <TreeNode key={i} node={c} depth={depth + 1} isLast={i === node.children.length - 1} />
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
+const getNodeDimensions = (text: string, depth: number) => {
+  const maxChars = depth === 0 ? 20 : depth === 1 ? 18 : 16;
+  const charW = depth === 0 ? 9 : depth === 1 ? 7.5 : 6.5;
+  const displayLen = Math.min(text.length, maxChars + 5);
+  const w = Math.max(depth === 0 ? 140 : 80, displayLen * charW + (depth === 0 ? 40 : 24));
+  const h = depth === 0 ? 44 : depth === 1 ? 34 : 28;
+  return { w, h };
 };
 
-// ─── Leaderboard data (mock — would come from DB in production) ───
-function getLeaderboard(currentStudentName: string, currentPoints: number) {
-  const stored: { name: string; points: number }[] = JSON.parse(localStorage.getItem("ra_leaderboard") || "[]");
-  const idx = stored.findIndex(s => s.name === currentStudentName);
-  if (idx >= 0) stored[idx].points = currentPoints;
-  else stored.push({ name: currentStudentName, points: currentPoints });
-  localStorage.setItem("ra_leaderboard", JSON.stringify(stored));
-  return stored.sort((a, b) => b.points - a.points).slice(0, 10);
-}
+const OrganicMindMap = ({ data }: { data: MindMapNode }) => {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [viewBox, setViewBox] = useState("0 0 900 700");
+
+  const allNodes: { node: MindMapNode; x: number; y: number; w: number; h: number; depth: number; color: string; parentX?: number; parentY?: number }[] = [];
+
+  const layout = (node: MindMapNode, x: number, y: number, angle: number, depth: number, color: string, parentX?: number, parentY?: number) => {
+    const { w, h } = getNodeDimensions(node.title, depth);
+    allNodes.push({ node, x, y, w, h, depth, color, parentX, parentY });
+    if (!node.children?.length) return;
+    const count = node.children.length;
+    const spread = depth === 0 ? Math.PI * 1.8 : Math.min(Math.PI * 0.8, count * 0.45);
+    const startAngle = depth === 0 ? -Math.PI * 0.9 : angle - spread / 2;
+    const radius = depth === 0 ? 200 : depth === 1 ? 160 : 120;
+
+    node.children.forEach((child, i) => {
+      const a = startAngle + (count > 1 ? (i / (count - 1)) * spread : spread / 2);
+      const jitter = (Math.random() - 0.5) * 15;
+      const cx = x + Math.cos(a) * (radius + jitter);
+      const cy = y + Math.sin(a) * (radius + jitter);
+      const childColor = depth === 0 ? BRANCH_COLORS[i % BRANCH_COLORS.length] : color;
+      layout(child, cx, cy, a, depth + 1, childColor, x, y);
+    });
+  };
+
+  const centerX = 450, centerY = 350;
+  layout(data, centerX, centerY, 0, 0, BRANCH_COLORS[0]);
+
+  // Compute bounding box
+  useEffect(() => {
+    if (!allNodes.length) return;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    allNodes.forEach(n => {
+      minX = Math.min(minX, n.x - n.w / 2 - 20);
+      maxX = Math.max(maxX, n.x + n.w / 2 + 20);
+      minY = Math.min(minY, n.y - n.h / 2 - 20);
+      maxY = Math.max(maxY, n.y + n.h / 2 + 20);
+    });
+    const padding = 40;
+    setViewBox(`${minX - padding} ${minY - padding} ${maxX - minX + padding * 2} ${maxY - minY + padding * 2}`);
+  }, [data]);
+
+  return (
+    <div className="overflow-auto max-h-[420px] rounded-xl border border-border/30 bg-muted/10">
+      <svg ref={svgRef} viewBox={viewBox} className="w-full min-w-[600px]" style={{ minHeight: 400 }}>
+        {/* Curved connection lines */}
+        {allNodes.filter(n => n.parentX !== undefined).map((n, i) => {
+          const mx = (n.parentX! + n.x) / 2;
+          const my = (n.parentY! + n.y) / 2 + (Math.random() - 0.5) * 10;
+          return (
+            <path
+              key={`line-${i}`}
+              d={`M ${n.parentX} ${n.parentY} Q ${mx} ${n.parentY}, ${mx} ${my} T ${n.x} ${n.y}`}
+              fill="none"
+              stroke={n.color}
+              strokeWidth={n.depth === 1 ? 2.5 : 1.5}
+              strokeOpacity={0.5}
+              className="transition-all"
+            />
+          );
+        })}
+        {/* Nodes */}
+        {allNodes.map((n, i) => {
+          const rx = n.depth === 0 ? 22 : n.depth === 1 ? 16 : 12;
+          const fontSize = n.depth === 0 ? 14 : n.depth === 1 ? 11 : 9.5;
+          const fontWeight = n.depth <= 1 ? "600" : "500";
+          const fillOpacity = n.depth === 0 ? 1 : n.depth === 1 ? 0.9 : 0.8;
+          return (
+            <g key={`node-${i}`}>
+              <motion.rect
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: i * 0.03, type: "spring", stiffness: 200 }}
+                x={n.x - n.w / 2}
+                y={n.y - n.h / 2}
+                width={n.w}
+                height={n.h}
+                rx={rx}
+                fill={n.depth === 0 ? n.color : n.color}
+                fillOpacity={fillOpacity}
+                stroke={n.color}
+                strokeWidth={n.depth === 0 ? 2 : 1}
+                strokeOpacity={0.6}
+                className="drop-shadow-sm"
+              />
+              <text
+                x={n.x}
+                y={n.y + fontSize * 0.35}
+                textAnchor="middle"
+                fill="white"
+                fontSize={fontSize}
+                fontWeight={fontWeight}
+                fontFamily="system-ui, sans-serif"
+              >
+                {n.node.title.length > 28 ? n.node.title.slice(0, 26) + "…" : n.node.title}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+};
 
 // ─── Tab button ───
 const TabButton = ({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: React.ElementType; label: string }) => (
@@ -202,10 +315,27 @@ const TabButton = ({ active, onClick, icon: Icon, label }: { active: boolean; on
   </button>
 );
 
+// ─── File upload button ───
+const FileUploadButton = ({ onUpload, loading, accept, label }: { onUpload: (f: File) => void; loading: boolean; accept: string; label: string }) => (
+  <label className="cursor-pointer">
+    <input
+      type="file"
+      accept={accept}
+      className="hidden"
+      onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ""; }}
+      disabled={loading}
+    />
+    <Button variant="outline" className="w-full rounded-xl pointer-events-none" disabled={loading} asChild>
+      <span>{loading ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />} {label}</span>
+    </Button>
+  </label>
+);
+
 // ─── Main Component ───
-const StudyAssistant = ({ studentName }: { studentName: string }) => {
+const StudyAssistant = ({ studentName, studentId }: { studentName: string; studentId: string }) => {
   const { toast } = useToast();
-  const { points, spend, earn } = useRAPoints();
+  const { points, spend, earn } = useRAPoints(studentId);
+  const { leaderboard, refresh: refreshLeaderboard } = useLeaderboard();
   const [activeTab, setActiveTab] = useState("chat");
 
   // Chat
@@ -220,12 +350,14 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
   const [notebookInput, setNotebookInput] = useState("");
   const [isNotebookLoading, setIsNotebookLoading] = useState(false);
   const [sourceUploaded, setSourceUploaded] = useState(false);
+  const [isExtractingFile, setIsExtractingFile] = useState(false);
   const notebookEndRef = useRef<HTMLDivElement>(null);
 
   // Mind Map
   const [mindMapSource, setMindMapSource] = useState("");
   const [mindMapData, setMindMapData] = useState<MindMapNode | null>(null);
   const [isMindMapLoading, setIsMindMapLoading] = useState(false);
+  const [isMindMapExtractingFile, setIsMindMapExtractingFile] = useState(false);
 
   // Quiz
   const [quizTopic, setQuizTopic] = useState("");
@@ -248,10 +380,46 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
   useEffect(() => { notebookEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [notebookMessages]);
   useEffect(() => { localStorage.setItem("student_notes", JSON.stringify(notes)); }, [notes]);
 
+  // ─── File upload handler (notebook) ───
+  const handleNotebookFileUpload = async (file: File) => {
+    setIsExtractingFile(true);
+    try {
+      const text = await extractTextFromFile(file);
+      if (text.trim()) {
+        setNotebookSource(prev => prev ? prev + "\n\n---\n\n" + text : text);
+        toast({ title: `📄 "${file.name}" extracted!`, description: `${text.length} characters extracted.` });
+      } else {
+        toast({ title: "No text could be extracted", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Failed to extract text from file", variant: "destructive" });
+    } finally {
+      setIsExtractingFile(false);
+    }
+  };
+
+  // ─── File upload handler (mind map) ───
+  const handleMindMapFileUpload = async (file: File) => {
+    setIsMindMapExtractingFile(true);
+    try {
+      const text = await extractTextFromFile(file);
+      if (text.trim()) {
+        setMindMapSource(prev => prev ? prev + "\n\n" + text : text);
+        toast({ title: `📄 "${file.name}" loaded for mind map!` });
+      } else {
+        toast({ title: "No text could be extracted", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Failed to extract text from file", variant: "destructive" });
+    } finally {
+      setIsMindMapExtractingFile(false);
+    }
+  };
+
   // ─── Chat ───
   const sendChat = useCallback(async () => {
     if (!chatInput.trim() || isChatLoading) return;
-    if (!spend(1)) { toast({ title: "Not enough RA Points! 😅", description: "Earn points by taking quizzes.", variant: "destructive" }); return; }
+    if (!await spend(1)) { toast({ title: "Not enough RA Points! 😅", description: "Earn points by taking quizzes.", variant: "destructive" }); return; }
     const userMsg: Msg = { role: "user", content: chatInput.trim() };
     setChatMessages(prev => [...prev, userMsg]);
     setChatInput("");
@@ -274,27 +442,10 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
   }, [chatInput, chatMessages, isChatLoading, toast, spend]);
 
   // ─── Notebook ───
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      setNotebookSource(prev => prev + "\n\n" + text);
-      setSourceUploaded(true);
-      toast({ title: `📄 "${file.name}" uploaded!` });
-    };
-    if (file.type.startsWith("text/") || file.name.endsWith(".txt") || file.name.endsWith(".md")) {
-      reader.readAsText(file);
-    } else {
-      toast({ title: "Supported: .txt, .md files", variant: "destructive" });
-    }
-  };
-
   const sendNotebook = useCallback(async () => {
     if (!notebookInput.trim() || isNotebookLoading) return;
     if (!notebookSource.trim()) { toast({ title: "Add source material first!", variant: "destructive" }); return; }
-    if (!spend(1)) { toast({ title: "Not enough RA Points!", variant: "destructive" }); return; }
+    if (!await spend(1)) { toast({ title: "Not enough RA Points!", variant: "destructive" }); return; }
     const userMsg: Msg = { role: "user", content: notebookInput.trim() };
     setNotebookMessages(prev => [...prev, userMsg]);
     setNotebookInput("");
@@ -319,7 +470,7 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
   // ─── Mind Map ───
   const generateMindMap = async () => {
     if (!mindMapSource.trim()) return;
-    if (!spend(1)) { toast({ title: "Not enough RA Points!", variant: "destructive" }); return; }
+    if (!await spend(1)) { toast({ title: "Not enough RA Points!", variant: "destructive" }); return; }
     setIsMindMapLoading(true);
     setMindMapData(null);
     let raw = "";
@@ -340,7 +491,7 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
   // ─── Quiz ───
   const generateQuiz = async () => {
     if (!quizTopic.trim()) return;
-    if (!spend(1)) { toast({ title: "Not enough RA Points!", variant: "destructive" }); return; }
+    if (!await spend(1)) { toast({ title: "Not enough RA Points!", variant: "destructive" }); return; }
     setIsQuizLoading(true);
     setQuiz(null); setQuizAnswers({}); setQuizSubmitted(false);
     try {
@@ -352,18 +503,19 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
     finally { setIsQuizLoading(false); }
   };
 
-  const submitQuiz = () => {
+  const submitQuiz = async () => {
     if (!quiz) return;
     setQuizSubmitted(true);
     const correct = quiz.questions.filter((q, i) => quizAnswers[i] === q.correct).length;
-    earn(correct * 2);
+    await earn(correct * 2);
+    refreshLeaderboard();
     toast({ title: `🎉 Score: ${correct}/${quiz.questions.length}`, description: `+${correct * 2} RA Points!` });
   };
 
   // ─── Notes ───
   const solveNote = async () => {
     if (!noteContent.trim()) return;
-    if (!spend(1)) { toast({ title: "Not enough RA Points!", variant: "destructive" }); return; }
+    if (!await spend(1)) { toast({ title: "Not enough RA Points!", variant: "destructive" }); return; }
     setIsNoteSolving(true); setNoteSolution("");
     let sol = "";
     try {
@@ -391,8 +543,6 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
     setNotes(prev => prev.filter(n => n.id !== id));
     if (activeNote?.id === id) { setActiveNote(null); setNoteTitle(""); setNoteContent(""); setNoteSolution(""); }
   };
-
-  const leaderboard = getLeaderboard(studentName, points);
 
   const tabs = [
     { id: "chat", icon: Bot, label: "Chat" },
@@ -448,7 +598,7 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
               <TabButton
                 key={tab.id}
                 active={activeTab === tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => { setActiveTab(tab.id); if (tab.id === "leaderboard") refreshLeaderboard(); }}
                 icon={tab.icon}
                 label={tab.label}
               />
@@ -501,15 +651,13 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
                 <div ref={chatEndRef} />
               </div>
               <form onSubmit={(e) => { e.preventDefault(); sendChat(); }} className="flex gap-2">
-                <div className="flex-1 relative">
-                  <Input
-                    placeholder="Start typing..."
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    disabled={isChatLoading}
-                    className="rounded-xl text-sm pr-4 bg-muted/30 border-border/40 focus-visible:border-primary/50"
-                  />
-                </div>
+                <Input
+                  placeholder="Start typing..."
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  disabled={isChatLoading}
+                  className="rounded-xl text-sm bg-muted/30 border-border/40 focus-visible:border-primary/50"
+                />
                 <Button type="submit" size="icon" className="rounded-xl shrink-0 h-10 w-10" disabled={isChatLoading || !chatInput.trim()}>
                   <Send className="w-4 h-4" />
                 </Button>
@@ -517,7 +665,7 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
             </motion.div>
           )}
 
-          {/* ─── Notebook (Sources) ─── */}
+          {/* ─── Notebook (Sources) with PDF/Image upload ─── */}
           {activeTab === "notebook" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
               {!sourceUploaded ? (
@@ -527,7 +675,7 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
                       <Upload className="w-7 h-7 text-primary/40" />
                     </div>
                     <h3 className="font-bold text-sm">Add your sources</h3>
-                    <p className="text-[10px] text-muted-foreground mt-1">pdf, text files, docs, and more</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">PDF, images, text files — we'll extract the content</p>
                   </div>
                   <Textarea
                     placeholder="Paste your study material here..."
@@ -536,16 +684,33 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
                     className="min-h-[100px] text-sm bg-muted/30 border-border/40 rounded-xl"
                   />
                   <div className="grid grid-cols-2 gap-2">
-                    <label>
-                      <input type="file" accept=".txt,.md" className="hidden" onChange={handleFileUpload} />
-                      <Button variant="outline" className="w-full rounded-xl" asChild>
-                        <span><Upload className="w-4 h-4 mr-1.5" /> Upload files</span>
+                    <FileUploadButton
+                      onUpload={handleNotebookFileUpload}
+                      loading={isExtractingFile}
+                      accept=".txt,.md,.pdf,.csv,.doc,.docx"
+                      label={isExtractingFile ? "Extracting..." : "Upload PDF/Text"}
+                    />
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleNotebookFileUpload(f); e.target.value = ""; }}
+                        disabled={isExtractingFile}
+                      />
+                      <Button variant="outline" className="w-full rounded-xl pointer-events-none" disabled={isExtractingFile} asChild>
+                        <span><ImageIcon className="w-4 h-4 mr-1.5" /> Upload Image</span>
                       </Button>
                     </label>
-                    <Button className="rounded-xl" onClick={() => { if (notebookSource.trim()) { setSourceUploaded(true); toast({ title: "✅ Source added!" }); } }} disabled={!notebookSource.trim()}>
-                      <CheckCircle2 className="w-4 h-4 mr-1.5" /> Add Source
-                    </Button>
                   </div>
+                  {notebookSource.trim() && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      <FileText className="w-3 h-3 mr-1" /> {notebookSource.length} chars loaded
+                    </Badge>
+                  )}
+                  <Button className="w-full rounded-xl" onClick={() => { if (notebookSource.trim()) { setSourceUploaded(true); toast({ title: "✅ Source added!" }); } }} disabled={!notebookSource.trim()}>
+                    <CheckCircle2 className="w-4 h-4 mr-1.5" /> Add Source & Start
+                  </Button>
                   <Button
                     variant="outline"
                     className="w-full rounded-xl text-muted-foreground"
@@ -681,33 +846,41 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
             </motion.div>
           )}
 
-          {/* ─── Mind Map (Tree style like NotebookLM) ─── */}
+          {/* ─── Mind Map (Organic NotebookLM-style) with file upload ─── */}
           {activeTab === "mindmap" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
               <Textarea
                 placeholder="Enter a topic or paste your notes to generate a mind map..."
                 value={mindMapSource}
                 onChange={(e) => setMindMapSource(e.target.value)}
-                className="min-h-[70px] text-sm rounded-xl bg-muted/30 border-border/40"
+                className="min-h-[60px] text-sm rounded-xl bg-muted/30 border-border/40"
               />
-              <Button onClick={generateMindMap} disabled={isMindMapLoading || !mindMapSource.trim()} className="w-full rounded-xl">
-                {isMindMapLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</> : <><Network className="w-4 h-4 mr-2" /> Generate Mind Map</>}
-              </Button>
+              <div className="grid grid-cols-3 gap-2">
+                <FileUploadButton
+                  onUpload={handleMindMapFileUpload}
+                  loading={isMindMapExtractingFile}
+                  accept=".txt,.md,.pdf,.csv"
+                  label="PDF"
+                />
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleMindMapFileUpload(f); e.target.value = ""; }}
+                    disabled={isMindMapExtractingFile}
+                  />
+                  <Button variant="outline" className="w-full rounded-xl pointer-events-none text-xs" disabled={isMindMapExtractingFile} asChild>
+                    <span><ImageIcon className="w-3.5 h-3.5 mr-1" /> Image</span>
+                  </Button>
+                </label>
+                <Button onClick={generateMindMap} disabled={isMindMapLoading || isMindMapExtractingFile || !mindMapSource.trim()} className="rounded-xl text-xs">
+                  {isMindMapLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Network className="w-3.5 h-3.5 mr-1" /> Generate</>}
+                </Button>
+              </div>
               {mindMapData && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="border border-border/30 rounded-xl p-4 bg-muted/10 overflow-auto max-h-[380px]"
-                >
-                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/20">
-                    <Network className="w-4 h-4 text-primary" />
-                    <h3 className="font-bold text-sm">{mindMapData.title}</h3>
-                  </div>
-                  <div className="pl-2">
-                    {mindMapData.children?.map((c, i) => (
-                      <TreeNode key={i} node={c} depth={0} isLast={i === (mindMapData.children?.length || 0) - 1} />
-                    ))}
-                  </div>
+                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+                  <OrganicMindMap data={mindMapData} />
                 </motion.div>
               )}
               {!mindMapData && !isMindMapLoading && (
@@ -715,7 +888,7 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
                   <div className="w-14 h-14 rounded-2xl bg-muted/30 flex items-center justify-center mx-auto mb-3">
                     <Network className="w-7 h-7 opacity-30" />
                   </div>
-                  <p className="text-xs">Mind map will appear here</p>
+                  <p className="text-xs">Upload a file or enter a topic to generate</p>
                 </div>
               )}
             </motion.div>
@@ -788,7 +961,7 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
             </motion.div>
           )}
 
-          {/* ─── Leaderboard ─── */}
+          {/* ─── Leaderboard (DB-backed) ─── */}
           {activeTab === "leaderboard" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
               <div className="text-center py-3">
@@ -800,13 +973,13 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
               </div>
               <div className="space-y-2">
                 {leaderboard.map((entry, i) => {
-                  const isMe = entry.name === studentName;
+                  const isMe = entry.student_id === studentId;
                   const rankIcon = i === 0 ? <Crown className="w-4 h-4 text-yellow-500" /> :
                                    i === 1 ? <Medal className="w-4 h-4 text-gray-400" /> :
                                    i === 2 ? <Medal className="w-4 h-4 text-amber-700" /> : null;
                   return (
                     <motion.div
-                      key={entry.name}
+                      key={entry.student_id}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.06 }}
