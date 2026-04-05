@@ -3,13 +3,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot, Send, Sparkles, Network, StickyNote, Plus, Trash2, Save,
   BookOpen, Loader2, ChevronRight, ChevronDown, X, FileText,
-  Trophy, Brain, Wand2, CheckCircle2, XCircle, Upload, Star
+  Trophy, Brain, Wand2, CheckCircle2, XCircle, Upload, Star,
+  ExternalLink, Award, Medal, Crown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
@@ -17,22 +17,10 @@ import ReactMarkdown from "react-markdown";
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/study-assistant`;
 
 type Msg = { role: "user" | "assistant"; content: string };
-
 interface MindMapNode { title: string; children: MindMapNode[]; }
-
-interface Note {
-  id: string; title: string; content: string;
-  createdAt: string; updatedAt: string;
-}
-
-interface QuizQuestion {
-  question: string; options: string[];
-  correct: number; explanation: string;
-}
-
-interface Quiz {
-  title: string; questions: QuizQuestion[];
-}
+interface Note { id: string; title: string; content: string; createdAt: string; updatedAt: string; }
+interface QuizQuestion { question: string; options: string[]; correct: number; explanation: string; }
+interface Quiz { title: string; questions: QuizQuestion[]; }
 
 // ─── RA Points Manager ───
 function getRAPoints(): { points: number; lastReset: string } {
@@ -46,14 +34,11 @@ function getRAPoints(): { points: number; lastReset: string } {
       return fresh;
     }
     return stored;
-  } catch {
-    return { points: 100, lastReset: new Date().toISOString() };
-  }
+  } catch { return { points: 100, lastReset: new Date().toISOString() }; }
 }
 
 function useRAPoints() {
   const [data, setData] = useState(getRAPoints);
-
   const spend = (n: number) => {
     const cur = getRAPoints();
     if (cur.points < n) return false;
@@ -62,14 +47,12 @@ function useRAPoints() {
     setData(next);
     return true;
   };
-
   const earn = (n: number) => {
     const cur = getRAPoints();
     const next = { ...cur, points: cur.points + n };
     localStorage.setItem("ra_points", JSON.stringify(next));
     setData(next);
   };
-
   return { points: data.points, spend, earn };
 }
 
@@ -135,30 +118,58 @@ async function fetchAI(messages: Msg[], mode: string, sourceText?: string) {
   return resp.json();
 }
 
-// ─── Mind Map Renderer ───
-const MindMapNodeView = ({ node, depth = 0 }: { node: MindMapNode; depth?: number }) => {
+// ─── Tree Mind Map (like NotebookLM reference) ───
+const TreeNode = ({ node, depth = 0, isLast = false }: { node: MindMapNode; depth?: number; isLast?: boolean }) => {
   const [open, setOpen] = useState(true);
-  const colors = [
-    "border-l-4 border-blue-400 bg-blue-50/80 dark:bg-blue-950/30",
-    "border-l-4 border-emerald-400 bg-emerald-50/80 dark:bg-emerald-950/30",
-    "border-l-4 border-purple-400 bg-purple-50/80 dark:bg-purple-950/30",
-    "border-l-4 border-amber-400 bg-amber-50/80 dark:bg-amber-950/30",
-    "border-l-4 border-rose-400 bg-rose-50/80 dark:bg-rose-950/30",
-  ];
   const hasChildren = node.children?.length > 0;
+  const bgColors = [
+    "bg-[hsl(var(--primary)/0.15)] border-[hsl(var(--primary)/0.4)]",
+    "bg-[hsl(var(--accent)/0.15)] border-[hsl(var(--accent)/0.4)]",
+    "bg-[hsl(var(--secondary)/0.2)] border-[hsl(var(--secondary)/0.4)]",
+    "bg-muted/60 border-muted-foreground/20",
+  ];
+  const colorClass = bgColors[Math.min(depth, bgColors.length - 1)];
+
   return (
-    <motion.div initial={{ opacity: 0, x: -15 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: depth * 0.04 }} className="ml-2">
+    <motion.div
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: depth * 0.03, duration: 0.3 }}
+      className="relative"
+    >
+      {/* Connector lines */}
+      {depth > 0 && (
+        <div className="absolute left-[-20px] top-0 h-[18px] w-[20px] border-l-2 border-b-2 border-muted-foreground/20 rounded-bl-lg" />
+      )}
+      {depth > 0 && !isLast && (
+        <div className="absolute left-[-20px] top-0 bottom-0 border-l-2 border-muted-foreground/20" />
+      )}
+
       <div
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-r-lg ${colors[depth % 5]} mb-1.5 cursor-pointer transition-all hover:shadow-sm`}
         onClick={() => hasChildren && setOpen(!open)}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium mb-2 cursor-pointer transition-all hover:shadow-md ${colorClass}`}
       >
-        {hasChildren ? (open ? <ChevronDown className="w-3.5 h-3.5 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0" />) : <span className="w-2 h-2 rounded-full bg-foreground/40 shrink-0" />}
-        <span className="text-sm font-medium">{node.title}</span>
+        {hasChildren && (
+          <motion.div animate={{ rotate: open ? 90 : 0 }} transition={{ duration: 0.2 }}>
+            <ChevronRight className="w-3 h-3 shrink-0 text-muted-foreground" />
+          </motion.div>
+        )}
+        {!hasChildren && <span className="w-1.5 h-1.5 rounded-full bg-primary/60 shrink-0" />}
+        <span>{node.title}</span>
       </div>
+
       <AnimatePresence>
         {open && hasChildren && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="ml-4 border-l-2 border-muted pl-2">
-            {node.children.map((c, i) => <MindMapNodeView key={i} node={c} depth={depth + 1} />)}
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="ml-[20px] relative"
+          >
+            {node.children.map((c, i) => (
+              <TreeNode key={i} node={c} depth={depth + 1} isLast={i === node.children.length - 1} />
+            ))}
           </motion.div>
         )}
       </AnimatePresence>
@@ -166,10 +177,36 @@ const MindMapNodeView = ({ node, depth = 0 }: { node: MindMapNode; depth?: numbe
   );
 };
 
+// ─── Leaderboard data (mock — would come from DB in production) ───
+function getLeaderboard(currentStudentName: string, currentPoints: number) {
+  const stored: { name: string; points: number }[] = JSON.parse(localStorage.getItem("ra_leaderboard") || "[]");
+  const idx = stored.findIndex(s => s.name === currentStudentName);
+  if (idx >= 0) stored[idx].points = currentPoints;
+  else stored.push({ name: currentStudentName, points: currentPoints });
+  localStorage.setItem("ra_leaderboard", JSON.stringify(stored));
+  return stored.sort((a, b) => b.points - a.points).slice(0, 10);
+}
+
+// ─── Tab button ───
+const TabButton = ({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: React.ElementType; label: string }) => (
+  <button
+    onClick={onClick}
+    className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-all whitespace-nowrap ${
+      active
+        ? "bg-primary text-primary-foreground shadow-md"
+        : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+    }`}
+  >
+    <Icon className="w-3.5 h-3.5" />
+    <span className="hidden sm:inline">{label}</span>
+  </button>
+);
+
 // ─── Main Component ───
 const StudyAssistant = ({ studentName }: { studentName: string }) => {
   const { toast } = useToast();
   const { points, spend, earn } = useRAPoints();
+  const [activeTab, setActiveTab] = useState("chat");
 
   // Chat
   const [chatMessages, setChatMessages] = useState<Msg[]>([]);
@@ -177,7 +214,7 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Notebook (our built-in NotebookLM)
+  // Notebook
   const [notebookSource, setNotebookSource] = useState("");
   const [notebookMessages, setNotebookMessages] = useState<Msg[]>([]);
   const [notebookInput, setNotebookInput] = useState("");
@@ -245,18 +282,18 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
       const text = ev.target?.result as string;
       setNotebookSource(prev => prev + "\n\n" + text);
       setSourceUploaded(true);
-      toast({ title: `📄 "${file.name}" uploaded!`, description: "You can now ask questions about this material." });
+      toast({ title: `📄 "${file.name}" uploaded!` });
     };
     if (file.type.startsWith("text/") || file.name.endsWith(".txt") || file.name.endsWith(".md")) {
       reader.readAsText(file);
     } else {
-      toast({ title: "Supported: .txt, .md files", description: "For PDFs, paste the text content directly.", variant: "destructive" });
+      toast({ title: "Supported: .txt, .md files", variant: "destructive" });
     }
   };
 
   const sendNotebook = useCallback(async () => {
     if (!notebookInput.trim() || isNotebookLoading) return;
-    if (!notebookSource.trim()) { toast({ title: "Please add source material first!", variant: "destructive" }); return; }
+    if (!notebookSource.trim()) { toast({ title: "Add source material first!", variant: "destructive" }); return; }
     if (!spend(1)) { toast({ title: "Not enough RA Points!", variant: "destructive" }); return; }
     const userMsg: Msg = { role: "user", content: notebookInput.trim() };
     setNotebookMessages(prev => [...prev, userMsg]);
@@ -305,33 +342,29 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
     if (!quizTopic.trim()) return;
     if (!spend(1)) { toast({ title: "Not enough RA Points!", variant: "destructive" }); return; }
     setIsQuizLoading(true);
-    setQuiz(null);
-    setQuizAnswers({});
-    setQuizSubmitted(false);
+    setQuiz(null); setQuizAnswers({}); setQuizSubmitted(false);
     try {
       const data = await fetchAI([{ role: "user", content: `Generate a quiz about: ${quizTopic.trim()}` }], "quiz");
       const parsed = extractJson<Quiz>(data.content);
       if (parsed?.questions?.length) setQuiz(parsed);
       else toast({ title: "Failed to generate quiz. Try again.", variant: "destructive" });
-    } catch {
-      toast({ title: "Failed to generate quiz", variant: "destructive" });
-    } finally { setIsQuizLoading(false); }
+    } catch { toast({ title: "Failed to generate quiz", variant: "destructive" }); }
+    finally { setIsQuizLoading(false); }
   };
 
   const submitQuiz = () => {
     if (!quiz) return;
     setQuizSubmitted(true);
     const correct = quiz.questions.filter((q, i) => quizAnswers[i] === q.correct).length;
-    earn(correct * 2); // 2 points per correct answer
-    toast({ title: `🎉 Score: ${correct}/${quiz.questions.length}`, description: `You earned ${correct * 2} RA Points!` });
+    earn(correct * 2);
+    toast({ title: `🎉 Score: ${correct}/${quiz.questions.length}`, description: `+${correct * 2} RA Points!` });
   };
 
-  // ─── Notes AI Solve ───
+  // ─── Notes ───
   const solveNote = async () => {
     if (!noteContent.trim()) return;
     if (!spend(1)) { toast({ title: "Not enough RA Points!", variant: "destructive" }); return; }
-    setIsNoteSolving(true);
-    setNoteSolution("");
+    setIsNoteSolving(true); setNoteSolution("");
     let sol = "";
     try {
       await streamChat({
@@ -342,7 +375,6 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
     } catch { toast({ title: "Failed to solve", variant: "destructive" }); setIsNoteSolving(false); }
   };
 
-  // Notes CRUD
   const createNote = () => {
     const note: Note = { id: crypto.randomUUID(), title: "Untitled Note", content: "", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     setNotes(prev => [note, ...prev]);
@@ -360,68 +392,94 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
     if (activeNote?.id === id) { setActiveNote(null); setNoteTitle(""); setNoteContent(""); setNoteSolution(""); }
   };
 
+  const leaderboard = getLeaderboard(studentName, points);
+
+  const tabs = [
+    { id: "chat", icon: Bot, label: "Chat" },
+    { id: "notebook", icon: BookOpen, label: "Sources" },
+    { id: "quiz", icon: Brain, label: "Quiz" },
+    { id: "mindmap", icon: Network, label: "Mind Map" },
+    { id: "notes", icon: StickyNote, label: "Notes" },
+    { id: "leaderboard", icon: Trophy, label: "Ranks" },
+  ];
+
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-      <Card className="border-primary/20 overflow-hidden shadow-lg">
-        <CardHeader className="bg-gradient-to-r from-primary/10 via-accent/10 to-secondary/10 pb-3">
+      <Card className="border-0 overflow-hidden shadow-2xl bg-card rounded-2xl">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-primary/15 via-primary/5 to-accent/10 px-4 py-3 border-b border-border/50">
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <motion.div animate={{ rotate: [0, 15, -15, 0] }} transition={{ repeat: Infinity, duration: 3 }}>
-                <Sparkles className="w-5 h-5 text-primary" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-primary/20 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <h2 className="font-bold text-sm leading-tight">AI Study Hub</h2>
+                <p className="text-[10px] text-muted-foreground">Hi {studentName} 👋</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href="https://notebooklm.google.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-muted/60 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              >
+                <ExternalLink className="w-3 h-3" />
+                NotebookLM
+              </a>
+              <motion.div
+                key={points}
+                initial={{ scale: 1.3 }}
+                animate={{ scale: 1 }}
+                className="flex items-center gap-1 bg-yellow-500/15 px-2.5 py-1.5 rounded-lg"
+              >
+                <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
+                <span className="font-bold text-xs">{points}</span>
               </motion.div>
-              AI Study Hub
-            </CardTitle>
-            <motion.div
-              key={points}
-              initial={{ scale: 1.3 }}
-              animate={{ scale: 1 }}
-              className="flex items-center gap-1.5 bg-primary/10 px-3 py-1 rounded-full"
-            >
-              <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-              <span className="font-bold text-sm">{points}</span>
-              <span className="text-xs text-muted-foreground">RA</span>
-            </motion.div>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Hi {studentName}! 1 point per AI query • Earn points via quizzes 🎯
-          </p>
-        </CardHeader>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="px-3 py-2 border-b border-border/30 overflow-x-auto">
+          <div className="flex gap-1">
+            {tabs.map(tab => (
+              <TabButton
+                key={tab.id}
+                active={activeTab === tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                icon={tab.icon}
+                label={tab.label}
+              />
+            ))}
+          </div>
+        </div>
 
         <CardContent className="p-0">
-          <Tabs defaultValue="chat" className="w-full">
-            <TabsList className="w-full rounded-none grid grid-cols-5 h-11 bg-muted/50">
-              <TabsTrigger value="chat" className="flex items-center gap-1 text-[10px] sm:text-xs">
-                <Bot className="w-3.5 h-3.5" /> Ask AI
-              </TabsTrigger>
-              <TabsTrigger value="notebook" className="flex items-center gap-1 text-[10px] sm:text-xs">
-                <BookOpen className="w-3.5 h-3.5" /> Notebook
-              </TabsTrigger>
-              <TabsTrigger value="quiz" className="flex items-center gap-1 text-[10px] sm:text-xs">
-                <Brain className="w-3.5 h-3.5" /> Quiz
-              </TabsTrigger>
-              <TabsTrigger value="mindmap" className="flex items-center gap-1 text-[10px] sm:text-xs">
-                <Network className="w-3.5 h-3.5" /> Map
-              </TabsTrigger>
-              <TabsTrigger value="notes" className="flex items-center gap-1 text-[10px] sm:text-xs">
-                <StickyNote className="w-3.5 h-3.5" /> Notes
-              </TabsTrigger>
-            </TabsList>
-
-            {/* ─── AI Chat ─── */}
-            <TabsContent value="chat" className="m-0 p-3">
-              <div className="h-[320px] overflow-y-auto border rounded-xl p-3 space-y-3 bg-muted/20 mb-3">
+          {/* ─── Chat ─── */}
+          {activeTab === "chat" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3">
+              <div className="h-[340px] overflow-y-auto rounded-xl p-3 space-y-3 bg-muted/20 border border-border/30 mb-3">
                 {chatMessages.length === 0 && (
-                  <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-2">
-                    <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 2 }}>
-                      <Bot className="w-10 h-10 opacity-30" />
-                    </motion.div>
-                    <p className="text-xs text-center">Ask me anything! 📚 Math, Science, History...</p>
+                  <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3">
+                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+                      <Bot className="w-7 h-7 text-primary/40" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-foreground/60">Ask me anything</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Math, Science, History, Languages...</p>
+                    </div>
                   </div>
                 )}
                 <AnimatePresence mode="popLayout">
                   {chatMessages.map((msg, i) => (
                     <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm ${msg.role === "user" ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-background border shadow-sm rounded-bl-sm"}`}>
+                      <div className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-sm ${
+                        msg.role === "user"
+                          ? "bg-primary text-primary-foreground rounded-br-md"
+                          : "bg-card border border-border/50 shadow-sm rounded-bl-md"
+                      }`}>
                         {msg.role === "assistant" ? (
                           <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                             <ReactMarkdown>{msg.content}</ReactMarkdown>
@@ -433,7 +491,7 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
                 </AnimatePresence>
                 {isChatLoading && chatMessages[chatMessages.length - 1]?.role !== "assistant" && (
                   <div className="flex justify-start">
-                    <div className="bg-background border shadow-sm px-4 py-2 rounded-2xl rounded-bl-sm flex items-center gap-1.5">
+                    <div className="bg-card border border-border/50 shadow-sm px-4 py-3 rounded-2xl rounded-bl-md flex items-center gap-1.5">
                       <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1.2, delay: 0 }} className="w-2 h-2 bg-primary rounded-full" />
                       <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1.2, delay: 0.2 }} className="w-2 h-2 bg-primary rounded-full" />
                       <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1.2, delay: 0.4 }} className="w-2 h-2 bg-primary rounded-full" />
@@ -443,59 +501,80 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
                 <div ref={chatEndRef} />
               </div>
               <form onSubmit={(e) => { e.preventDefault(); sendChat(); }} className="flex gap-2">
-                <Input placeholder="Ask a question... 🎓" value={chatInput} onChange={(e) => setChatInput(e.target.value)} disabled={isChatLoading} className="rounded-full text-sm" />
-                <Button type="submit" size="icon" className="rounded-full shrink-0" disabled={isChatLoading || !chatInput.trim()}>
+                <div className="flex-1 relative">
+                  <Input
+                    placeholder="Start typing..."
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    disabled={isChatLoading}
+                    className="rounded-xl text-sm pr-4 bg-muted/30 border-border/40 focus-visible:border-primary/50"
+                  />
+                </div>
+                <Button type="submit" size="icon" className="rounded-xl shrink-0 h-10 w-10" disabled={isChatLoading || !chatInput.trim()}>
                   <Send className="w-4 h-4" />
                 </Button>
               </form>
-            </TabsContent>
+            </motion.div>
+          )}
 
-            {/* ─── Notebook (Built-in NotebookLM) ─── */}
-            <TabsContent value="notebook" className="m-0 p-3 space-y-3">
+          {/* ─── Notebook (Sources) ─── */}
+          {activeTab === "notebook" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
               {!sourceUploaded ? (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+                <div className="space-y-3">
                   <div className="text-center py-4">
-                    <motion.div animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 2 }}>
-                      <BookOpen className="w-12 h-12 mx-auto text-primary/40 mb-2" />
-                    </motion.div>
-                    <h3 className="font-bold text-sm">📓 Upload Study Material</h3>
-                    <p className="text-xs text-muted-foreground mt-1">Add your notes, textbook content, or any study material. AI will answer questions based on it.</p>
+                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                      <Upload className="w-7 h-7 text-primary/40" />
+                    </div>
+                    <h3 className="font-bold text-sm">Add your sources</h3>
+                    <p className="text-[10px] text-muted-foreground mt-1">pdf, text files, docs, and more</p>
                   </div>
                   <Textarea
-                    placeholder="Paste your study material here... (textbook content, notes, articles)"
+                    placeholder="Paste your study material here..."
                     value={notebookSource}
                     onChange={(e) => setNotebookSource(e.target.value)}
-                    className="min-h-[120px] text-sm"
+                    className="min-h-[100px] text-sm bg-muted/30 border-border/40 rounded-xl"
                   />
-                  <div className="flex gap-2">
-                    <label className="flex-1">
+                  <div className="grid grid-cols-2 gap-2">
+                    <label>
                       <input type="file" accept=".txt,.md" className="hidden" onChange={handleFileUpload} />
-                      <Button variant="outline" className="w-full" asChild>
-                        <span><Upload className="w-4 h-4 mr-1.5" /> Upload File</span>
+                      <Button variant="outline" className="w-full rounded-xl" asChild>
+                        <span><Upload className="w-4 h-4 mr-1.5" /> Upload files</span>
                       </Button>
                     </label>
-                    <Button className="flex-1" onClick={() => { if (notebookSource.trim()) { setSourceUploaded(true); toast({ title: "✅ Source added!" }); } }} disabled={!notebookSource.trim()}>
+                    <Button className="rounded-xl" onClick={() => { if (notebookSource.trim()) { setSourceUploaded(true); toast({ title: "✅ Source added!" }); } }} disabled={!notebookSource.trim()}>
                       <CheckCircle2 className="w-4 h-4 mr-1.5" /> Add Source
                     </Button>
                   </div>
-                </motion.div>
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-xl text-muted-foreground"
+                    onClick={() => window.open("https://notebooklm.google.com", "_blank")}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-1.5" /> Open Google NotebookLM
+                  </Button>
+                </div>
               ) : (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <Badge variant="secondary" className="gap-1"><FileText className="w-3 h-3" /> Source loaded ({notebookSource.length} chars)</Badge>
-                    <Button variant="ghost" size="sm" onClick={() => { setSourceUploaded(false); setNotebookSource(""); setNotebookMessages([]); }}>
+                    <Badge variant="secondary" className="gap-1 rounded-lg"><FileText className="w-3 h-3" /> Source loaded ({notebookSource.length} chars)</Badge>
+                    <Button variant="ghost" size="sm" onClick={() => { setSourceUploaded(false); setNotebookSource(""); setNotebookMessages([]); }} className="h-7 text-xs">
                       <X className="w-3.5 h-3.5 mr-1" /> Reset
                     </Button>
                   </div>
-                  <div className="h-[260px] overflow-y-auto border rounded-xl p-3 space-y-3 bg-muted/20">
+                  <div className="h-[280px] overflow-y-auto rounded-xl p-3 space-y-3 bg-muted/20 border border-border/30">
                     {notebookMessages.length === 0 && (
                       <div className="h-full flex items-center justify-center text-muted-foreground">
-                        <p className="text-xs text-center">Ask questions about your uploaded material! 📖</p>
+                        <p className="text-xs text-center">Ask questions about your uploaded material</p>
                       </div>
                     )}
                     {notebookMessages.map((msg, i) => (
                       <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm ${msg.role === "user" ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-background border shadow-sm rounded-bl-sm"}`}>
+                        <div className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-sm ${
+                          msg.role === "user"
+                            ? "bg-primary text-primary-foreground rounded-br-md"
+                            : "bg-card border border-border/50 shadow-sm rounded-bl-md"
+                        }`}>
                           {msg.role === "assistant" ? (
                             <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                               <ReactMarkdown>{msg.content}</ReactMarkdown>
@@ -506,51 +585,53 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
                     ))}
                     {isNotebookLoading && notebookMessages[notebookMessages.length - 1]?.role !== "assistant" && (
                       <div className="flex justify-start">
-                        <div className="bg-background border px-4 py-2 rounded-2xl rounded-bl-sm flex items-center gap-1.5">
+                        <div className="bg-card border px-4 py-2.5 rounded-2xl rounded-bl-md flex items-center gap-1.5">
                           <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                          <span className="text-xs text-muted-foreground">Analyzing source...</span>
+                          <span className="text-xs text-muted-foreground">Analyzing...</span>
                         </div>
                       </div>
                     )}
                     <div ref={notebookEndRef} />
                   </div>
                   <form onSubmit={(e) => { e.preventDefault(); sendNotebook(); }} className="flex gap-2">
-                    <Input placeholder="Ask about your material... 📖" value={notebookInput} onChange={(e) => setNotebookInput(e.target.value)} disabled={isNotebookLoading} className="rounded-full text-sm" />
-                    <Button type="submit" size="icon" className="rounded-full shrink-0" disabled={isNotebookLoading || !notebookInput.trim()}>
+                    <Input placeholder="Ask about your material..." value={notebookInput} onChange={(e) => setNotebookInput(e.target.value)} disabled={isNotebookLoading} className="rounded-xl text-sm bg-muted/30 border-border/40" />
+                    <Button type="submit" size="icon" className="rounded-xl shrink-0" disabled={isNotebookLoading || !notebookInput.trim()}>
                       <Send className="w-4 h-4" />
                     </Button>
                   </form>
-                </motion.div>
+                </div>
               )}
-            </TabsContent>
+            </motion.div>
+          )}
 
-            {/* ─── Quiz ─── */}
-            <TabsContent value="quiz" className="m-0 p-3 space-y-3">
+          {/* ─── Quiz ─── */}
+          {activeTab === "quiz" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
               {!quiz ? (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-                  <div className="text-center py-3">
-                    <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ repeat: Infinity, duration: 2 }}>
-                      <Trophy className="w-10 h-10 mx-auto text-yellow-500/60 mb-2" />
-                    </motion.div>
-                    <h3 className="font-bold text-sm">🧠 Quiz Generator</h3>
-                    <p className="text-xs text-muted-foreground mt-1">Enter a topic and AI will create a practice quiz. Earn 2 RA points per correct answer!</p>
+                <div className="space-y-3">
+                  <div className="text-center py-4">
+                    <div className="w-14 h-14 rounded-2xl bg-yellow-500/10 flex items-center justify-center mx-auto mb-3">
+                      <Trophy className="w-7 h-7 text-yellow-500/60" />
+                    </div>
+                    <h3 className="font-bold text-sm">Quiz Generator</h3>
+                    <p className="text-[10px] text-muted-foreground mt-1">Earn 2 RA points per correct answer</p>
                   </div>
-                  <Input placeholder="Enter a topic (e.g., Photosynthesis, WW2, Algebra)" value={quizTopic} onChange={(e) => setQuizTopic(e.target.value)} className="text-sm" />
-                  <Button onClick={generateQuiz} disabled={isQuizLoading || !quizTopic.trim()} className="w-full">
+                  <Input placeholder="Enter a topic (e.g., Photosynthesis, WW2)" value={quizTopic} onChange={(e) => setQuizTopic(e.target.value)} className="text-sm rounded-xl bg-muted/30 border-border/40" />
+                  <Button onClick={generateQuiz} disabled={isQuizLoading || !quizTopic.trim()} className="w-full rounded-xl">
                     {isQuizLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</> : <><Brain className="w-4 h-4 mr-2" /> Generate Quiz</>}
                   </Button>
-                </motion.div>
+                </div>
               ) : (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h3 className="font-bold text-sm">{quiz.title}</h3>
-                    <Button variant="ghost" size="sm" onClick={() => { setQuiz(null); setQuizAnswers({}); setQuizSubmitted(false); }}>
-                      <X className="w-3.5 h-3.5 mr-1" /> New Quiz
+                    <Button variant="ghost" size="sm" onClick={() => { setQuiz(null); setQuizAnswers({}); setQuizSubmitted(false); }} className="h-7 text-xs">
+                      <X className="w-3.5 h-3.5 mr-1" /> New
                     </Button>
                   </div>
-                  <div className="max-h-[350px] overflow-y-auto space-y-3 pr-1">
+                  <div className="max-h-[360px] overflow-y-auto space-y-3 pr-1">
                     {quiz.questions.map((q, qi) => (
-                      <motion.div key={qi} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: qi * 0.08 }} className="p-3 border rounded-xl bg-background">
+                      <motion.div key={qi} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: qi * 0.08 }} className="p-3 border border-border/40 rounded-xl bg-card">
                         <p className="text-sm font-medium mb-2">{qi + 1}. {q.question}</p>
                         <div className="space-y-1.5">
                           {q.options.map((opt, oi) => {
@@ -565,7 +646,7 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
                                   isCorrect ? "border-green-500 bg-green-50 dark:bg-green-950/30" :
                                   isWrong ? "border-red-500 bg-red-50 dark:bg-red-950/30" :
                                   isSelected ? "border-primary bg-primary/5" :
-                                  "border-muted hover:border-primary/40"
+                                  "border-border/40 hover:border-primary/40"
                                 } ${quizSubmitted ? "cursor-default" : "cursor-pointer"}`}
                               >
                                 <span className="flex items-center gap-2">
@@ -578,7 +659,7 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
                           })}
                         </div>
                         {quizSubmitted && (
-                          <motion.p initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="text-xs text-muted-foreground mt-2 p-2 bg-muted/50 rounded-lg">
+                          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs text-muted-foreground mt-2 p-2 bg-muted/30 rounded-lg">
                             💡 {q.explanation}
                           </motion.p>
                         )}
@@ -586,93 +667,109 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
                     ))}
                   </div>
                   {!quizSubmitted ? (
-                    <Button onClick={submitQuiz} className="w-full" disabled={Object.keys(quizAnswers).length < quiz.questions.length}>
-                      <CheckCircle2 className="w-4 h-4 mr-2" /> Submit Quiz ({Object.keys(quizAnswers).length}/{quiz.questions.length})
+                    <Button onClick={submitQuiz} className="w-full rounded-xl" disabled={Object.keys(quizAnswers).length < quiz.questions.length}>
+                      <CheckCircle2 className="w-4 h-4 mr-2" /> Submit ({Object.keys(quizAnswers).length}/{quiz.questions.length})
                     </Button>
                   ) : (
-                    <div className="text-center py-2">
-                      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring" }}>
-                        <p className="font-bold text-lg">
-                          🎉 {quiz.questions.filter((q, i) => quizAnswers[i] === q.correct).length}/{quiz.questions.length} Correct!
-                        </p>
-                        <p className="text-xs text-muted-foreground">+{quiz.questions.filter((q, i) => quizAnswers[i] === q.correct).length * 2} RA Points earned</p>
-                      </motion.div>
-                    </div>
+                    <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center py-3 bg-primary/5 rounded-xl border border-primary/20">
+                      <p className="font-bold text-lg">🎉 {quiz.questions.filter((q, i) => quizAnswers[i] === q.correct).length}/{quiz.questions.length}</p>
+                      <p className="text-xs text-muted-foreground">+{quiz.questions.filter((q, i) => quizAnswers[i] === q.correct).length * 2} RA Points</p>
+                    </motion.div>
                   )}
-                </motion.div>
+                </div>
               )}
-            </TabsContent>
+            </motion.div>
+          )}
 
-            {/* ─── Mind Map ─── */}
-            <TabsContent value="mindmap" className="m-0 p-3 space-y-3">
-              <p className="text-xs text-muted-foreground">Enter a topic or paste notes to generate a visual mind map with emojis 🗺️</p>
-              <Textarea placeholder="e.g. 'Photosynthesis' or paste your notes..." value={mindMapSource} onChange={(e) => setMindMapSource(e.target.value)} className="min-h-[80px] text-sm" />
-              <Button onClick={generateMindMap} disabled={isMindMapLoading || !mindMapSource.trim()} className="w-full">
+          {/* ─── Mind Map (Tree style like NotebookLM) ─── */}
+          {activeTab === "mindmap" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
+              <Textarea
+                placeholder="Enter a topic or paste your notes to generate a mind map..."
+                value={mindMapSource}
+                onChange={(e) => setMindMapSource(e.target.value)}
+                className="min-h-[70px] text-sm rounded-xl bg-muted/30 border-border/40"
+              />
+              <Button onClick={generateMindMap} disabled={isMindMapLoading || !mindMapSource.trim()} className="w-full rounded-xl">
                 {isMindMapLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</> : <><Network className="w-4 h-4 mr-2" /> Generate Mind Map</>}
               </Button>
               {mindMapData && (
-                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="border rounded-xl p-3 bg-muted/20 overflow-auto max-h-[350px]">
-                  <h3 className="font-bold text-sm mb-2 flex items-center gap-2">
-                    <Network className="w-4 h-4 text-primary" /> {mindMapData.title}
-                  </h3>
-                  {mindMapData.children?.map((c, i) => <MindMapNodeView key={i} node={c} depth={0} />)}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="border border-border/30 rounded-xl p-4 bg-muted/10 overflow-auto max-h-[380px]"
+                >
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/20">
+                    <Network className="w-4 h-4 text-primary" />
+                    <h3 className="font-bold text-sm">{mindMapData.title}</h3>
+                  </div>
+                  <div className="pl-2">
+                    {mindMapData.children?.map((c, i) => (
+                      <TreeNode key={i} node={c} depth={0} isLast={i === (mindMapData.children?.length || 0) - 1} />
+                    ))}
+                  </div>
                 </motion.div>
               )}
               {!mindMapData && !isMindMapLoading && (
-                <div className="text-center py-6 text-muted-foreground">
-                  <Network className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                <div className="text-center py-8 text-muted-foreground">
+                  <div className="w-14 h-14 rounded-2xl bg-muted/30 flex items-center justify-center mx-auto mb-3">
+                    <Network className="w-7 h-7 opacity-30" />
+                  </div>
                   <p className="text-xs">Mind map will appear here</p>
                 </div>
               )}
-            </TabsContent>
+            </motion.div>
+          )}
 
-            {/* ─── Notes ─── */}
-            <TabsContent value="notes" className="m-0 p-3 space-y-3">
+          {/* ─── Notes ─── */}
+          {activeTab === "notes" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">{notes.length} note{notes.length !== 1 ? "s" : ""}</p>
-                <Button size="sm" onClick={createNote} variant="outline" className="h-8 text-xs">
+                <Button size="sm" onClick={createNote} variant="outline" className="h-8 text-xs rounded-lg">
                   <Plus className="w-3.5 h-3.5 mr-1" /> New
                 </Button>
               </div>
-
               {activeNote ? (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
+                <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setActiveNote(null); setNoteTitle(""); setNoteContent(""); setNoteSolution(""); }}>
                       <X className="w-4 h-4" />
                     </Button>
-                    <Input value={noteTitle} onChange={(e) => setNoteTitle(e.target.value)} placeholder="Title" className="font-semibold h-8 text-sm" />
-                    <Button size="sm" className="h-8" onClick={saveNote}><Save className="w-3.5 h-3.5" /></Button>
+                    <Input value={noteTitle} onChange={(e) => setNoteTitle(e.target.value)} placeholder="Title" className="font-semibold h-8 text-sm rounded-lg" />
+                    <Button size="sm" className="h-8 rounded-lg" onClick={saveNote}><Save className="w-3.5 h-3.5" /></Button>
                   </div>
                   <Textarea
                     value={noteContent}
                     onChange={(e) => setNoteContent(e.target.value)}
-                    placeholder="Write your notes, questions, or problems here... ✍️"
-                    className="min-h-[150px] text-sm"
+                    placeholder="Write your notes, questions, or problems here..."
+                    className="min-h-[140px] text-sm rounded-xl bg-muted/30 border-border/40"
                   />
-                  <Button variant="secondary" className="w-full h-9 text-xs" onClick={solveNote} disabled={isNoteSolving || !noteContent.trim()}>
+                  <Button variant="secondary" className="w-full h-9 text-xs rounded-xl" onClick={solveNote} disabled={isNoteSolving || !noteContent.trim()}>
                     {isNoteSolving ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Solving...</> : <><Wand2 className="w-3.5 h-3.5 mr-1.5" /> AI Solve / Explain</>}
                   </Button>
                   {noteSolution && (
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="border rounded-xl p-3 bg-muted/30 max-h-[200px] overflow-y-auto">
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="border border-border/30 rounded-xl p-3 bg-muted/20 max-h-[200px] overflow-y-auto">
                       <p className="text-xs font-bold text-primary mb-1.5 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" /> AI Solution</p>
                       <div className="prose prose-sm max-w-none dark:prose-invert text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                         <ReactMarkdown>{noteSolution}</ReactMarkdown>
                       </div>
                     </motion.div>
                   )}
-                </motion.div>
+                </div>
               ) : (
-                <div className="space-y-1.5 max-h-[350px] overflow-y-auto">
+                <div className="space-y-1.5 max-h-[380px] overflow-y-auto">
                   {notes.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                      <StickyNote className="w-10 h-10 mx-auto mb-2 opacity-20" />
+                      <div className="w-14 h-14 rounded-2xl bg-muted/30 flex items-center justify-center mx-auto mb-3">
+                        <StickyNote className="w-7 h-7 opacity-30" />
+                      </div>
                       <p className="text-xs">No notes yet. Create one!</p>
                     </div>
                   ) : (
                     notes.map(note => (
                       <motion.div key={note.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                        className="flex items-center gap-2 p-2.5 rounded-lg border bg-background hover:bg-muted/50 transition-colors cursor-pointer group"
+                        className="flex items-center gap-2 p-2.5 rounded-xl border border-border/30 bg-card hover:bg-muted/30 transition-colors cursor-pointer group"
                         onClick={() => { setActiveNote(note); setNoteTitle(note.title); setNoteContent(note.content); setNoteSolution(""); }}
                       >
                         <FileText className="w-4 h-4 text-primary shrink-0" />
@@ -688,8 +785,63 @@ const StudyAssistant = ({ studentName }: { studentName: string }) => {
                   )}
                 </div>
               )}
-            </TabsContent>
-          </Tabs>
+            </motion.div>
+          )}
+
+          {/* ─── Leaderboard ─── */}
+          {activeTab === "leaderboard" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
+              <div className="text-center py-3">
+                <div className="w-14 h-14 rounded-2xl bg-yellow-500/10 flex items-center justify-center mx-auto mb-2">
+                  <Award className="w-7 h-7 text-yellow-500" />
+                </div>
+                <h3 className="font-bold text-sm">RA Points Leaderboard</h3>
+                <p className="text-[10px] text-muted-foreground">Top students by points earned</p>
+              </div>
+              <div className="space-y-2">
+                {leaderboard.map((entry, i) => {
+                  const isMe = entry.name === studentName;
+                  const rankIcon = i === 0 ? <Crown className="w-4 h-4 text-yellow-500" /> :
+                                   i === 1 ? <Medal className="w-4 h-4 text-gray-400" /> :
+                                   i === 2 ? <Medal className="w-4 h-4 text-amber-700" /> : null;
+                  return (
+                    <motion.div
+                      key={entry.name}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.06 }}
+                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                        isMe ? "border-primary/40 bg-primary/5 shadow-sm" : "border-border/30 bg-card"
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
+                        i === 0 ? "bg-yellow-500/20 text-yellow-600" :
+                        i === 1 ? "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300" :
+                        i === 2 ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700" :
+                        "bg-muted text-muted-foreground"
+                      }`}>
+                        {rankIcon || `#${i + 1}`}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium truncate ${isMe ? "text-primary" : ""}`}>
+                          {entry.name} {isMe && <span className="text-[10px] text-muted-foreground">(You)</span>}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
+                        <span className="font-bold text-sm">{entry.points}</span>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+              {leaderboard.length === 0 && (
+                <div className="text-center py-6 text-muted-foreground">
+                  <p className="text-xs">No leaderboard data yet</p>
+                </div>
+              )}
+            </motion.div>
+          )}
         </CardContent>
       </Card>
     </motion.div>
