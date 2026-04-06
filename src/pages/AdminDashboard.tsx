@@ -1479,6 +1479,10 @@ const AdminDashboard = () => {
                   <History className="w-4 h-4" />
                   <span className="hidden sm:inline">Records</span>
                 </TabsTrigger>
+                <TabsTrigger value="online-tests" className="gap-1.5 data-[state=active]:bg-green-500 data-[state=active]:text-white">
+                  <FileCheck className="w-4 h-4" />
+                  <span className="hidden sm:inline">Online Tests</span>
+                </TabsTrigger>
               </div>
 
               {/* Finance */}
