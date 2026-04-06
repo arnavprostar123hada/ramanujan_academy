@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { NativeSelect } from "@/components/ui/native-select";
+
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -273,7 +273,8 @@ const OnlineTestManagement = ({ students }: { students: { id: string; name: stri
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Class</Label>
-                <NativeSelect value={newTest.class} onChange={e => setNewTest({ ...newTest, class: e.target.value })}>
+                
+                <select value={newTest.class} onChange={e => setNewTest({ ...newTest, class: e.target.value })} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
                   {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
                 </NativeSelect>
               </div>
