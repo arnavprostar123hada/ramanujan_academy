@@ -394,15 +394,12 @@ const OnlineTestManagement = ({ students }: { students: { id: string; name: stri
                     ))}
                     <div>
                       <Label>Correct Answer</Label>
-                      <NativeSelect
-                        value={newQuestion.correct_answer}
-                        onChange={e => setNewQuestion({ ...newQuestion, correct_answer: e.target.value })}
-                      >
+                      <select value={newQuestion.correct_answer} onChange={e => setNewQuestion({ ...newQuestion, correct_answer: e.target.value })} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
                         <option value="">Select correct answer</option>
                         {newQuestion.options.filter(o => o.trim()).map((opt, i) => (
                           <option key={i} value={opt}>{String.fromCharCode(65 + i)}. {opt}</option>
                         ))}
-                      </NativeSelect>
+                      </select>
                     </div>
                   </div>
                 )}
