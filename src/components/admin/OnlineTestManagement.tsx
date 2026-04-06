@@ -285,11 +285,11 @@ const OnlineTestManagement = ({ students }: { students: { id: string; name: stri
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <Label>Type</Label>
-                <NativeSelect value={newTest.test_type} onChange={e => setNewTest({ ...newTest, test_type: e.target.value })}>
+                <select value={newTest.test_type} onChange={e => setNewTest({ ...newTest, test_type: e.target.value })} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
                   <option value="mcq">MCQ Only</option>
                   <option value="written">Written Only</option>
                   <option value="mixed">MCQ + Written</option>
-                </NativeSelect>
+                </select>
               </div>
               <div>
                 <Label>Duration (min)</Label>
