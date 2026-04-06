@@ -273,10 +273,9 @@ const OnlineTestManagement = ({ students }: { students: { id: string; name: stri
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Class</Label>
-                
                 <select value={newTest.class} onChange={e => setNewTest({ ...newTest, class: e.target.value })} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
                   {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
-                </NativeSelect>
+                </select>
               </div>
               <div>
                 <Label>Subject</Label>
