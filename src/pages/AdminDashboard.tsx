@@ -77,6 +77,7 @@ import { AccessCodeQR } from "@/components/AccessCodeQR";
 import { ClassLogsCalendar } from "@/components/ClassLogsCalendar";
 import { EnquiryManagement } from "@/components/admin/EnquiryManagement";
 import { TeacherSalaryManagement } from "@/components/admin/TeacherSalaryManagement";
+import OnlineTestManagement from "@/components/admin/OnlineTestManagement";
 
 interface ContactSubmission {
   id: string;
