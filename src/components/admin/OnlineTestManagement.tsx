@@ -364,13 +364,10 @@ const OnlineTestManagement = ({ students }: { students: { id: string; name: stri
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label>Type</Label>
-                    <NativeSelect
-                      value={newQuestion.question_type}
-                      onChange={e => setNewQuestion({ ...newQuestion, question_type: e.target.value })}
-                    >
+                    <select value={newQuestion.question_type} onChange={e => setNewQuestion({ ...newQuestion, question_type: e.target.value })} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
                       {(selectedTest?.test_type === "mcq" || selectedTest?.test_type === "mixed") && <option value="mcq">MCQ</option>}
                       {(selectedTest?.test_type === "written" || selectedTest?.test_type === "mixed") && <option value="written">Written</option>}
-                    </NativeSelect>
+                    </select>
                   </div>
                   <div>
                     <Label>Marks</Label>
