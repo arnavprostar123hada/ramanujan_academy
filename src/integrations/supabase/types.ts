@@ -195,6 +195,194 @@ export type Database = {
           },
         ]
       }
+      online_test_answers: {
+        Row: {
+          answer_text: string | null
+          created_at: string
+          id: string
+          is_correct: boolean | null
+          marks_awarded: number | null
+          question_id: string
+          submission_id: string
+        }
+        Insert: {
+          answer_text?: string | null
+          created_at?: string
+          id?: string
+          is_correct?: boolean | null
+          marks_awarded?: number | null
+          question_id: string
+          submission_id: string
+        }
+        Update: {
+          answer_text?: string | null
+          created_at?: string
+          id?: string
+          is_correct?: boolean | null
+          marks_awarded?: number | null
+          question_id?: string
+          submission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "online_test_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "online_test_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "online_test_answers_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "online_test_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      online_test_questions: {
+        Row: {
+          correct_answer: string | null
+          created_at: string
+          id: string
+          marks: number
+          options: Json | null
+          question_order: number
+          question_text: string
+          question_type: string
+          test_id: string
+        }
+        Insert: {
+          correct_answer?: string | null
+          created_at?: string
+          id?: string
+          marks?: number
+          options?: Json | null
+          question_order?: number
+          question_text: string
+          question_type?: string
+          test_id: string
+        }
+        Update: {
+          correct_answer?: string | null
+          created_at?: string
+          id?: string
+          marks?: number
+          options?: Json | null
+          question_order?: number
+          question_text?: string
+          question_type?: string
+          test_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "online_test_questions_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "online_tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      online_test_submissions: {
+        Row: {
+          created_at: string
+          id: string
+          is_graded: boolean
+          started_at: string
+          status: string
+          student_id: string
+          submitted_at: string | null
+          test_id: string
+          total_marks_obtained: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_graded?: boolean
+          started_at?: string
+          status?: string
+          student_id: string
+          submitted_at?: string | null
+          test_id: string
+          total_marks_obtained?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_graded?: boolean
+          started_at?: string
+          status?: string
+          student_id?: string
+          submitted_at?: string | null
+          test_id?: string
+          total_marks_obtained?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "online_test_submissions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "online_test_submissions_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "online_tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      online_tests: {
+        Row: {
+          class: string
+          created_at: string
+          description: string | null
+          duration_minutes: number
+          ends_at: string | null
+          id: string
+          is_published: boolean
+          max_marks: number
+          starts_at: string | null
+          subject: string
+          test_type: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          class: string
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number
+          ends_at?: string | null
+          id?: string
+          is_published?: boolean
+          max_marks?: number
+          starts_at?: string | null
+          subject: string
+          test_type?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          class?: string
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number
+          ends_at?: string | null
+          id?: string
+          is_published?: boolean
+          max_marks?: number
+          starts_at?: string | null
+          subject?: string
+          test_type?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       page_visits: {
         Row: {
           id: string
@@ -280,6 +468,41 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      student_chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          mode: string
+          role: string
+          student_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          mode?: string
+          role: string
+          student_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          mode?: string
+          role?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_chat_messages_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       student_complaints: {
         Row: {
