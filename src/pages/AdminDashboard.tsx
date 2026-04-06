@@ -77,6 +77,7 @@ import { AccessCodeQR } from "@/components/AccessCodeQR";
 import { ClassLogsCalendar } from "@/components/ClassLogsCalendar";
 import { EnquiryManagement } from "@/components/admin/EnquiryManagement";
 import { TeacherSalaryManagement } from "@/components/admin/TeacherSalaryManagement";
+import OnlineTestManagement from "@/components/admin/OnlineTestManagement";
 
 interface ContactSubmission {
   id: string;
@@ -1478,6 +1479,10 @@ const AdminDashboard = () => {
                   <History className="w-4 h-4" />
                   <span className="hidden sm:inline">Records</span>
                 </TabsTrigger>
+                <TabsTrigger value="online-tests" className="gap-1.5 data-[state=active]:bg-green-500 data-[state=active]:text-white">
+                  <FileCheck className="w-4 h-4" />
+                  <span className="hidden sm:inline">Online Tests</span>
+                </TabsTrigger>
               </div>
 
               {/* Finance */}
@@ -2123,6 +2128,16 @@ const AdminDashboard = () => {
           </TabsContent>
 
           {/* Academic Records Tab */}
+          <TabsContent value="online-tests">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+              <Card className="card-elevated">
+                <CardContent className="p-6">
+                  <OnlineTestManagement students={students} />
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
           <TabsContent value="academic-records">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
