@@ -2128,6 +2128,16 @@ const AdminDashboard = () => {
           </TabsContent>
 
           {/* Academic Records Tab */}
+          <TabsContent value="online-tests">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+              <Card className="card-elevated">
+                <CardContent className="p-6">
+                  <OnlineTestManagement students={students} />
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
           <TabsContent value="academic-records">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
