@@ -39,7 +39,10 @@ import {
   Download,
   List,
   CalendarDays,
-  UserPlus
+  UserPlus,
+  Video,
+  Globe,
+  Monitor
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1482,6 +1485,9 @@ const AdminDashboard = () => {
                 <TabsTrigger value="online-tests" className="gap-1.5 data-[state=active]:bg-green-500 data-[state=active]:text-white">
                   <FileCheck className="w-4 h-4" />
                   <span className="hidden sm:inline">Online Tests</span>
+                <TabsTrigger value="zoom-links" className="gap-1.5 data-[state=active]:bg-green-500 data-[state=active]:text-white">
+                  <Video className="w-4 h-4" />
+                  <span className="hidden sm:inline">Zoom</span>
                 </TabsTrigger>
               </div>
 
