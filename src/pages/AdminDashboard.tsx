@@ -1787,6 +1787,7 @@ const AdminDashboard = () => {
                     <div className="space-y-4">
                       {students
                         .filter(student => selectedClassFilter === "all" || student.class === selectedClassFilter)
+                        .filter(student => studentTypeFilter === "all" || (student as any).student_type === studentTypeFilter || (studentTypeFilter === "offline" && !(student as any).student_type))
                         .map((student) => (
                         <motion.div
                           key={student.id}
