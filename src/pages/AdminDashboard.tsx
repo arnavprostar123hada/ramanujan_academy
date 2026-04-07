@@ -276,6 +276,12 @@ const AdminDashboard = () => {
   const [classLogsFilter, setClassLogsFilter] = useState<string>("all");
   const [classLogsTeacherFilter, setClassLogsTeacherFilter] = useState<string>("all");
   const [classLogsViewMode, setClassLogsViewMode] = useState<"list" | "calendar">("list");
+  const [studentTypeFilter, setStudentTypeFilter] = useState<"all" | "offline" | "online">("all");
+  
+  // Zoom links state
+  const [zoomLinks, setZoomLinks] = useState<{ id: string; class: string; subject: string; zoom_url: string; meeting_id: string | null; passcode: string | null; schedule_day: string; schedule_time: string; teacher_name: string | null; is_active: boolean }[]>([]);
+  const [isAddZoomLinkOpen, setIsAddZoomLinkOpen] = useState(false);
+  const [newZoomLink, setNewZoomLink] = useState({ class: "", subject: "", zoom_url: "", meeting_id: "", passcode: "", schedule_day: "Monday", schedule_time: "", teacher_name: "" });
 
   // New announcement form state
   const [newAnnouncement, setNewAnnouncement] = useState({
