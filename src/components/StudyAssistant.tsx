@@ -462,7 +462,7 @@ const AudioSummary = ({ sourceText, studentId, spend }: { sourceText: string; st
 };
 
 // ─── Main Component ───
-const StudyAssistant = ({ studentName, studentId, studentClass }: { studentName: string; studentId: string; studentClass?: string }) => {
+const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent }: { studentName: string; studentId: string; studentClass?: string; isOnlineStudent?: boolean }) => {
   const { toast } = useToast();
   const { points, spend, earn } = useRAPoints(studentId);
   const { leaderboard, refresh: refreshLeaderboard } = useLeaderboard();
