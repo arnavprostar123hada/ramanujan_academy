@@ -1728,6 +1728,14 @@ const AdminDashboard = () => {
                             placeholder="Enter parent name"
                           />
                         </div>
+                        <div className="space-y-2">
+                          <Label>Student Type</Label>
+                          <NativeSelect
+                            value={newStudent.student_type}
+                            onValueChange={(v) => setNewStudent({ ...newStudent, student_type: v })}
+                            options={[{ value: "offline", label: "Offline" }, { value: "online", label: "Online" }]}
+                          />
+                        </div>
                         <div className="flex gap-3 pt-4">
                           <Button type="button" variant="outline" onClick={() => setIsAddStudentOpen(false)} className="flex-1">
                             Cancel
