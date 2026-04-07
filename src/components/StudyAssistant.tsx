@@ -27,8 +27,9 @@ interface QuizQuestion { question: string; options: string[]; correct: number; e
 interface Quiz { title: string; questions: QuizQuestion[]; }
 
 // ─── RA Points (DB-backed) ───
-function useRAPoints(studentId: string) {
-  const [points, setPoints] = useState(100);
+function useRAPoints(studentId: string, isOnline = false) {
+  const monthlyAllowance = isOnline ? 20 : 100;
+  const [points, setPoints] = useState(monthlyAllowance);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -43,14 +44,14 @@ function useRAPoints(studentId: string) {
         const lastReset = new Date(data.last_reset);
         const now = new Date();
         if (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear()) {
-          await supabase.from("ra_points").update({ points: 100, last_reset: now.toISOString(), updated_at: now.toISOString() }).eq("student_id", studentId);
-          setPoints(100);
+          await supabase.from("ra_points").update({ points: monthlyAllowance, last_reset: now.toISOString(), updated_at: now.toISOString() }).eq("student_id", studentId);
+          setPoints(monthlyAllowance);
         } else {
           setPoints(data.points);
         }
       } else {
-        await supabase.from("ra_points").insert({ student_id: studentId, points: 100 });
-        setPoints(100);
+        await supabase.from("ra_points").insert({ student_id: studentId, points: monthlyAllowance });
+        setPoints(monthlyAllowance);
       }
       setLoaded(true);
     };
@@ -462,9 +463,9 @@ const AudioSummary = ({ sourceText, studentId, spend }: { sourceText: string; st
 };
 
 // ─── Main Component ───
-const StudyAssistant = ({ studentName, studentId, studentClass }: { studentName: string; studentId: string; studentClass?: string }) => {
+const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent }: { studentName: string; studentId: string; studentClass?: string; isOnlineStudent?: boolean }) => {
   const { toast } = useToast();
-  const { points, spend, earn } = useRAPoints(studentId);
+  const { points, spend, earn } = useRAPoints(studentId, isOnlineStudent);
   const { leaderboard, refresh: refreshLeaderboard } = useLeaderboard();
   const [activeTab, setActiveTab] = useState("chat");
 

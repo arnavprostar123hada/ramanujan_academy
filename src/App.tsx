@@ -10,6 +10,7 @@ import ParentPortal from "./pages/ParentPortal";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import EnquiryPortal from "./pages/EnquiryPortal";
 import NotFound from "./pages/NotFound";
+import OnlineStudentPortal from "./pages/OnlineStudentPortal";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/parent" element={<ParentPortal />} />
             <Route path="/teacher" element={<TeacherDashboard />} />
             <Route path="/enquiry" element={<EnquiryPortal />} />
+            <Route path="/online" element={<OnlineStudentPortal />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -195,6 +195,36 @@ export type Database = {
           },
         ]
       }
+      online_students: {
+        Row: {
+          class: string
+          created_at: string
+          email: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          class?: string
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          class?: string
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       online_test_answers: {
         Row: {
           answer_text: string | null
@@ -638,6 +668,7 @@ export type Database = {
           name: string
           parent_name: string | null
           phone: string
+          student_type: string
           updated_at: string
         }
         Insert: {
@@ -649,6 +680,7 @@ export type Database = {
           name: string
           parent_name?: string | null
           phone: string
+          student_type?: string
           updated_at?: string
         }
         Update: {
@@ -660,6 +692,7 @@ export type Database = {
           name?: string
           parent_name?: string | null
           phone?: string
+          student_type?: string
           updated_at?: string
         }
         Relationships: []
@@ -931,6 +964,51 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      zoom_links: {
+        Row: {
+          class: string
+          created_at: string
+          id: string
+          is_active: boolean
+          meeting_id: string | null
+          passcode: string | null
+          schedule_day: string
+          schedule_time: string
+          subject: string
+          teacher_name: string | null
+          updated_at: string
+          zoom_url: string
+        }
+        Insert: {
+          class: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          meeting_id?: string | null
+          passcode?: string | null
+          schedule_day: string
+          schedule_time: string
+          subject: string
+          teacher_name?: string | null
+          updated_at?: string
+          zoom_url: string
+        }
+        Update: {
+          class?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          meeting_id?: string | null
+          passcode?: string | null
+          schedule_day?: string
+          schedule_time?: string
+          subject?: string
+          teacher_name?: string | null
+          updated_at?: string
+          zoom_url?: string
         }
         Relationships: []
       }
