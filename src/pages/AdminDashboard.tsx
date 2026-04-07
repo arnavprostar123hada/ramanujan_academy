@@ -2158,6 +2158,156 @@ const AdminDashboard = () => {
             </motion.div>
           </TabsContent>
 
+          {/* Zoom Links Tab */}
+          <TabsContent value="zoom-links">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+              <Card className="card-elevated">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Video className="w-5 h-5" />
+                    Zoom Class Links
+                  </CardTitle>
+                  <Dialog open={isAddZoomLinkOpen} onOpenChange={setIsAddZoomLinkOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Zoom Link
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-h-[80vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Add Zoom Class Link</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label>Class *</Label>
+                            <NativeSelect
+                              value={newZoomLink.class}
+                              onValueChange={(v) => setNewZoomLink({ ...newZoomLink, class: v })}
+                              placeholder="Select class"
+                              options={CLASSES.map(c => ({ value: c, label: c }))}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label>Subject *</Label>
+                            <Input value={newZoomLink.subject} onChange={(e) => setNewZoomLink({ ...newZoomLink, subject: e.target.value })} placeholder="e.g. Math" />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Zoom URL *</Label>
+                          <Input value={newZoomLink.zoom_url} onChange={(e) => setNewZoomLink({ ...newZoomLink, zoom_url: e.target.value })} placeholder="https://zoom.us/j/..." />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label>Meeting ID</Label>
+                            <Input value={newZoomLink.meeting_id} onChange={(e) => setNewZoomLink({ ...newZoomLink, meeting_id: e.target.value })} placeholder="Optional" />
+                          </div>
+                          <div className="space-y-1">
+                            <Label>Passcode</Label>
+                            <Input value={newZoomLink.passcode} onChange={(e) => setNewZoomLink({ ...newZoomLink, passcode: e.target.value })} placeholder="Optional" />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label>Day *</Label>
+                            <NativeSelect
+                              value={newZoomLink.schedule_day}
+                              onValueChange={(v) => setNewZoomLink({ ...newZoomLink, schedule_day: v })}
+                              options={["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map(d => ({ value: d, label: d }))}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label>Time *</Label>
+                            <Input type="time" value={newZoomLink.schedule_time} onChange={(e) => setNewZoomLink({ ...newZoomLink, schedule_time: e.target.value })} />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Teacher Name</Label>
+                          <Input value={newZoomLink.teacher_name} onChange={(e) => setNewZoomLink({ ...newZoomLink, teacher_name: e.target.value })} placeholder="Optional" />
+                        </div>
+                        <div className="flex gap-3 pt-2">
+                          <Button variant="outline" onClick={() => setIsAddZoomLinkOpen(false)} className="flex-1">Cancel</Button>
+                          <Button className="flex-1" onClick={async () => {
+                            if (!newZoomLink.class || !newZoomLink.subject || !newZoomLink.zoom_url || !newZoomLink.schedule_time) {
+                              toast({ title: "Please fill required fields", variant: "destructive" });
+                              return;
+                            }
+                            try {
+                              const { data, error } = await supabase.from("zoom_links").insert({
+                                class: newZoomLink.class,
+                                subject: newZoomLink.subject,
+                                zoom_url: newZoomLink.zoom_url,
+                                meeting_id: newZoomLink.meeting_id || null,
+                                passcode: newZoomLink.passcode || null,
+                                schedule_day: newZoomLink.schedule_day,
+                                schedule_time: newZoomLink.schedule_time,
+                                teacher_name: newZoomLink.teacher_name || null,
+                              }).select().single();
+                              if (error) throw error;
+                              setZoomLinks([data as any, ...zoomLinks]);
+                              setNewZoomLink({ class: "", subject: "", zoom_url: "", meeting_id: "", passcode: "", schedule_day: "Monday", schedule_time: "", teacher_name: "" });
+                              setIsAddZoomLinkOpen(false);
+                              toast({ title: "Zoom link added" });
+                            } catch { toast({ title: "Error adding zoom link", variant: "destructive" }); }
+                          }}>Add Link</Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </CardHeader>
+                <CardContent>
+                  {zoomLinks.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <Video className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No Zoom links added yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {zoomLinks.map((link) => (
+                        <motion.div key={link.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 rounded-lg border bg-background">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <h3 className="font-semibold">{link.subject}</h3>
+                                <Badge variant="secondary">Class {link.class}</Badge>
+                                <Badge variant={link.is_active ? "default" : "outline"}>
+                                  {link.is_active ? "Active" : "Inactive"}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                {link.schedule_day} at {link.schedule_time}
+                                {link.teacher_name && ` • ${link.teacher_name}`}
+                              </p>
+                              <a href={link.zoom_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline break-all">
+                                {link.zoom_url}
+                              </a>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button variant="ghost" size="sm" onClick={async () => {
+                                await supabase.from("zoom_links").update({ is_active: !link.is_active }).eq("id", link.id);
+                                setZoomLinks(zoomLinks.map(z => z.id === link.id ? { ...z, is_active: !z.is_active } : z));
+                              }}>
+                                {link.is_active ? <Monitor className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+                              </Button>
+                              <Button variant="ghost" size="sm" className="text-destructive" onClick={async () => {
+                                await supabase.from("zoom_links").delete().eq("id", link.id);
+                                setZoomLinks(zoomLinks.filter(z => z.id !== link.id));
+                                toast({ title: "Zoom link deleted" });
+                              }}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
           <TabsContent value="academic-records">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
