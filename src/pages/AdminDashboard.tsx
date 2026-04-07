@@ -306,6 +306,7 @@ const AdminDashboard = () => {
     phone: "",
     class: "",
     parent_name: "",
+    student_type: "offline",
   });
 
   // Edit student form state
