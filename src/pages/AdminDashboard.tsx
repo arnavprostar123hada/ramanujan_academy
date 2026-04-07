@@ -481,6 +481,13 @@ const AdminDashboard = () => {
         setEnquiries(enquiriesData as Enquiry[]);
       }
 
+      // Fetch zoom links
+      const { data: zoomData } = await supabase
+        .from("zoom_links")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (zoomData) setZoomLinks(zoomData as any);
+
       // Fetch visit stats
       const now = new Date();
       const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
