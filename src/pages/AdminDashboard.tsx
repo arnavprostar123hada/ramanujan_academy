@@ -1739,6 +1739,18 @@ const AdminDashboard = () => {
                   </Dialog>
                 </CardHeader>
                 <CardContent>
+                  {/* Student Type Filter */}
+                  <div className="mb-4 flex gap-2">
+                    <Button variant={studentTypeFilter === "all" ? "default" : "outline"} size="sm" onClick={() => setStudentTypeFilter("all")}>
+                      All
+                    </Button>
+                    <Button variant={studentTypeFilter === "offline" ? "default" : "outline"} size="sm" onClick={() => setStudentTypeFilter("offline")}>
+                      <Monitor className="w-3.5 h-3.5 mr-1" /> Offline
+                    </Button>
+                    <Button variant={studentTypeFilter === "online" ? "default" : "outline"} size="sm" onClick={() => setStudentTypeFilter("online")}>
+                      <Globe className="w-3.5 h-3.5 mr-1" /> Online
+                    </Button>
+                  </div>
                   {/* Class Filter */}
                   <div className="mb-6">
                     <div className="flex flex-wrap gap-2">
