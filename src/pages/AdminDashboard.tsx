@@ -1810,6 +1810,10 @@ const AdminDashboard = () => {
                               <div className="flex items-center gap-2 mb-2">
                                 <h3 className="font-semibold">{student.name}</h3>
                                 <Badge variant="secondary">Class {student.class}</Badge>
+                                <Badge variant={(student as any).student_type === "online" ? "default" : "outline"} className={(student as any).student_type === "online" ? "bg-primary/80" : ""}>
+                                  {(student as any).student_type === "online" ? <Globe className="w-3 h-3 mr-1" /> : <Monitor className="w-3 h-3 mr-1" />}
+                                  {(student as any).student_type === "online" ? "Online" : "Offline"}
+                                </Badge>
                               </div>
                               
                               <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
