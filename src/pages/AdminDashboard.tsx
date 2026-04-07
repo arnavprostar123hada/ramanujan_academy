@@ -563,6 +563,7 @@ const AdminDashboard = () => {
           phone: newStudent.phone,
           class: newStudent.class,
           parent_name: newStudent.parent_name || null,
+          student_type: newStudent.student_type,
         } as any)
         .select()
         .single();
@@ -571,7 +572,7 @@ const AdminDashboard = () => {
 
       const addedStudent = data as Student;
       setStudents([addedStudent, ...students]);
-      setNewStudent({ name: "", email: "", phone: "", class: "", parent_name: "" });
+      setNewStudent({ name: "", email: "", phone: "", class: "", parent_name: "", student_type: "offline" });
       setIsAddStudentOpen(false);
       setNewlyAddedStudent(addedStudent);
     } catch (error) {
