@@ -229,7 +229,7 @@ const ParentPortal = () => {
     try {
       const { data: studentData, error } = await supabase
         .from("students")
-        .select("id, name, class, parent_name, access_code")
+        .select("id, name, class, parent_name, access_code, student_type")
         .eq("access_code", codeToUse)
         .single();
 
@@ -259,7 +259,7 @@ const ParentPortal = () => {
     try {
       const { data: studentData, error } = await supabase
         .from("students")
-        .select("id, name, class, parent_name, access_code")
+        .select("id, name, class, parent_name, access_code, student_type")
         .ilike("name", studentName.trim())
         .eq("phone", phoneNumber.trim())
         .single();
