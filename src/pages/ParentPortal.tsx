@@ -33,6 +33,7 @@ import { StudentTestAnalytics } from "@/components/TestAnalyticsChart";
 import { QRCodeScanner } from "@/components/QRCodeScanner";
 import { StudentComparisonChart } from "@/components/StudentComparisonChart";
 import StudyAssistant from "@/components/StudyAssistant";
+import { Video, ExternalLink, CheckCircle2, XCircle, Clock as ClockIcon } from "lucide-react";
 
 interface Student {
   id: string;
