@@ -549,28 +549,34 @@ const ParentPortal = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="tests" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6 h-auto p-1">
-            <TabsTrigger value="tests" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-2 px-1 text-[10px] sm:text-sm">
+          <TabsList className="flex flex-wrap h-auto p-1 gap-1">
+            <TabsTrigger value="tests" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
               <ClipboardList className="w-4 h-4" />
               <span>Tests</span>
             </TabsTrigger>
-            <TabsTrigger value="ai" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-2 px-1 text-[10px] sm:text-sm">
+            <TabsTrigger value="ai" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
               <Sparkles className="w-4 h-4" />
               <span>AI</span>
             </TabsTrigger>
-            <TabsTrigger value="comparison" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-2 px-1 text-[10px] sm:text-sm">
-              <Users className="w-4 h-4" />
-              <span>Compare</span>
+            <TabsTrigger value="attendance" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Attend.</span>
             </TabsTrigger>
-            <TabsTrigger value="announcements" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-2 px-1 text-[10px] sm:text-sm">
+            {student?.student_type === "online" && (
+              <TabsTrigger value="zoom" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
+                <Video className="w-4 h-4" />
+                <span>Classes</span>
+              </TabsTrigger>
+            )}
+            <TabsTrigger value="announcements" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
               <Bell className="w-4 h-4" />
-              <span>Announce</span>
+              <span>News</span>
             </TabsTrigger>
-            <TabsTrigger value="concerns" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-2 px-1 text-[10px] sm:text-sm">
+            <TabsTrigger value="concerns" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
               <AlertCircle className="w-4 h-4" />
               <span>Notes</span>
             </TabsTrigger>
-            <TabsTrigger value="messages" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-2 px-1 text-[10px] sm:text-sm">
+            <TabsTrigger value="messages" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
               <MessageSquare className="w-4 h-4" />
               <span>Chat</span>
             </TabsTrigger>
