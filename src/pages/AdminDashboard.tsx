@@ -2339,6 +2339,103 @@ const AdminDashboard = () => {
             </motion.div>
           </TabsContent>
 
+          {/* Student Attendance Tab */}
+          <TabsContent value="student-attendance">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+              <Card className="shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-primary" />
+                    Student Attendance
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                    <div className="space-y-1">
+                      <Label>Class</Label>
+                      <NativeSelect
+                        value={attendanceClassFilter}
+                        onValueChange={setAttendanceClassFilter}
+                        options={[{ value: "", label: "Select Class" }, ...CLASSES.map(c => ({ value: c, label: `Class ${c}` }))]}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Date</Label>
+                      <Input
+                        type="date"
+                        value={attendanceDate}
+                        onChange={(e) => {
+                          setAttendanceDate(e.target.value);
+                          if (attendanceClassFilter) fetchStudentAttendance(attendanceClassFilter, e.target.value);
+                        }}
+                      />
+                    </div>
+                    <Button
+                      onClick={() => handleBulkAttendance("present")}
+                      disabled={!attendanceClassFilter || !attendanceDate}
+                      className="h-10"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Mark All Present
+                    </Button>
+                  </div>
+
+                  {attendanceClassFilter && attendanceDate && (
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="bg-muted/50 p-3 font-medium text-sm flex justify-between">
+                        <span>Class {attendanceClassFilter} — {new Date(attendanceDate).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}</span>
+                        <span className="text-muted-foreground">{students.filter(s => s.class === attendanceClassFilter).length} students</span>
+                      </div>
+                      <div className="divide-y max-h-[400px] overflow-y-auto">
+                        {students
+                          .filter(s => s.class === attendanceClassFilter)
+                          .map((s) => {
+                            const existing = studentAttendance.find(
+                              (a) => a.student_id === s.id && a.attendance_date === attendanceDate
+                            );
+                            return (
+                              <div key={s.id} className="p-3 flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="font-medium text-sm">{s.name}</p>
+                                  {existing && <p className="text-xs text-muted-foreground capitalize">{existing.status}</p>}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant={existing?.status === "present" ? "default" : "outline"}
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => handleMarkAttendance(s.id, "present")}
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant={existing?.status === "absent" ? "destructive" : "outline"}
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => handleMarkAttendance(s.id, "absent")}
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant={existing?.status === "half-day" ? "secondary" : "outline"}
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => handleMarkAttendance(s.id, "half-day")}
+                                  >
+                                    <Circle className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
           <TabsContent value="academic-records">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
