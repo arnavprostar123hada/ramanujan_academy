@@ -283,7 +283,11 @@ const AdminDashboard = () => {
   const [isAddZoomLinkOpen, setIsAddZoomLinkOpen] = useState(false);
   const [newZoomLink, setNewZoomLink] = useState({ class: "", subject: "", zoom_url: "", meeting_id: "", passcode: "", schedule_day: "Monday", schedule_time: "", teacher_name: "" });
 
-  // New announcement form state
+  // Student attendance state
+  const [studentAttendance, setStudentAttendance] = useState<{ id: string; student_id: string; attendance_date: string; status: string; remarks: string | null }[]>([]);
+  const [attendanceClassFilter, setAttendanceClassFilter] = useState("");
+  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split("T")[0]);
+
   const [newAnnouncement, setNewAnnouncement] = useState({
     title: "",
     content: "",
