@@ -197,6 +197,25 @@ const ParentPortal = () => {
         .in("test_id", classTestIds);
       if (allResultsData) setAllClassResults(allResultsData as TestResult[]);
     }
+
+    // Fetch zoom links for online students
+    if (studentData.student_type === "online") {
+      const { data: zoomData } = await supabase
+        .from("zoom_links")
+        .select("*")
+        .eq("class", studentData.class)
+        .eq("is_active", true)
+        .order("schedule_day");
+      if (zoomData) setZoomLinks(zoomData as ZoomLink[]);
+    }
+
+    // Fetch attendance
+    const { data: attendanceData } = await supabase
+      .from("student_attendance")
+      .select("*")
+      .eq("student_id", studentData.id)
+      .order("attendance_date", { ascending: false });
+    if (attendanceData) setAttendance(attendanceData as AttendanceRecord[]);
   };
 
   const handleLogin = async (code?: string) => {
