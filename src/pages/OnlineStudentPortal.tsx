@@ -12,6 +12,8 @@ import {
   Lock,
   Eye,
   EyeOff,
+  Coins,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -399,17 +401,85 @@ const OnlineStudentPortal = () => {
         </motion.div>
 
         {/* Tabs */}
-        <Tabs defaultValue="classes" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 h-auto p-1">
+        <Tabs defaultValue="timetable" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-3 h-auto p-1">
+            <TabsTrigger value="timetable" className="flex items-center gap-1.5 py-2.5">
+              <Clock className="w-4 h-4" />
+              <span>Timetable</span>
+            </TabsTrigger>
             <TabsTrigger value="classes" className="flex items-center gap-1.5 py-2.5">
               <Video className="w-4 h-4" />
-              <span>My Classes</span>
+              <span>Classes</span>
             </TabsTrigger>
             <TabsTrigger value="ai" className="flex items-center gap-1.5 py-2.5">
               <Sparkles className="w-4 h-4" />
-              <span>AI Study Hub</span>
+              <span>AI Hub</span>
             </TabsTrigger>
           </TabsList>
+
+          {/* Weekly Timetable Tab */}
+          <TabsContent value="timetable" className="space-y-4">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+              <Card className="shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-primary" />
+                    Weekly Class Schedule
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {zoomLinks.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No classes scheduled yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {DAYS.map((day) => {
+                        const dayLinks = zoomLinks.filter(l => l.schedule_day === day);
+                        if (dayLinks.length === 0) return null;
+                        const isToday = day === today;
+                        return (
+                          <motion.div
+                            key={day}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className={`rounded-xl border overflow-hidden ${isToday ? "border-primary/40 shadow-md" : ""}`}
+                          >
+                            <div className={`px-4 py-2 font-semibold text-sm flex items-center gap-2 ${isToday ? "bg-primary/10 text-primary" : "bg-muted/50"}`}>
+                              {day}
+                              {isToday && <Badge className="bg-primary text-xs">Today</Badge>}
+                            </div>
+                            <div className="divide-y">
+                              {dayLinks
+                                .sort((a, b) => a.schedule_time.localeCompare(b.schedule_time))
+                                .map((link) => (
+                                  <div key={link.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-16 text-xs font-mono text-muted-foreground">{link.schedule_time}</div>
+                                      <div>
+                                        <p className="font-medium text-sm">{link.subject}</p>
+                                        {link.teacher_name && <p className="text-xs text-muted-foreground">{link.teacher_name}</p>}
+                                      </div>
+                                    </div>
+                                    {isToday && (
+                                      <Button size="sm" variant="outline" onClick={() => window.open(link.zoom_url, "_blank")} className="shrink-0 text-xs">
+                                        <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                                        Join
+                                      </Button>
+                                    )}
+                                  </div>
+                                ))}
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
 
           {/* Classes Tab */}
           <TabsContent value="classes" className="space-y-4">
@@ -418,7 +488,7 @@ const OnlineStudentPortal = () => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Video className="w-5 h-5 text-primary" />
-                    Class Schedule & Zoom Links
+                    Today's Classes & Zoom Links
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -426,7 +496,6 @@ const OnlineStudentPortal = () => {
                     <div className="text-center py-8 text-muted-foreground">
                       <Video className="w-12 h-12 mx-auto mb-4 opacity-50" />
                       <p>No classes scheduled yet</p>
-                      <p className="text-xs mt-1">Your admin will add class links soon</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -477,6 +546,38 @@ const OnlineStudentPortal = () => {
                       ))}
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* RA Points Purchase */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+              <Card className="shadow-md border-amber-200/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-amber-600">
+                    <Coins className="w-5 h-5" />
+                    Need More AI Points?
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    You get 20 RA points per month for free. If you run out, contact your admin to purchase additional points.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-lg border bg-amber-50/50 text-center">
+                      <p className="text-2xl font-bold text-amber-600">50</p>
+                      <p className="text-xs text-muted-foreground">Points</p>
+                      <p className="text-sm font-semibold mt-1">₹49</p>
+                    </div>
+                    <div className="p-3 rounded-lg border bg-amber-50/50 text-center">
+                      <p className="text-2xl font-bold text-amber-600">150</p>
+                      <p className="text-xs text-muted-foreground">Points</p>
+                      <p className="text-sm font-semibold mt-1">₹99</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3 text-center">
+                    Contact admin via WhatsApp to purchase points
+                  </p>
                 </CardContent>
               </Card>
             </motion.div>

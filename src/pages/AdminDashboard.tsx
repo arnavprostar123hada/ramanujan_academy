@@ -283,7 +283,11 @@ const AdminDashboard = () => {
   const [isAddZoomLinkOpen, setIsAddZoomLinkOpen] = useState(false);
   const [newZoomLink, setNewZoomLink] = useState({ class: "", subject: "", zoom_url: "", meeting_id: "", passcode: "", schedule_day: "Monday", schedule_time: "", teacher_name: "" });
 
-  // New announcement form state
+  // Student attendance state
+  const [studentAttendance, setStudentAttendance] = useState<{ id: string; student_id: string; attendance_date: string; status: string; remarks: string | null }[]>([]);
+  const [attendanceClassFilter, setAttendanceClassFilter] = useState("");
+  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split("T")[0]);
+
   const [newAnnouncement, setNewAnnouncement] = useState({
     title: "",
     content: "",
@@ -521,6 +525,53 @@ const AdminDashboard = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchStudentAttendance = async (cls: string, date: string) => {
+    const studentIds = students.filter(s => s.class === cls).map(s => s.id);
+    if (studentIds.length === 0) return;
+    const { data } = await supabase
+      .from("student_attendance")
+      .select("*")
+      .in("student_id", studentIds)
+      .eq("attendance_date", date);
+    if (data) setStudentAttendance(data as any);
+  };
+
+  const handleMarkAttendance = async (studentId: string, status: string) => {
+    if (!attendanceDate) return;
+    try {
+      const existing = studentAttendance.find(a => a.student_id === studentId && a.attendance_date === attendanceDate);
+      if (existing) {
+        await supabase
+          .from("student_attendance")
+          .update({ status })
+          .eq("id", existing.id);
+        setStudentAttendance(prev => prev.map(a => a.id === existing.id ? { ...a, status } : a));
+      } else {
+        const { data } = await supabase
+          .from("student_attendance")
+          .insert({ student_id: studentId, attendance_date: attendanceDate, status })
+          .select()
+          .single();
+        if (data) setStudentAttendance(prev => [...prev, data as any]);
+      }
+    } catch {
+      toast({ title: "Error marking attendance", variant: "destructive" });
+    }
+  };
+
+  const handleBulkAttendance = async (status: string) => {
+    if (!attendanceClassFilter || !attendanceDate) return;
+    const classStudents = students.filter(s => s.class === attendanceClassFilter);
+    try {
+      for (const s of classStudents) {
+        await handleMarkAttendance(s.id, status);
+      }
+      toast({ title: `All students marked as ${status}` });
+    } catch {
+      toast({ title: "Error with bulk attendance", variant: "destructive" });
     }
   };
 
@@ -1505,6 +1556,10 @@ const AdminDashboard = () => {
                   <Video className="w-4 h-4" />
                   <span className="hidden sm:inline">Zoom</span>
                 </TabsTrigger>
+                <TabsTrigger value="student-attendance" className="gap-1.5 data-[state=active]:bg-green-500 data-[state=active]:text-white">
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="hidden sm:inline">Attendance</span>
+                </TabsTrigger>
               </div>
 
               {/* Finance */}
@@ -2328,6 +2383,103 @@ const AdminDashboard = () => {
                           </div>
                         </motion.div>
                       ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
+          {/* Student Attendance Tab */}
+          <TabsContent value="student-attendance">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+              <Card className="shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-primary" />
+                    Student Attendance
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                    <div className="space-y-1">
+                      <Label>Class</Label>
+                      <NativeSelect
+                        value={attendanceClassFilter}
+                        onValueChange={setAttendanceClassFilter}
+                        options={[{ value: "", label: "Select Class" }, ...CLASSES.map(c => ({ value: c, label: `Class ${c}` }))]}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Date</Label>
+                      <Input
+                        type="date"
+                        value={attendanceDate}
+                        onChange={(e) => {
+                          setAttendanceDate(e.target.value);
+                          if (attendanceClassFilter) fetchStudentAttendance(attendanceClassFilter, e.target.value);
+                        }}
+                      />
+                    </div>
+                    <Button
+                      onClick={() => handleBulkAttendance("present")}
+                      disabled={!attendanceClassFilter || !attendanceDate}
+                      className="h-10"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Mark All Present
+                    </Button>
+                  </div>
+
+                  {attendanceClassFilter && attendanceDate && (
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="bg-muted/50 p-3 font-medium text-sm flex justify-between">
+                        <span>Class {attendanceClassFilter} — {new Date(attendanceDate).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}</span>
+                        <span className="text-muted-foreground">{students.filter(s => s.class === attendanceClassFilter).length} students</span>
+                      </div>
+                      <div className="divide-y max-h-[400px] overflow-y-auto">
+                        {students
+                          .filter(s => s.class === attendanceClassFilter)
+                          .map((s) => {
+                            const existing = studentAttendance.find(
+                              (a) => a.student_id === s.id && a.attendance_date === attendanceDate
+                            );
+                            return (
+                              <div key={s.id} className="p-3 flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="font-medium text-sm">{s.name}</p>
+                                  {existing && <p className="text-xs text-muted-foreground capitalize">{existing.status}</p>}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant={existing?.status === "present" ? "default" : "outline"}
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => handleMarkAttendance(s.id, "present")}
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant={existing?.status === "absent" ? "destructive" : "outline"}
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => handleMarkAttendance(s.id, "absent")}
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant={existing?.status === "half-day" ? "secondary" : "outline"}
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => handleMarkAttendance(s.id, "half-day")}
+                                  >
+                                    <Circle className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
                     </div>
                   )}
                 </CardContent>

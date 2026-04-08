@@ -33,6 +33,7 @@ import { StudentTestAnalytics } from "@/components/TestAnalyticsChart";
 import { QRCodeScanner } from "@/components/QRCodeScanner";
 import { StudentComparisonChart } from "@/components/StudentComparisonChart";
 import StudyAssistant from "@/components/StudyAssistant";
+import { Video, ExternalLink, CheckCircle2, XCircle, Clock as ClockIcon } from "lucide-react";
 
 interface Student {
   id: string;
@@ -40,6 +41,28 @@ interface Student {
   class: string;
   parent_name: string | null;
   access_code: string;
+  student_type?: string;
+}
+
+interface ZoomLink {
+  id: string;
+  class: string;
+  subject: string;
+  zoom_url: string;
+  meeting_id: string | null;
+  passcode: string | null;
+  schedule_day: string;
+  schedule_time: string;
+  teacher_name: string | null;
+  is_active: boolean;
+}
+
+interface AttendanceRecord {
+  id: string;
+  student_id: string;
+  attendance_date: string;
+  status: string;
+  remarks: string | null;
 }
 
 interface Announcement {
@@ -105,6 +128,8 @@ const ParentPortal = () => {
   const [loginMode, setLoginMode] = useState<"code" | "phone">("code");
   const [studentName, setStudentName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [zoomLinks, setZoomLinks] = useState<ZoomLink[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
 
   useEffect(() => {
     const storedCode = localStorage.getItem("parent_access_code");
@@ -172,6 +197,25 @@ const ParentPortal = () => {
         .in("test_id", classTestIds);
       if (allResultsData) setAllClassResults(allResultsData as TestResult[]);
     }
+
+    // Fetch zoom links for online students
+    if (studentData.student_type === "online") {
+      const { data: zoomData } = await supabase
+        .from("zoom_links")
+        .select("*")
+        .eq("class", studentData.class)
+        .eq("is_active", true)
+        .order("schedule_day");
+      if (zoomData) setZoomLinks(zoomData as ZoomLink[]);
+    }
+
+    // Fetch attendance
+    const { data: attendanceData } = await supabase
+      .from("student_attendance")
+      .select("*")
+      .eq("student_id", studentData.id)
+      .order("attendance_date", { ascending: false });
+    if (attendanceData) setAttendance(attendanceData as AttendanceRecord[]);
   };
 
   const handleLogin = async (code?: string) => {
@@ -185,7 +229,7 @@ const ParentPortal = () => {
     try {
       const { data: studentData, error } = await supabase
         .from("students")
-        .select("id, name, class, parent_name, access_code")
+        .select("id, name, class, parent_name, access_code, student_type")
         .eq("access_code", codeToUse)
         .single();
 
@@ -215,7 +259,7 @@ const ParentPortal = () => {
     try {
       const { data: studentData, error } = await supabase
         .from("students")
-        .select("id, name, class, parent_name, access_code")
+        .select("id, name, class, parent_name, access_code, student_type")
         .ilike("name", studentName.trim())
         .eq("phone", phoneNumber.trim())
         .single();
@@ -505,28 +549,34 @@ const ParentPortal = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="tests" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6 h-auto p-1">
-            <TabsTrigger value="tests" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-2 px-1 text-[10px] sm:text-sm">
+          <TabsList className="flex flex-wrap h-auto p-1 gap-1">
+            <TabsTrigger value="tests" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
               <ClipboardList className="w-4 h-4" />
               <span>Tests</span>
             </TabsTrigger>
-            <TabsTrigger value="ai" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-2 px-1 text-[10px] sm:text-sm">
+            <TabsTrigger value="ai" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
               <Sparkles className="w-4 h-4" />
               <span>AI</span>
             </TabsTrigger>
-            <TabsTrigger value="comparison" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-2 px-1 text-[10px] sm:text-sm">
-              <Users className="w-4 h-4" />
-              <span>Compare</span>
+            <TabsTrigger value="attendance" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Attend.</span>
             </TabsTrigger>
-            <TabsTrigger value="announcements" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-2 px-1 text-[10px] sm:text-sm">
+            {student?.student_type === "online" && (
+              <TabsTrigger value="zoom" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
+                <Video className="w-4 h-4" />
+                <span>Classes</span>
+              </TabsTrigger>
+            )}
+            <TabsTrigger value="announcements" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
               <Bell className="w-4 h-4" />
-              <span>Announce</span>
+              <span>News</span>
             </TabsTrigger>
-            <TabsTrigger value="concerns" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-2 px-1 text-[10px] sm:text-sm">
+            <TabsTrigger value="concerns" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
               <AlertCircle className="w-4 h-4" />
               <span>Notes</span>
             </TabsTrigger>
-            <TabsTrigger value="messages" className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1 py-2 px-1 text-[10px] sm:text-sm">
+            <TabsTrigger value="messages" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
               <MessageSquare className="w-4 h-4" />
               <span>Chat</span>
             </TabsTrigger>
@@ -868,6 +918,124 @@ const ParentPortal = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Attendance Tab */}
+          <TabsContent value="attendance" className="space-y-4">
+            <Card className="shadow-md">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-primary" />
+                  Attendance Record
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {attendance.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <CheckCircle2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No attendance records available yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {/* Summary */}
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                      <div className="p-3 rounded-lg bg-green-50 border border-green-200 text-center">
+                        <p className="text-2xl font-bold text-green-600">{attendance.filter(a => a.status === "present").length}</p>
+                        <p className="text-xs text-green-700">Present</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-center">
+                        <p className="text-2xl font-bold text-red-600">{attendance.filter(a => a.status === "absent").length}</p>
+                        <p className="text-xs text-red-700">Absent</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-center">
+                        <p className="text-2xl font-bold text-amber-600">{attendance.filter(a => a.status === "half-day").length}</p>
+                        <p className="text-xs text-amber-700">Half Day</p>
+                      </div>
+                    </div>
+                    {/* Records */}
+                    <div className="max-h-[400px] overflow-y-auto space-y-2">
+                      {attendance.map((record) => (
+                        <div key={record.id} className="flex items-center justify-between p-3 rounded-lg border">
+                          <div className="flex items-center gap-3">
+                            {record.status === "present" && <CheckCircle2 className="w-5 h-5 text-green-500" />}
+                            {record.status === "absent" && <XCircle className="w-5 h-5 text-red-500" />}
+                            {record.status === "half-day" && <ClockIcon className="w-5 h-5 text-amber-500" />}
+                            <div>
+                              <p className="text-sm font-medium">
+                                {new Date(record.attendance_date).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+                              </p>
+                              {record.remarks && <p className="text-xs text-muted-foreground">{record.remarks}</p>}
+                            </div>
+                          </div>
+                          <Badge variant={record.status === "present" ? "default" : record.status === "absent" ? "destructive" : "secondary"} className="capitalize text-xs">
+                            {record.status}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Zoom Classes Tab (online students only) */}
+          {student?.student_type === "online" && (
+            <TabsContent value="zoom" className="space-y-4">
+              <Card className="shadow-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Video className="w-5 h-5 text-primary" />
+                    Online Class Schedule
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {zoomLinks.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Video className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No online classes scheduled</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {zoomLinks.map((link, idx) => {
+                        const isToday = link.schedule_day === new Date().toLocaleDateString("en-US", { weekday: "long" });
+                        return (
+                          <motion.div
+                            key={link.id}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: idx * 0.05 }}
+                            className={`p-4 rounded-xl border ${isToday ? "bg-primary/5 border-primary/30" : ""}`}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h3 className="font-semibold text-sm">{link.subject}</h3>
+                                  {isToday && <Badge className="bg-primary text-xs">Today</Badge>}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {link.schedule_day} • {link.schedule_time}
+                                  {link.teacher_name && ` • ${link.teacher_name}`}
+                                </p>
+                                {link.meeting_id && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    ID: {link.meeting_id}{link.passcode && ` | Pass: ${link.passcode}`}
+                                  </p>
+                                )}
+                              </div>
+                              <Button size="sm" onClick={() => window.open(link.zoom_url, "_blank")} className="shrink-0">
+                                <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                                Join
+                              </Button>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
       </main>
     </div>

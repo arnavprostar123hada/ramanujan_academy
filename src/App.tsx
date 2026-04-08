@@ -29,7 +29,7 @@ const App = () => (
             <Route path="/parent" element={<ParentPortal />} />
             <Route path="/teacher" element={<TeacherDashboard />} />
             <Route path="/enquiry" element={<EnquiryPortal />} />
-            <Route path="/online" element={<OnlineStudentPortal />} />
+            <Route path="/ai" element={<OnlineStudentPortal />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -499,6 +499,33 @@ export type Database = {
         }
         Relationships: []
       }
+      student_attendance: {
+        Row: {
+          attendance_date: string
+          created_at: string
+          id: string
+          remarks: string | null
+          status: string
+          student_id: string
+        }
+        Insert: {
+          attendance_date: string
+          created_at?: string
+          id?: string
+          remarks?: string | null
+          status?: string
+          student_id: string
+        }
+        Update: {
+          attendance_date?: string
+          created_at?: string
+          id?: string
+          remarks?: string | null
+          status?: string
+          student_id?: string
+        }
+        Relationships: []
+      }
       student_chat_messages: {
         Row: {
           content: string
