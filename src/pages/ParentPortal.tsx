@@ -41,6 +41,28 @@ interface Student {
   class: string;
   parent_name: string | null;
   access_code: string;
+  student_type?: string;
+}
+
+interface ZoomLink {
+  id: string;
+  class: string;
+  subject: string;
+  zoom_url: string;
+  meeting_id: string | null;
+  passcode: string | null;
+  schedule_day: string;
+  schedule_time: string;
+  teacher_name: string | null;
+  is_active: boolean;
+}
+
+interface AttendanceRecord {
+  id: string;
+  student_id: string;
+  attendance_date: string;
+  status: string;
+  remarks: string | null;
 }
 
 interface Announcement {
@@ -106,6 +128,8 @@ const ParentPortal = () => {
   const [loginMode, setLoginMode] = useState<"code" | "phone">("code");
   const [studentName, setStudentName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [zoomLinks, setZoomLinks] = useState<ZoomLink[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
 
   useEffect(() => {
     const storedCode = localStorage.getItem("parent_access_code");
