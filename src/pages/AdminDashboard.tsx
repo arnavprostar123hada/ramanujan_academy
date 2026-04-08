@@ -528,6 +528,53 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchStudentAttendance = async (cls: string, date: string) => {
+    const studentIds = students.filter(s => s.class === cls).map(s => s.id);
+    if (studentIds.length === 0) return;
+    const { data } = await supabase
+      .from("student_attendance")
+      .select("*")
+      .in("student_id", studentIds)
+      .eq("attendance_date", date);
+    if (data) setStudentAttendance(data as any);
+  };
+
+  const handleMarkAttendance = async (studentId: string, status: string) => {
+    if (!attendanceDate) return;
+    try {
+      const existing = studentAttendance.find(a => a.student_id === studentId && a.attendance_date === attendanceDate);
+      if (existing) {
+        await supabase
+          .from("student_attendance")
+          .update({ status })
+          .eq("id", existing.id);
+        setStudentAttendance(prev => prev.map(a => a.id === existing.id ? { ...a, status } : a));
+      } else {
+        const { data } = await supabase
+          .from("student_attendance")
+          .insert({ student_id: studentId, attendance_date: attendanceDate, status })
+          .select()
+          .single();
+        if (data) setStudentAttendance(prev => [...prev, data as any]);
+      }
+    } catch {
+      toast({ title: "Error marking attendance", variant: "destructive" });
+    }
+  };
+
+  const handleBulkAttendance = async (status: string) => {
+    if (!attendanceClassFilter || !attendanceDate) return;
+    const classStudents = students.filter(s => s.class === attendanceClassFilter);
+    try {
+      for (const s of classStudents) {
+        await handleMarkAttendance(s.id, status);
+      }
+      toast({ title: `All students marked as ${status}` });
+    } catch {
+      toast({ title: "Error with bulk attendance", variant: "destructive" });
+    }
+  };
+
   const markAsRead = async (id: string) => {
     try {
       await supabase
