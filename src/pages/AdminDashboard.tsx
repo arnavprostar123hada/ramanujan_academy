@@ -1505,6 +1505,10 @@ const AdminDashboard = () => {
                   <Video className="w-4 h-4" />
                   <span className="hidden sm:inline">Zoom</span>
                 </TabsTrigger>
+                <TabsTrigger value="student-attendance" className="gap-1.5 data-[state=active]:bg-green-500 data-[state=active]:text-white">
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="hidden sm:inline">Attendance</span>
+                </TabsTrigger>
               </div>
 
               {/* Finance */}
