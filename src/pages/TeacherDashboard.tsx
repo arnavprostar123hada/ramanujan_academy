@@ -22,7 +22,9 @@ import {
   Check,
   X,
   Loader2,
-  ScanLine
+  ScanLine,
+  MapPin
+
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -33,6 +35,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { QRCodeScanner } from "@/components/QRCodeScanner";
+import { GeoAttendance } from "@/components/GeoAttendance";
+
 
 interface Teacher {
   id: string;
@@ -41,7 +45,10 @@ interface Teacher {
   phone: string;
   access_code: string;
   assigned_classes: string[];
+  expected_check_in?: string | null;
+  expected_check_out?: string | null;
 }
+
 
 interface Student {
   id: string;
@@ -539,8 +546,11 @@ const TeacherDashboard = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
-        <Tabs defaultValue="logs" className="space-y-6">
-          <TabsList className="grid w-full max-w-2xl grid-cols-3">
+        <Tabs defaultValue="attendance" className="space-y-6">
+          <TabsList className="grid w-full max-w-3xl grid-cols-4">
+            <TabsTrigger value="attendance" className="flex items-center gap-2">
+              <MapPin className="w-4 h-4" /> Attendance
+            </TabsTrigger>
             <TabsTrigger value="logs" className="flex items-center gap-2">
               <BookOpen className="w-4 h-4" /> Class Logs
             </TabsTrigger>
@@ -551,6 +561,19 @@ const TeacherDashboard = () => {
               <AlertTriangle className="w-4 h-4" /> Complaints
             </TabsTrigger>
           </TabsList>
+
+          {/* Attendance Tab */}
+          <TabsContent value="attendance" className="space-y-6">
+            {teacher && (
+              <GeoAttendance
+                teacherId={teacher.id}
+                teacherName={teacher.name}
+                expectedCheckIn={teacher.expected_check_in}
+                expectedCheckOut={teacher.expected_check_out}
+              />
+            )}
+          </TabsContent>
+
 
           {/* Class Logs Tab */}
           <TabsContent value="logs" className="space-y-6">

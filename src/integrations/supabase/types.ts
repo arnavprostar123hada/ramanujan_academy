@@ -195,6 +195,39 @@ export type Database = {
           },
         ]
       }
+      geofence_locations: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          latitude: number
+          longitude: number
+          name: string
+          radius_meters: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          latitude: number
+          longitude: number
+          name?: string
+          radius_meters?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          latitude?: number
+          longitude?: number
+          name?: string
+          radius_meters?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       online_students: {
         Row: {
           class: string
@@ -727,33 +760,60 @@ export type Database = {
       teacher_attendance: {
         Row: {
           attendance_date: string
+          check_in_distance_m: number | null
+          check_in_lat: number | null
+          check_in_lng: number | null
+          check_in_method: string | null
           check_in_time: string | null
+          check_out_distance_m: number | null
+          check_out_lat: number | null
+          check_out_lng: number | null
           check_out_time: string | null
           created_at: string
+          geo_verified: boolean | null
           id: string
           is_late: boolean | null
           status: string
           teacher_id: string
+          worked_minutes: number | null
         }
         Insert: {
           attendance_date: string
+          check_in_distance_m?: number | null
+          check_in_lat?: number | null
+          check_in_lng?: number | null
+          check_in_method?: string | null
           check_in_time?: string | null
+          check_out_distance_m?: number | null
+          check_out_lat?: number | null
+          check_out_lng?: number | null
           check_out_time?: string | null
           created_at?: string
+          geo_verified?: boolean | null
           id?: string
           is_late?: boolean | null
           status?: string
           teacher_id: string
+          worked_minutes?: number | null
         }
         Update: {
           attendance_date?: string
+          check_in_distance_m?: number | null
+          check_in_lat?: number | null
+          check_in_lng?: number | null
+          check_in_method?: string | null
           check_in_time?: string | null
+          check_out_distance_m?: number | null
+          check_out_lat?: number | null
+          check_out_lng?: number | null
           check_out_time?: string | null
           created_at?: string
+          geo_verified?: boolean | null
           id?: string
           is_late?: boolean | null
           status?: string
           teacher_id?: string
+          worked_minutes?: number | null
         }
         Relationships: [
           {

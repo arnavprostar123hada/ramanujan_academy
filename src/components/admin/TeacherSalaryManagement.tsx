@@ -31,8 +31,11 @@ import {
   Clock,
   AlertTriangle,
   Upload,
+  Radar,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { GeofenceSettings } from "@/components/admin/GeofenceSettings";
+
 
 interface Teacher {
   id: string;
@@ -124,7 +127,10 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
   const [calcNotes, setCalcNotes] = useState("");
 
   // Sub-tab
-  const [activeTab, setActiveTab] = useState<"salary" | "attendance" | "payroll">("salary");
+  const [activeTab, setActiveTab] = useState<
+    "salary" | "attendance" | "payroll" | "geofence"
+  >("salary");
+
 
   useEffect(() => {
     fetchAttendance();
