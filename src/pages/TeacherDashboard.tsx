@@ -33,6 +33,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { QRCodeScanner } from "@/components/QRCodeScanner";
+import { GeoAttendance } from "@/components/GeoAttendance";
+
 
 interface Teacher {
   id: string;
@@ -41,7 +43,10 @@ interface Teacher {
   phone: string;
   access_code: string;
   assigned_classes: string[];
+  expected_check_in?: string | null;
+  expected_check_out?: string | null;
 }
+
 
 interface Student {
   id: string;
