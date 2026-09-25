@@ -104,6 +104,7 @@ interface Student {
   email: string | null;
   phone: string;
   class: string;
+  batch: string | null;
   parent_name: string | null;
   created_at: string;
   access_code: string;
@@ -161,6 +162,7 @@ interface ClassLog {
   id: string;
   teacher_id: string;
   class: string;
+  batch: string | null;
   content: string;
   log_date: string;
   created_at: string;
@@ -188,6 +190,7 @@ interface Test {
   title: string;
   subject: string;
   class: string;
+  batch: string | null;
   test_date: string;
   max_marks: number;
   description: string | null;
@@ -211,6 +214,7 @@ interface Lead {
   name: string;
   phone: string;
   class: string | null;
+  batch: string | null;
   source: string | null;
   stage: string;
   priority: string | null;
@@ -223,6 +227,7 @@ interface Enquiry {
   id: string;
   name: string;
   class: string;
+  batch: string | null;
   board: string;
   date_of_birth: string | null;
   gender: string;
@@ -311,9 +316,9 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
   };
   
   // Zoom links state
-  const [zoomLinks, setZoomLinks] = useState<{ id: string; class: string; subject: string; zoom_url: string; meeting_id: string | null; passcode: string | null; schedule_day: string; schedule_time: string; teacher_name: string | null; is_active: boolean }[]>([]);
+  const [zoomLinks, setZoomLinks] = useState<{ id: string; class: string; batch: string | null; subject: string; zoom_url: string; meeting_id: string | null; passcode: string | null; schedule_day: string; schedule_time: string; teacher_name: string | null; is_active: boolean }[]>([]);
   const [isAddZoomLinkOpen, setIsAddZoomLinkOpen] = useState(false);
-  const [newZoomLink, setNewZoomLink] = useState({ class: "", subject: "", zoom_url: "", meeting_id: "", passcode: "", schedule_day: "Monday", schedule_time: "", teacher_name: "" });
+  const [newZoomLink, setNewZoomLink] = useState({ class: "", batch: "", subject: "", zoom_url: "", meeting_id: "", passcode: "", schedule_day: "Monday", schedule_time: "", teacher_name: "" });
 
   // Student attendance state
   const [studentAttendance, setStudentAttendance] = useState<{ id: string; student_id: string; attendance_date: string; status: string; remarks: string | null }[]>([]);
@@ -341,6 +346,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
     email: "",
     phone: "",
     class: "",
+    batch: "",
     parent_name: "",
     student_type: "offline",
   });
@@ -351,6 +357,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
     email: "",
     phone: "",
     class: "",
+    batch: "",
     parent_name: "",
   });
 
@@ -458,7 +465,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
         load(supabase.from("test_results").select("*").order("created_at", { ascending: false })),
         load(supabase.from("enquiries").select("*").order("created_at", { ascending: false })),
         load(supabase.from("zoom_links").select("*").order("created_at", { ascending: false })),
-        load(supabase.from("leads").select("id,name,phone,class,source,stage,priority,next_follow_up_at,created_at,expected_fee").order("created_at", { ascending: false })),
+        load(supabase.from("leads").select("id,name,phone,class,batch,source,stage,priority,next_follow_up_at,created_at,expected_fee").order("created_at", { ascending: false })),
       ]);
 
       setSubmissions((submissionsData ?? []) as ContactSubmission[]);
@@ -584,6 +591,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
           email: newStudent.email || null,
           phone: newStudent.phone,
           class: newStudent.class,
+          batch: newStudent.batch || null,
           parent_name: newStudent.parent_name || null,
           student_type: newStudent.student_type,
         } as any)
@@ -594,7 +602,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
 
       const addedStudent = data as Student;
       setStudents([addedStudent, ...students]);
-      setNewStudent({ name: "", email: "", phone: "", class: "", parent_name: "", student_type: "offline" });
+      setNewStudent({ name: "", email: "", phone: "", class: "", batch: "", parent_name: "", student_type: "offline" });
       setIsAddStudentOpen(false);
       setNewlyAddedStudent(addedStudent);
     } catch (error) {
@@ -1109,6 +1117,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
           email: editStudent.email || null,
           phone: editStudent.phone,
           class: editStudent.class,
+          batch: editStudent.batch || null,
           parent_name: editStudent.parent_name || null,
         })
         .eq("id", selectedStudent.id)
@@ -1749,6 +1758,10 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                           />
                         </div>
                         <div className="space-y-2">
+                          <Label htmlFor="batch">Batch</Label>
+                          <Input id="batch" value={newStudent.batch} onChange={(e) => setNewStudent({ ...newStudent, batch: e.target.value })} placeholder="e.g. Morning A / Evening B" />
+                        </div>
+                        <div className="space-y-2">
                           <Label htmlFor="email">Email (Optional)</Label>
                           <Input
                             id="email"
@@ -2256,6 +2269,10 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                             />
                           </div>
                           <div className="space-y-1">
+                            <Label>Batch</Label>
+                            <Input value={newZoomLink.batch} onChange={(e) => setNewZoomLink({ ...newZoomLink, batch: e.target.value })} placeholder="e.g. Morning A" />
+                          </div>
+                          <div className="space-y-1">
                             <Label>Subject *</Label>
                             <Input value={newZoomLink.subject} onChange={(e) => setNewZoomLink({ ...newZoomLink, subject: e.target.value })} placeholder="e.g. Math" />
                           </div>
@@ -2302,6 +2319,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                             try {
                               const { data, error } = await supabase.from("zoom_links").insert({
                                 class: newZoomLink.class,
+                                batch: newZoomLink.batch || null,
                                 subject: newZoomLink.subject,
                                 zoom_url: newZoomLink.zoom_url,
                                 meeting_id: newZoomLink.meeting_id || null,
@@ -2312,7 +2330,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                               }).select().single();
                               if (error) throw error;
                               setZoomLinks([data as any, ...zoomLinks]);
-                              setNewZoomLink({ class: "", subject: "", zoom_url: "", meeting_id: "", passcode: "", schedule_day: "Monday", schedule_time: "", teacher_name: "" });
+                              setNewZoomLink({ class: "", batch: "", subject: "", zoom_url: "", meeting_id: "", passcode: "", schedule_day: "Monday", schedule_time: "", teacher_name: "" });
                               setIsAddZoomLinkOpen(false);
                               toast({ title: "Zoom link added" });
                             } catch { toast({ title: "Error adding zoom link", variant: "destructive" }); }
@@ -3496,6 +3514,10 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                   options={CLASSES.map((cls) => ({ value: cls, label: cls }))}
                   required
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-batch">Batch</Label>
+                <Input id="edit-batch" value={editStudent.batch} onChange={(e) => setEditStudent({ ...editStudent, batch: e.target.value })} placeholder="e.g. Morning A / Evening B" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-email">Email (Optional)</Label>
