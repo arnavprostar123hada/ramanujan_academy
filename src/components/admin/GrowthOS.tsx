@@ -1,0 +1,91 @@
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { Users, UserPlus, Phone, MessageCircle, CalendarClock, CheckCircle2, IndianRupee, RefreshCw, Megaphone, ClipboardCheck, Plus, Target } from "lucide-react";
+
+const stages = ["new","contacted","counselling","demo","followup","fee_discussion","admission","lost","nurture"];
+const stageLabels: Record<string,string> = {new:"New",contacted:"Contacted",counselling:"Counselling",demo:"Demo",followup:"Follow-up",fee_discussion:"Fee Discussion",admission:"Admission",lost:"Lost",nurture:"Nurture"};
+const sources = ["Facebook","Instagram","Google","Website","WhatsApp","Referral","Walk-in","School","Other"];
+
+export function GrowthOS() {
+  const { toast } = useToast();
+  const [leads,setLeads]=useState<any[]>([]), [tasks,setTasks]=useState<any[]>([]), [campaigns,setCampaigns]=useState<any[]>([]);
+  const [payments,setPayments]=useState<any[]>([]), [students,setStudents]=useState<any[]>([]), [renewals,setRenewals]=useState<any[]>([]), [referrals,setReferrals]=useState<any[]>([]);
+  const [loading,setLoading]=useState(true), [leadDialog,setLeadDialog]=useState(false), [taskDialog,setTaskDialog]=useState(false), [campaignDialog,setCampaignDialog]=useState(false);
+  const [leadForm,setLeadForm]=useState({name:"",class:"",board:"",phone:"",source:"Website",priority:"medium",expected_fee:"",notes:""});
+  const [taskForm,setTaskForm]=useState({title:"",description:"",priority:"medium",due_at:""});
+  const [campaignForm,setCampaignForm]=useState({name:"",channel:"Instagram",objective:"",budget:"",lead_target:"",admission_target:""});
+
+  const load=async()=>{
+    setLoading(true);
+    const [l,t,c,p,s,r,f]=await Promise.all([
+      supabase.from("leads").select("*").order("created_at",{ascending:false}),
+      supabase.from("growth_tasks").select("*").order("due_at",{ascending:true}).limit(100),
+      supabase.from("campaigns").select("*").order("created_at",{ascending:false}),
+      supabase.from("fee_payments").select("amount,payment_date,created_at"),
+      supabase.from("students").select("id,name,class"),
+      supabase.from("renewals").select("*").order("due_date",{ascending:true}),
+      supabase.from("referrals").select("*").order("created_at",{ascending:false})
+    ]);
+    const errors=[l,t,c,p,s,r,f].filter(x=>x.error);
+    if(errors.length) toast({title:"Some dashboard data could not be loaded",description:errors[0].error.message,variant:"destructive"});
+    setLeads(l.data||[]);setTasks(t.data||[]);setCampaigns(c.data||[]);setPayments(p.data||[]);setStudents(s.data||[]);setRenewals(r.data||[]);setReferrals(f.data||[]);setLoading(false);
+  };
+  useEffect(()=>{load()},[]);
+  const today=new Date(), monthStart=new Date(today.getFullYear(),today.getMonth(),1);
+  const openLeads=leads.filter(l=>!["admission","lost"].includes(l.stage)).length;
+  const admissions=leads.filter(l=>l.stage==="admission").length;
+  const followups=leads.filter(l=>l.next_follow_up_at&&new Date(l.next_follow_up_at)<=today&&!["admission","lost"].includes(l.stage)).length;
+  const collection=payments.filter(p=>p.payment_date&&new Date(p.payment_date)>=monthStart).reduce((a,p)=>a+Number(p.amount||0),0);
+  const dueTasks=tasks.filter(t=>t.status!=="completed"&&(!t.due_at||new Date(t.due_at)<=today)).length;
+  const pendingRenewals=renewals.filter(r=>!["renewed","lost"].includes(r.status)).length;
+  const convertedReferrals=referrals.filter(r=>r.status==="converted"||r.referred_student_id).length;
+  const sourceData=useMemo(()=>sources.map(source=>{const x=leads.filter(l=>(l.source||"Other")===source);return {source,leads:x.length,admissions:x.filter(l=>l.stage==="admission").length}}),[leads]);
+  const addLead=async()=>{
+    if(!leadForm.name||!leadForm.class||!leadForm.phone)return;
+    const {error}=await supabase.from("leads").insert({name:leadForm.name,class:leadForm.class,board:leadForm.board||null,phone:leadForm.phone,whatsapp_phone:leadForm.phone,source:leadForm.source,stage:"new",priority:leadForm.priority,expected_fee:leadForm.expected_fee?Number(leadForm.expected_fee):null,notes:leadForm.notes||null});
+    if(error)return toast({title:"Could not create lead",description:error.message,variant:"destructive"});
+    setLeadDialog(false);setLeadForm({name:"",class:"",board:"",phone:"",source:"Website",priority:"medium",expected_fee:"",notes:""});toast({title:"Lead created"});load();
+  };
+  const moveLead=async(l:any,stage:string)=>{
+    const {error}=await supabase.from("leads").update({stage,updated_at:new Date().toISOString()}).eq("id",l.id);
+    if(error)return toast({title:"Could not update lead",variant:"destructive"});
+    await supabase.from("lead_activities").insert({lead_id:l.id,activity_type:"stage_change",notes:"Moved to "+stageLabels[stage],completed_at:new Date().toISOString()});load();
+  };
+  const createTask=async()=>{
+    if(!taskForm.title)return;
+    const {error}=await supabase.from("growth_tasks").insert({title:taskForm.title,description:taskForm.description||null,task_type:"general",priority:taskForm.priority,due_at:taskForm.due_at?new Date(taskForm.due_at).toISOString():null});
+    if(error)return toast({title:"Could not create task",description:error.message,variant:"destructive"});
+    setTaskDialog(false);setTaskForm({title:"",description:"",priority:"medium",due_at:""});load();
+  };
+  const completeTask=async(t:any)=>{await supabase.from("growth_tasks").update({status:"completed",completed_at:new Date().toISOString()}).eq("id",t.id);load()};
+  const createCampaign=async()=>{
+    if(!campaignForm.name)return;
+    const {error}=await supabase.from("campaigns").insert({name:campaignForm.name,channel:campaignForm.channel,objective:campaignForm.objective||null,budget:Number(campaignForm.budget||0),lead_target:Number(campaignForm.lead_target||0),admission_target:Number(campaignForm.admission_target||0),status:"draft"});
+    if(error)return toast({title:"Could not create campaign",description:error.message,variant:"destructive"});
+    setCampaignDialog(false);setCampaignForm({name:"",channel:"Instagram",objective:"",budget:"",lead_target:"",admission_target:""});load();
+  };
+  const wa=(phone:string,name:string)=>window.open("https://wa.me/"+phone.replace(/\D/g,"")+"?text="+encodeURIComponent("Hello "+name+", this is Ramanujan Academy. We are following up regarding your enquiry."),"_blank");
+
+  if(loading)return <Card><CardContent className="py-16 text-center"><RefreshCw className="w-8 h-8 animate-spin mx-auto mb-3"/><p>Loading Growth OS…</p></CardContent></Card>;
+  return <div className="space-y-6">
+    <div className="flex flex-wrap justify-between gap-3"><div><h2 className="text-2xl font-bold flex items-center gap-2"><Target className="w-6 h-6"/>Ramanujan Academy Growth OS</h2><p className="text-muted-foreground">Marketing → Lead → Admission → Learning → Retention → Referral</p></div><div className="flex gap-2"><Button variant="outline" onClick={load}><RefreshCw className="w-4 h-4 mr-2"/>Refresh</Button><Button onClick={()=>setLeadDialog(true)}><Plus className="w-4 h-4 mr-2"/>New Lead</Button><Button variant="secondary" onClick={()=>setTaskDialog(true)}>New Task</Button></div></div>
+    <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">{[["Open Leads",openLeads,Users],["Follow-ups",followups,CalendarClock],["Admissions",admissions,UserPlus],["Conversion",leads.length?Math.round(admissions/leads.length*100)+"%":"0%",UserPlus],["Collection","₹"+collection.toLocaleString("en-IN"),IndianRupee],["Tasks Due",dueTasks,ClipboardCheck],["Renewals",pendingRenewals,RefreshCw],["Referrals",convertedReferrals,Users]].map(([label,value,Icon]:any)=><Card key={label}><CardContent className="p-4"><Icon className="w-4 h-4 mb-2 text-primary"/><div className="text-xs text-muted-foreground">{label}</div><div className="text-xl font-bold">{value}</div></CardContent></Card>)}</div>
+    <Tabs defaultValue="pipeline"><TabsList><TabsTrigger value="pipeline">Pipeline</TabsTrigger><TabsTrigger value="actions">Actions</TabsTrigger><TabsTrigger value="marketing">Marketing</TabsTrigger><TabsTrigger value="retention">Retention</TabsTrigger></TabsList>
+      <TabsContent value="pipeline"><div className="grid xl:grid-cols-3 gap-4"><Card className="xl:col-span-2"><CardHeader><CardTitle>Lead Pipeline</CardTitle></CardHeader><CardContent className="overflow-x-auto"><div className="flex gap-3 min-w-[1100px]">{stages.map(stage=><div key={stage} className="w-48"><div className="flex justify-between mb-2"><span className="font-medium text-sm">{stageLabels[stage]}</span><Badge variant="secondary">{leads.filter(l=>l.stage===stage).length}</Badge></div><div className="space-y-2">{leads.filter(l=>l.stage===stage).slice(0,6).map(l=><div key={l.id} className="p-2 rounded-lg bg-muted/40"><b className="text-sm">{l.name}</b><div className="text-xs text-muted-foreground">Class {l.class} · {l.source||"Other"}</div><div className="flex gap-1 mt-2"><Button size="sm" variant="outline" onClick={()=>wa(l.whatsapp_phone||l.phone,l.name)}><MessageCircle className="w-3 h-3"/></Button><NativeSelect className="h-8 text-xs flex-1" value={l.stage} onValueChange={v=>moveLead(l,v)} options={stages.map(s=>({value:s,label:stageLabels[s]}))}/></div></div>)}</div></div>)}</div></CardContent></Card><Card><CardHeader><CardTitle>Source Performance</CardTitle></CardHeader><CardContent className="space-y-3">{sourceData.map(s=><div key={s.source}><div className="flex justify-between text-sm"><span>{s.source}</span><span>{s.leads} / {s.admissions}</span></div><div className="h-2 bg-muted rounded-full mt-1"><div className="h-full bg-primary rounded-full" style={{width:(s.leads?Math.max(5,s.admissions/s.leads*100):0)+"%"}}/></div></div>)}</CardContent></Card></div></TabsContent>
+      <TabsContent value="actions"><div className="grid md:grid-cols-2 gap-4"><Card><CardHeader><CardTitle>Follow-ups Due</CardTitle></CardHeader><CardContent className="space-y-2">{leads.filter(l=>l.next_follow_up_at&&new Date(l.next_follow_up_at)<=today&&!["admission","lost"].includes(l.stage)).slice(0,15).map(l=><div key={l.id} className="flex justify-between border rounded-lg p-3"><div><b>{l.name}</b><div className="text-xs text-muted-foreground">{l.phone}</div></div><Button size="sm" onClick={()=>wa(l.whatsapp_phone||l.phone,l.name)}>WhatsApp</Button></div>)}{followups===0&&<p className="text-muted-foreground text-sm">No follow-ups due.</p>}</CardContent></Card><Card><CardHeader><CardTitle>Growth Tasks</CardTitle></CardHeader><CardContent className="space-y-2">{tasks.filter(t=>t.status!=="completed").slice(0,15).map(t=><div key={t.id} className="flex justify-between border rounded-lg p-3"><div><b>{t.title}</b><div className="text-xs text-muted-foreground">{t.priority}</div></div><Button size="sm" variant="outline" onClick={()=>completeTask(t)}><CheckCircle2 className="w-4 h-4 mr-1"/>Done</Button></div>)}</CardContent></Card></div></TabsContent>
+      <TabsContent value="marketing"><div className="grid md:grid-cols-2 gap-4"><Card><CardHeader className="flex flex-row justify-between"><CardTitle>Campaigns</CardTitle><Button size="sm" onClick={()=>setCampaignDialog(true)}><Megaphone className="w-4 h-4 mr-1"/>Campaign</Button></CardHeader><CardContent>{campaigns.length?campaigns.map(c=><div key={c.id} className="border rounded-lg p-3 flex justify-between mb-2"><div><b>{c.name}</b><div className="text-xs text-muted-foreground">{c.channel} · ₹{Number(c.budget||0).toLocaleString("en-IN")}</div></div><Badge>{c.status}</Badge></div>):<p className="text-muted-foreground">No campaigns yet.</p>}</CardContent></Card><Card><CardHeader><CardTitle>Targets</CardTitle></CardHeader><CardContent><p>Lead target: <b>{campaigns.reduce((a,c)=>a+Number(c.lead_target||0),0)}</b></p><p>Admission target: <b>{campaigns.reduce((a,c)=>a+Number(c.admission_target||0),0)}</b></p></CardContent></Card></div></TabsContent>
+      <TabsContent value="retention"><div className="grid md:grid-cols-2 gap-4"><Card><CardHeader><CardTitle>Renewals</CardTitle></CardHeader><CardContent>{renewals.length?renewals.slice(0,20).map(r=><div key={r.id} className="border rounded-lg p-3 flex justify-between mb-2"><div><b>{students.find(s=>s.id===r.student_id)?.name||"Student"}</b><div className="text-xs">Due {r.due_date||"—"} · {r.current_program||""}</div></div><Badge>{r.status}</Badge></div>):<p className="text-muted-foreground">No renewal records yet.</p>}</CardContent></Card><Card><CardHeader><CardTitle>Referrals</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">{referrals.length}</div><p className="text-muted-foreground">Total referrals</p><div className="text-3xl font-bold mt-4">{convertedReferrals}</div><p className="text-muted-foreground">Converted</p></CardContent></Card></div></TabsContent>
+    </Tabs>
+    <Dialog open={leadDialog} onOpenChange={setLeadDialog}><DialogContent><DialogHeader><DialogTitle>New Lead</DialogTitle></DialogHeader><div className="space-y-3"><Input placeholder="Student name" value={leadForm.name} onChange={e=>setLeadForm({...leadForm,name:e.target.value})}/><Input placeholder="Class" value={leadForm.class} onChange={e=>setLeadForm({...leadForm,class:e.target.value})}/><Input placeholder="Board" value={leadForm.board} onChange={e=>setLeadForm({...leadForm,board:e.target.value})}/><Input placeholder="Parent phone" value={leadForm.phone} onChange={e=>setLeadForm({...leadForm,phone:e.target.value})}/><NativeSelect value={leadForm.source} onValueChange={v=>setLeadForm({...leadForm,source:v})} options={sources.map(s=>({value:s,label:s}))}/><Input type="number" placeholder="Expected fee" value={leadForm.expected_fee} onChange={e=>setLeadForm({...leadForm,expected_fee:e.target.value})}/><Input placeholder="Notes" value={leadForm.notes} onChange={e=>setLeadForm({...leadForm,notes:e.target.value})}/><Button onClick={addLead}>Create Lead</Button></div></DialogContent></Dialog>
+    <Dialog open={taskDialog} onOpenChange={setTaskDialog}><DialogContent><DialogHeader><DialogTitle>New Growth Task</DialogTitle></DialogHeader><div className="space-y-3"><Input placeholder="Task title" value={taskForm.title} onChange={e=>setTaskForm({...taskForm,title:e.target.value})}/><Input placeholder="Description" value={taskForm.description} onChange={e=>setTaskForm({...taskForm,description:e.target.value})}/><NativeSelect value={taskForm.priority} onValueChange={v=>setTaskForm({...taskForm,priority:v})} options={["low","medium","high","urgent"].map(s=>({value:s,label:s}))}/><Input type="datetime-local" value={taskForm.due_at} onChange={e=>setTaskForm({...taskForm,due_at:e.target.value})}/><Button onClick={createTask}>Create Task</Button></div></DialogContent></Dialog>
+    <Dialog open={campaignDialog} onOpenChange={setCampaignDialog}><DialogContent><DialogHeader><DialogTitle>New Campaign</DialogTitle></DialogHeader><div className="space-y-3"><Input placeholder="Campaign name" value={campaignForm.name} onChange={e=>setCampaignForm({...campaignForm,name:e.target.value})}/><NativeSelect value={campaignForm.channel} onValueChange={v=>setCampaignForm({...campaignForm,channel:v})} options={sources.map(s=>({value:s,label:s}))}/><Input placeholder="Objective" value={campaignForm.objective} onChange={e=>setCampaignForm({...campaignForm,objective:e.target.value})}/><Input type="number" placeholder="Budget" value={campaignForm.budget} onChange={e=>setCampaignForm({...campaignForm,budget:e.target.value})}/><Input type="number" placeholder="Lead target" value={campaignForm.lead_target} onChange={e=>setCampaignForm({...campaignForm,lead_target:e.target.value})}/><Input type="number" placeholder="Admission target" value={campaignForm.admission_target} onChange={e=>setCampaignForm({...campaignForm,admission_target:e.target.value})}/><Button onClick={createCampaign}>Create Campaign</Button></div></DialogContent></Dialog>
+  </div>;
+}
