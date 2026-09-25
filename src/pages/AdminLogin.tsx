@@ -14,10 +14,7 @@ const AdminLogin = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  });
+  const [formData, setFormData] = useState({ email: "", password: "" });
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,22 +28,28 @@ const AdminLogin = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
 
       if (error) throw error;
 
-      // Check if user has admin role
-      const { data: roles, error: roleError } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", data.user.id)
-        .eq("role", isOwner ? "owner" : "admin")
+      const { data: profile, error: profileError } = await supabase
+        .from("user_profiles")
+        .select("role, active")
+        .eq("id", data.user.id)
         .single();
 
-      if (roleError || !roles) {
+      const requiredRole = isOwner ? "owner" : "admin";
+      const hasAccess =
+        !profileError &&
+        profile?.active === true &&
+        (profile.role === requiredRole || (isOwner && profile.role === "owner"));
+
+      if (!hasAccess) {
         await supabase.auth.signOut();
-        throw new Error(isOwner ? "You do not have owner access" : "You do not have admin access");
+        throw new Error(
+          isOwner ? "You do not have owner access" : "You do not have admin access"
+        );
       }
 
       toast({
         title: "Login Successful",
-        description: "Welcome to the admin panel",
+        description: isOwner ? "Welcome to the Owner Dashboard" : "Welcome to the Admin Panel",
       });
 
       navigate(isOwner ? "/owner/dashboard" : "/admin/dashboard");
@@ -63,12 +66,7 @@ const AdminLogin = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
 
   return (
     <div className="min-h-screen gradient-hero flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.4 }}
-        className="w-full max-w-md"
-      >
+      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4 }} className="w-full max-w-md">
         <div className="card-elevated p-8">
           <div className="text-center mb-8">
             <img src={logo} alt="Ramanujan Academy" className="w-20 h-20 mx-auto mb-4" />
@@ -79,51 +77,21 @@ const AdminLogin = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="admin@example.com"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
-              />
+              <Input id="email" type="email" placeholder="admin@example.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                required
-              />
+              <Input id="password" type="password" placeholder="••••••••" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required />
             </div>
 
-            <Button
-              type="submit"
-              className="w-full btn-secondary py-6"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 w-5 h-5 animate-spin" />
-                  Logging in...
-                </>
-              ) : (
-                <>
-                  <Lock className="mr-2 w-5 h-5" />
-                  Login
-                </>
-              )}
+            <Button type="submit" className="w-full btn-secondary py-6" disabled={isLoading}>
+              {isLoading ? <><Loader2 className="mr-2 w-5 h-5 animate-spin" />Logging in...</> : <><Lock className="mr-2 w-5 h-5" />Login</>}
             </Button>
           </form>
 
           <div className="mt-6 text-center">
-            <a href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              ← Back to Website
-            </a>
+            <a href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Back to Website</a>
           </div>
         </div>
       </motion.div>
