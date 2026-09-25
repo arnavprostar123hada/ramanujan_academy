@@ -356,13 +356,12 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
       return;
     }
 
-    // Verify role from user_profiles
-    const { data: profile, error } = await supabase
-      .from("user_profiles")
-      .select("role, active")
-      .eq("id", session.user.id)
-      .single();
+    // Verify role through a SECURITY DEFINER RPC so RLS on user_profiles
+    // cannot accidentally lock the owner out of the dashboard.
+    const { data: profileRows, error } = await supabase
+      .rpc("get_my_access_profile");
 
+    const profile = profileRows?.[0];
     const hasAccess =
       !error &&
       profile?.active === true &&
