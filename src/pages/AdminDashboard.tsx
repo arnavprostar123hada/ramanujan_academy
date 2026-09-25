@@ -1372,7 +1372,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                     <div key={student.id} className="flex items-center justify-between gap-3 rounded-lg border p-2">
                       <div className="min-w-0">
                         <p className="font-medium text-sm truncate">{student.name}</p>
-                        <p className="text-xs text-muted-foreground">Class {student.class}</p>
+                        <p className="text-xs text-muted-foreground">Class {student.class}{student.batch ? ` · Batch ${student.batch}` : ""}</p>
                       </div>
                       <Button size="sm" onClick={() => { setSelectedStudent(student); setIsPaymentOpen(true); }}>
                         Collect
@@ -1861,7 +1861,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                             <div className="flex-1 min-w-[200px]">
                               <div className="flex items-center gap-2 mb-2">
                                 <h3 className="font-semibold">{student.name}</h3>
-                                <Badge variant="secondary">Class {student.class}</Badge>
+                                <Badge variant="secondary">Class {student.class}{student.batch ? ` · Batch ${student.batch}` : ""}</Badge>
                                 <Badge variant={(student as any).student_type === "online" ? "default" : "outline"} className={(student as any).student_type === "online" ? "bg-primary/80" : ""}>
                                   {(student as any).student_type === "online" ? <Globe className="w-3 h-3 mr-1" /> : <Monitor className="w-3 h-3 mr-1" />}
                                   {(student as any).student_type === "online" ? "Online" : "Offline"}
@@ -2063,7 +2063,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                                   <h3 className="font-semibold">{test.title}</h3>
                                   <Badge variant="secondary">{test.subject}</Badge>
-                                  <Badge variant="outline">Class {test.class}</Badge>
+                                  <Badge variant="outline">Class {test.class}{test.batch ? ` · Batch ${test.batch}` : ""}</Badge>
                                   {test.is_notified && (
                                     <Badge className="bg-green-100 text-green-700">
                                       <CheckCircle className="w-3 h-3 mr-1" />
@@ -2354,7 +2354,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                             <div>
                               <div className="flex items-center gap-2 flex-wrap mb-1">
                                 <h3 className="font-semibold">{link.subject}</h3>
-                                <Badge variant="secondary">Class {link.class}</Badge>
+                                <Badge variant="secondary">Class {link.class}{link.batch ? ` · Batch ${link.batch}` : ""}</Badge>
                                 <Badge variant={link.is_active ? "default" : "outline"}>
                                   {link.is_active ? "Active" : "Inactive"}
                                 </Badge>
@@ -2564,7 +2564,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                                 <div>
                                   <div className="flex items-center gap-2 mb-1">
                                     <h3 className="font-semibold">{student.name}</h3>
-                                    <Badge variant="secondary">Class {student.class}</Badge>
+                                    <Badge variant="secondary">Class {student.class}{student.batch ? ` · Batch ${student.batch}` : ""}</Badge>
                                   </div>
                                   <p className="text-sm text-muted-foreground">
                                     {studentTestsWithResults.length} test{studentTestsWithResults.length !== 1 ? 's' : ''} taken
@@ -2947,7 +2947,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                                   <div className="flex-1">
                                     <div className="flex flex-wrap items-center gap-2 mb-2">
                                       <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                        Class {log.class}
+                                        Class {log.class}{log.batch ? ` · Batch ${log.batch}` : ""}
                                       </Badge>
                                       <span className="text-sm text-muted-foreground flex items-center gap-1">
                                         <Calendar className="w-3 h-3" />
@@ -3191,7 +3191,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                             <div className="flex items-center justify-between mb-3">
                               <div className="flex items-center gap-2">
                                 <h3 className="font-semibold">{student?.name || "Unknown"}</h3>
-                                <Badge variant="secondary">Class {student?.class}</Badge>
+                                <Badge variant="secondary">Class {student?.class}{student?.batch ? ` · Batch ${student.batch}` : ""}</Badge>
                                 {hasUnread && (
                                   <Badge variant="destructive" className="text-xs">New</Badge>
                                 )}
@@ -3259,7 +3259,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                             <div className="flex items-start justify-between gap-2 mb-2">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <Badge variant="secondary">{student?.name || "Unknown"}</Badge>
-                                <Badge variant="outline">Class {student?.class}</Badge>
+                                <Badge variant="outline">Class {student?.class}{student?.batch ? ` · Batch ${student.batch}` : ""}</Badge>
                                 <span className="text-sm text-muted-foreground">
                                   by {getTeacherName(complaint.teacher_id)}
                                 </span>
@@ -3340,7 +3340,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                               <div className="flex items-center gap-2 flex-wrap">
                                 <h3 className="font-semibold">{concern.title}</h3>
                                 <Badge variant="secondary">{student?.name || "Unknown"}</Badge>
-                                <Badge variant="outline">Class {student?.class}</Badge>
+                                <Badge variant="outline">Class {student?.class}{student?.batch ? ` · Batch ${student.batch}` : ""}</Badge>
                                 {concern.is_resolved && (
                                   <Badge variant="default" className="bg-green-500">
                                     <FileCheck className="w-3 h-3 mr-1" />
@@ -3463,7 +3463,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                 <div key={student.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
                   <div className="min-w-0">
                     <p className="font-medium truncate">{student.name}</p>
-                    <p className="text-xs text-muted-foreground">Class {student.class} · {student.phone}</p>
+                    <p className="text-xs text-muted-foreground">Class {student.class}{student.batch ? ` · Batch ${student.batch}` : ""} · {student.phone}</p>
                   </div>
                   <Button type="button" size="sm" onClick={() => { setSelectedStudent(student); setIsQuickFeeOpen(false); setIsPaymentOpen(true); }}>
                     Collect
@@ -3864,7 +3864,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
             <DialogHeader>
               <DialogTitle>{selectedTestForDetails?.title} - Results</DialogTitle>
               <DialogDescription>
-                {selectedTestForDetails?.subject} | Class {selectedTestForDetails?.class} | Max: {selectedTestForDetails?.max_marks}
+                {selectedTestForDetails?.subject} | Class {selectedTestForDetails?.class}{selectedTestForDetails?.batch ? ` | Batch ${selectedTestForDetails.batch}` : ""} | Max: {selectedTestForDetails?.max_marks}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
