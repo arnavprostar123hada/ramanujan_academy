@@ -105,6 +105,7 @@ interface Student {
   phone: string;
   class: string;
   batch: string | null;
+  board: string | null;
   parent_name: string | null;
   created_at: string;
   access_code: string;
@@ -163,6 +164,7 @@ interface ClassLog {
   teacher_id: string;
   class: string;
   batch: string | null;
+  board: string | null;
   content: string;
   log_date: string;
   created_at: string;
@@ -191,6 +193,7 @@ interface Test {
   subject: string;
   class: string;
   batch: string | null;
+  board: string | null;
   test_date: string;
   max_marks: number;
   description: string | null;
@@ -215,6 +218,7 @@ interface Lead {
   phone: string;
   class: string | null;
   batch: string | null;
+  board: string | null;
   source: string | null;
   stage: string;
   priority: string | null;
@@ -316,9 +320,9 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
   };
   
   // Zoom links state
-  const [zoomLinks, setZoomLinks] = useState<{ id: string; class: string; batch: string | null; subject: string; zoom_url: string; meeting_id: string | null; passcode: string | null; schedule_day: string; schedule_time: string; teacher_name: string | null; is_active: boolean }[]>([]);
+  const [zoomLinks, setZoomLinks] = useState<{ id: string; class: string; batch: string | null; board: string | null; subject: string; zoom_url: string; meeting_id: string | null; passcode: string | null; schedule_day: string; schedule_time: string; teacher_name: string | null; is_active: boolean }[]>([]);
   const [isAddZoomLinkOpen, setIsAddZoomLinkOpen] = useState(false);
-  const [newZoomLink, setNewZoomLink] = useState({ class: "", batch: "", subject: "", zoom_url: "", meeting_id: "", passcode: "", schedule_day: "Monday", schedule_time: "", teacher_name: "" });
+  const [newZoomLink, setNewZoomLink] = useState({ class: "", batch: "", board: "", subject: "", zoom_url: "", meeting_id: "", passcode: "", schedule_day: "Monday", schedule_time: "", teacher_name: "" });
 
   // Student attendance state
   const [studentAttendance, setStudentAttendance] = useState<{ id: string; student_id: string; attendance_date: string; status: string; remarks: string | null }[]>([]);
@@ -347,6 +351,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
     phone: "",
     class: "",
     batch: "",
+    board: "",
     parent_name: "",
     student_type: "offline",
   });
@@ -358,6 +363,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
     phone: "",
     class: "",
     batch: "",
+    board: "",
     parent_name: "",
   });
 
@@ -465,7 +471,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
         load(supabase.from("test_results").select("*").order("created_at", { ascending: false })),
         load(supabase.from("enquiries").select("*").order("created_at", { ascending: false })),
         load(supabase.from("zoom_links").select("*").order("created_at", { ascending: false })),
-        load(supabase.from("leads").select("id,name,phone,class,batch,source,stage,priority,next_follow_up_at,created_at,expected_fee").order("created_at", { ascending: false })),
+        load(supabase.from("leads").select("id,name,phone,class,batch,board,source,stage,priority,next_follow_up_at,created_at,expected_fee").order("created_at", { ascending: false })),
       ]);
 
       setSubmissions((submissionsData ?? []) as ContactSubmission[]);
@@ -592,6 +598,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
           phone: newStudent.phone,
           class: newStudent.class,
           batch: newStudent.batch || null,
+          board: newStudent.board || null,
           parent_name: newStudent.parent_name || null,
           student_type: newStudent.student_type,
         } as any)
@@ -602,7 +609,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
 
       const addedStudent = data as Student;
       setStudents([addedStudent, ...students]);
-      setNewStudent({ name: "", email: "", phone: "", class: "", batch: "", parent_name: "", student_type: "offline" });
+      setNewStudent({ name: "", email: "", phone: "", class: "", batch: "", board: "", parent_name: "", student_type: "offline" });
       setIsAddStudentOpen(false);
       setNewlyAddedStudent(addedStudent);
     } catch (error) {
@@ -1118,6 +1125,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
           phone: editStudent.phone,
           class: editStudent.class,
           batch: editStudent.batch || null,
+          board: editStudent.board || null,
           parent_name: editStudent.parent_name || null,
         })
         .eq("id", selectedStudent.id)
@@ -1372,7 +1380,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                     <div key={student.id} className="flex items-center justify-between gap-3 rounded-lg border p-2">
                       <div className="min-w-0">
                         <p className="font-medium text-sm truncate">{student.name}</p>
-                        <p className="text-xs text-muted-foreground">Class {student.class}{student.batch ? ` · Batch ${student.batch}` : ""}</p>
+                        <p className="text-xs text-muted-foreground">Class {student.class}{student.batch ? ` · Batch ${student.batch}` : ""}{student.board ? ` · ${student.board}` : ""}</p>
                       </div>
                       <Button size="sm" onClick={() => { setSelectedStudent(student); setIsPaymentOpen(true); }}>
                         Collect
@@ -1762,6 +1770,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                           <Input id="batch" value={newStudent.batch} onChange={(e) => setNewStudent({ ...newStudent, batch: e.target.value })} placeholder="e.g. Morning A / Evening B" />
                         </div>
                         <div className="space-y-2">
+                          <Label htmlFor="board">Board</Label><Input id="board" value={newStudent.board} onChange={(e) => setNewStudent({ ...newStudent, board: e.target.value })} placeholder="ICSE / CBSE / SSC" />
                           <Label htmlFor="email">Email (Optional)</Label>
                           <Input
                             id="email"
@@ -2063,7 +2072,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                                   <h3 className="font-semibold">{test.title}</h3>
                                   <Badge variant="secondary">{test.subject}</Badge>
-                                  <Badge variant="outline">Class {test.class}{test.batch ? ` · Batch ${test.batch}` : ""}</Badge>
+                                  <Badge variant="outline">Class {test.class}{test.batch ? ` · Batch ${test.batch}` : ""}{test.board ? ` · ${test.board}` : ""}</Badge>
                                   {test.is_notified && (
                                     <Badge className="bg-green-100 text-green-700">
                                       <CheckCircle className="w-3 h-3 mr-1" />
@@ -2273,6 +2282,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                             <Input value={newZoomLink.batch} onChange={(e) => setNewZoomLink({ ...newZoomLink, batch: e.target.value })} placeholder="e.g. Morning A" />
                           </div>
                           <div className="space-y-1">
+                            <Label>Board</Label><Input value={newZoomLink.board} onChange={(e) => setNewZoomLink({ ...newZoomLink, board: e.target.value })} placeholder="ICSE / CBSE / SSC" />
                             <Label>Subject *</Label>
                             <Input value={newZoomLink.subject} onChange={(e) => setNewZoomLink({ ...newZoomLink, subject: e.target.value })} placeholder="e.g. Math" />
                           </div>
@@ -2320,6 +2330,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                               const { data, error } = await supabase.from("zoom_links").insert({
                                 class: newZoomLink.class,
                                 batch: newZoomLink.batch || null,
+                                board: newZoomLink.board || null,
                                 subject: newZoomLink.subject,
                                 zoom_url: newZoomLink.zoom_url,
                                 meeting_id: newZoomLink.meeting_id || null,
@@ -2330,7 +2341,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                               }).select().single();
                               if (error) throw error;
                               setZoomLinks([data as any, ...zoomLinks]);
-                              setNewZoomLink({ class: "", batch: "", subject: "", zoom_url: "", meeting_id: "", passcode: "", schedule_day: "Monday", schedule_time: "", teacher_name: "" });
+                              setNewZoomLink({ class: "", batch: "", board: "", subject: "", zoom_url: "", meeting_id: "", passcode: "", schedule_day: "Monday", schedule_time: "", teacher_name: "" });
                               setIsAddZoomLinkOpen(false);
                               toast({ title: "Zoom link added" });
                             } catch { toast({ title: "Error adding zoom link", variant: "destructive" }); }
@@ -2947,7 +2958,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                                   <div className="flex-1">
                                     <div className="flex flex-wrap items-center gap-2 mb-2">
                                       <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                        Class {log.class}{log.batch ? ` · Batch ${log.batch}` : ""}
+                                        Class {log.class}{log.batch ? ` · Batch ${log.batch}` : ""}{log.board ? ` · ${log.board}` : ""}
                                       </Badge>
                                       <span className="text-sm text-muted-foreground flex items-center gap-1">
                                         <Calendar className="w-3 h-3" />
@@ -3520,6 +3531,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                 <Input id="edit-batch" value={editStudent.batch} onChange={(e) => setEditStudent({ ...editStudent, batch: e.target.value })} placeholder="e.g. Morning A / Evening B" />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="edit-board">Board</Label><Input id="edit-board" value={editStudent.board} onChange={(e) => setEditStudent({ ...editStudent, board: e.target.value })} placeholder="ICSE / CBSE / SSC" />
                 <Label htmlFor="edit-email">Email (Optional)</Label>
                 <Input
                   id="edit-email"
