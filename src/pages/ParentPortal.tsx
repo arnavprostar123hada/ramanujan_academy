@@ -10,6 +10,7 @@ import {
   Calendar,
   LogOut,
   ClipboardList,
+  BookOpen,
   Image as ImageIcon,
   TrendingUp,
   FileText,
