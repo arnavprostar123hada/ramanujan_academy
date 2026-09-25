@@ -28,22 +28,22 @@ const AdminLogin = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
 
       if (error) throw error;
 
-      const { data: profileRows, error: profileError } = await supabase
-        .rpc("get_my_access_profile");
-
-      const profile = profileRows?.[0];
-      const requiredRole = isOwner ? "owner" : "admin";
       const ownerId = "f7c7515c-ee04-4c47-a461-7d083a0ba517";
-      const isVerifiedOwner =
-        isOwner &&
-        data.user.id === ownerId &&
-        data.user.email?.toLowerCase() === "jadhavfivestar@gmail.com";
+      const isVerifiedOwner = isOwner && data.user.id === ownerId;
 
-      const hasAccess =
-        isVerifiedOwner ||
-        (!profileError &&
+      // Owner access is verified directly from the authenticated Supabase user ID.
+      // This avoids an RLS/RPC dependency during owner login.
+      let hasAccess = isVerifiedOwner;
+
+      if (!isOwner) {
+        const { data: profileRows, error: profileError } = await supabase
+          .rpc("get_my_access_profile");
+        const profile = profileRows?.[0];
+        hasAccess =
+          !profileError &&
           profile?.active === true &&
-          (profile.role === requiredRole || (isOwner && profile.role === "owner")));
+          profile.role === "admin";
+      }
 
       if (!hasAccess) {
         await supabase.auth.signOut();
