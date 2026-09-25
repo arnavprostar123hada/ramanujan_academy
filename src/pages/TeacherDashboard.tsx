@@ -666,7 +666,7 @@ const TeacherDashboard = () => {
                   <div className="space-y-4">
                     {tests.map((test) => {
                       const results = getTestResults(test.id);
-                      const classStudentsCount = students.filter(s => s.class === test.class && (s.batch || "") === (test.batch || "")).length;
+                      const classStudentsCount = students.filter(s => s.class === test.class && (s.batch || "") === (test.batch || "") && (s.board || "") === (test.board || "")).length;
                       return (
                         <div key={test.id} className="p-4 rounded-lg border bg-background hover:border-green-300 transition-colors">
                           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -902,7 +902,7 @@ const TeacherDashboard = () => {
           <DialogHeader>
             <DialogTitle>Enter Marks - {selectedTest?.title}</DialogTitle>
             <DialogDescription>
-              {selectedTest?.subject} | Class {selectedTest?.class}{selectedTest?.batch ? ` | Batch ${selectedTest.batch}` : ""} | Max Marks: {selectedTest?.max_marks}
+              {selectedTest?.subject} | Class {selectedTest?.class}{selectedTest?.batch ? ` | Batch ${selectedTest.batch}` : ""}{selectedTest?.board ? ` | ${selectedTest.board}` : ""} | Max Marks: {selectedTest?.max_marks}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -919,7 +919,7 @@ const TeacherDashboard = () => {
               }}
             />
             
-            {selectedTest && students.filter(s => s.class === selectedTest.class && (s.batch || "") === (selectedTest.batch || "")).map((student) => (
+            {selectedTest && students.filter(s => s.class === selectedTest.class && (s.batch || "") === (selectedTest.batch || "") && (s.board || "") === (selectedTest.board || "")).map((student) => (
               <div key={student.id} className="p-4 border rounded-lg space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{student.name}</span>
