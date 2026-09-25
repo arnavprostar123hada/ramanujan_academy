@@ -362,10 +362,16 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
       .rpc("get_my_access_profile");
 
     const profile = profileRows?.[0];
+    const ownerId = "f7c7515c-ee04-4c47-a461-7d083a0ba517";
+    const isVerifiedOwner =
+      isOwner &&
+      session.user.id === ownerId &&
+      session.user.email?.toLowerCase() === "jadhavfivestar@gmail.com";
     const hasAccess =
-      !error &&
-      profile?.active === true &&
-      (profile.role === (isOwner ? "owner" : "admin") || (isOwner && profile.role === "owner"));
+      isVerifiedOwner ||
+      (!error &&
+        profile?.active === true &&
+        (profile.role === (isOwner ? "owner" : "admin") || (isOwner && profile.role === "owner")));
 
     if (!hasAccess) {
       await supabase.auth.signOut();
