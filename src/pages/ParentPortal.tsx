@@ -198,6 +198,7 @@ const ParentPortal = () => {
       .eq("class", studentData.class)
       .eq("approval_status", "approved");
     testsQuery = studentData.batch ? testsQuery.eq("batch", studentData.batch) : testsQuery.is("batch", null);
+    testsQuery = studentData.board ? testsQuery.eq("board", studentData.board) : testsQuery.is("board", null);
     const { data: testsData } = await testsQuery.order("test_date", { ascending: false });
     if (testsData) setTests(testsData as Test[]);
 
@@ -208,6 +209,7 @@ const ParentPortal = () => {
       .eq("class", studentData.class)
       .eq("approval_status", "approved");
     logsQuery = studentData.batch ? logsQuery.eq("batch", studentData.batch) : logsQuery.is("batch", null);
+    logsQuery = studentData.board ? logsQuery.eq("board", studentData.board) : logsQuery.is("board", null);
     const { data: logsData } = await logsQuery.order("log_date", { ascending: false }).limit(30);
     if (logsData) setClassLogs(logsData as ClassLog[]);
 
