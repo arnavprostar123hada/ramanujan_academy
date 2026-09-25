@@ -1308,140 +1308,117 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
           </motion.div>
         </div>
 
-        {/* Payment Collection Chart */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="mb-6"
-        >
-          <Card className="card-elevated">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5" />
-                Payment Collection Trends (Last 12 Months)
-              </CardTitle>
-              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mt-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-foreground">This Year:</span>
-                  <span className="text-primary font-bold">₹{collectionStats.thisYear.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-foreground">This Month:</span>
-                  <span className="text-primary font-bold">₹{collectionStats.thisMonth.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-foreground">Total Payments:</span>
-                  <span className="font-bold">{collectionStats.totalPayments}</span>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={monthlyPaymentStats} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis 
-                      dataKey="month" 
-                      tick={{ fontSize: 12 }} 
-                      className="fill-muted-foreground"
-                    />
-                    <YAxis 
-                      tick={{ fontSize: 12 }} 
-                      className="fill-muted-foreground"
-                      tickFormatter={(value) => `₹${value >= 1000 ? `${(value/1000).toFixed(0)}k` : value}`}
-                    />
-                    <Tooltip 
-                      formatter={(value: number, name: string) => [
-                        name === "amount" ? `₹${value.toLocaleString()}` : value,
-                        name === "amount" ? "Collection" : "Payments"
-                      ]}
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--background))', 
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Legend />
-                    <Bar 
-                      dataKey="amount" 
-                      name="Collection (₹)" 
-                      fill="hsl(var(--primary))" 
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+        {/* Admin Action Center */}
+        <Card className="card-elevated mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-primary" />
+              Daily Action Center
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">What the admin team should act on today.</p>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+              <Button onClick={() => window.open("/enquiry", "_blank")} className="h-11">
+                <UserPlus className="w-4 h-4 mr-2" /> New Enquiry
+              </Button>
+              <Button variant="outline" className="h-11" onClick={() => setActiveTab("walk-in-enquiries")}>
+                <Users className="w-4 h-4 mr-2" /> Manage Leads
+              </Button>
+              <Button variant="outline" className="h-11" onClick={() => setActiveTab("students")}>
+                <IndianRupee className="w-4 h-4 mr-2" /> Collect Fee
+              </Button>
+              <Button variant="outline" className="h-11" onClick={() => setActiveTab("students")}>
+                <AlertTriangle className="w-4 h-4 mr-2" /> Outstanding
+              </Button>
+              <Button variant="outline" className="h-11" onClick={() => setActiveTab("tests")}>
+                <ClipboardList className="w-4 h-4 mr-2" /> Tests
+              </Button>
+              <Button variant="outline" className="h-11" onClick={() => setActiveTab("student-attendance")}>
+                <CheckCircle className="w-4 h-4 mr-2" /> Attendance
+              </Button>
+            </div>
 
-        {/* Class-wise Payment Statistics */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="mb-6"
-        >
-          <Card className="card-elevated">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <GraduationCap className="w-5 h-5" />
-                Class-wise Collection Breakdown
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                {classWiseStats.map((stat) => (
-                  <div 
-                    key={stat.class}
-                    className="p-4 rounded-lg border bg-background hover:border-primary/50 transition-colors"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <Badge variant="secondary" className="text-sm">Class {stat.class}</Badge>
-                      <span className="text-xs text-muted-foreground">{stat.studentCount} students</span>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                ["New Leads", leads.filter(l => l.stage === "new").length, UserPlus],
+                ["Follow-ups Due", leads.filter(l => l.next_follow_up_at && new Date(l.next_follow_up_at) <= new Date() && !["admission","lost"].includes(l.stage)).length, PhoneIcon],
+                ["Admissions", leads.filter(l => l.stage === "admission").length, CheckCircle],
+                ["Fees Outstanding", studentsWithFeeDue.length, AlertTriangle],
+              ].map(([label,value,Icon]) => (
+                <div key={String(label)} className="rounded-xl border bg-muted/30 p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">{String(label)}</span>
+                    <Icon className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="text-2xl font-bold mt-1">{String(value)}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid lg:grid-cols-2 gap-4">
+              <div className="rounded-xl border p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="font-semibold">Lead Acquisition → Admission</h3>
+                    <p className="text-xs text-muted-foreground">Track every enquiry until admission.</p>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => setActiveTab("walk-in-enquiries")}>Open Leads</Button>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                  {[["New","new"],["Contacted","contacted"],["Counselling","counselling"],["Demo","demo"],["Follow-up","followup"],["Fee Discussion","fee_discussion"],["Admission","admission"],["Nurture","nurture"],["Lost","lost"]].map(([label,stage]) => (
+                    <div key={stage} className="text-center rounded-lg bg-muted/40 p-2">
+                      <div className="text-lg font-bold">{leads.filter(l => l.stage === stage).length}</div>
+                      <div className="text-[10px] text-muted-foreground">{label}</div>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-lg font-bold text-primary">
-                        ₹{stat.thisYearCollection.toLocaleString()}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        This year ({stat.paymentCount} payments)
-                      </p>
-                      {stat.pendingCount > 0 && (
-                        <p className="text-xs text-destructive font-medium">
-                          {stat.pendingCount} pending
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              {/* Total Row */}
-              <div className="mt-4 p-4 rounded-lg bg-muted/50 border">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Students</p>
-                    <p className="text-xl font-bold">{students.length}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">This Year Collection</p>
-                    <p className="text-xl font-bold text-primary">₹{collectionStats.thisYear.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Payments</p>
-                    <p className="text-xl font-bold">{collectionStats.totalPayments}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Pending ({currentInstallment})</p>
-                    <p className="text-xl font-bold text-destructive">{studentsWithFeeDue.length}</p>
-                  </div>
+                  ))}
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+
+              <div className="rounded-xl border p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="font-semibold">Fee Follow-up</h3>
+                    <p className="text-xs text-muted-foreground">Outstanding students requiring collection action.</p>
+                  </div>
+                  <Badge variant="destructive">{studentsWithFeeDue.length} due</Badge>
+                </div>
+                <div className="space-y-2">
+                  {studentsWithFeeDue.slice(0,6).map(student => (
+                    <div key={student.id} className="flex items-center justify-between gap-3 rounded-lg border p-2">
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{student.name}</p>
+                        <p className="text-xs text-muted-foreground">Class {student.class}</p>
+                      </div>
+                      <Button size="sm" onClick={() => { setSelectedStudent(student); setIsPaymentOpen(true); }}>
+                        Collect
+                      </Button>
+                    </div>
+                  ))}
+                  {studentsWithFeeDue.length === 0 && <p className="text-sm text-muted-foreground">No outstanding fees in the current installment.</p>}
+                  {studentsWithFeeDue.length > 6 && <Button variant="ghost" size="sm" onClick={() => setActiveTab("students")}>View all outstanding</Button>}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="font-semibold">Lead Sources</h3>
+                  <p className="text-xs text-muted-foreground">Which channels are generating enquiries and admissions.</p>
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {Array.from(new Set(leads.map(l => l.source || "Other"))).slice(0,6).map(source => {
+                  const sourceLeads = leads.filter(l => (l.source || "Other") === source);
+                  const sourceAdmissions = sourceLeads.filter(l => l.stage === "admission").length;
+                  return <div key={source} className="flex items-center justify-between rounded-lg bg-muted/40 p-3"><span className="text-sm">{source}</span><span className="text-xs font-medium">{sourceLeads.length} leads · {sourceAdmissions} admissions</span></div>;
+                })}
+                {leads.length === 0 && <p className="text-sm text-muted-foreground">No Growth OS leads yet.</p>}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Fee Due Reminder Alert - 6 Month Installments */}
         {studentsWithFeeDue.length > 0 && (
