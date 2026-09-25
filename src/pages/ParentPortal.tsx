@@ -41,6 +41,7 @@ interface Student {
   name: string;
   class: string;
   batch: string | null;
+  board: string | null;
   parent_name: string | null;
   access_code: string;
   student_type?: string;
@@ -95,6 +96,7 @@ interface ClassLog {
   id: string;
   class: string;
   batch: string | null;
+  board: string | null;
   subject: string | null;
   topic: string | null;
   content: string;
@@ -109,6 +111,7 @@ interface Test {
   subject: string;
   class: string;
   batch: string | null;
+  board: string | null;
   test_date: string;
   max_marks: number;
   description: string | null;
@@ -201,7 +204,7 @@ const ParentPortal = () => {
     // Fetch approved teaching logs for this batch
     let logsQuery = supabase
       .from("class_logs")
-      .select("id,class,batch,subject,topic,content,homework,log_date,approval_status")
+      .select("id,class,batch,board,subject,topic,content,homework,log_date,approval_status")
       .eq("class", studentData.class)
       .eq("approval_status", "approved");
     logsQuery = studentData.batch ? logsQuery.eq("batch", studentData.batch) : logsQuery.is("batch", null);
@@ -563,7 +566,7 @@ const ParentPortal = () => {
                   <h2 className="font-bold text-lg">{student?.name}</h2>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <GraduationCap className="w-4 h-4" />
-                    <span>Class {student?.class}{student?.batch ? ` · Batch ${student.batch}` : ""}</span>
+                    <span>Class {student?.class}{student?.batch ? ` · Batch ${student.batch}` : ""}{student?.board ? ` · ${student.board}` : ""}</span>
                     {student?.parent_name && (
                       <>
                         <span className="text-muted">•</span>
