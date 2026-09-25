@@ -54,6 +54,7 @@ interface Student {
   id: string;
   name: string;
   class: string;
+  batch: string | null;
   phone: string;
 }
 
@@ -61,6 +62,7 @@ interface ClassLog {
   id: string;
   teacher_id: string;
   class: string;
+  batch: string | null;
   content: string;
   subject?: string | null;
   topic?: string | null;
@@ -87,6 +89,7 @@ interface Test {
   title: string;
   subject: string;
   class: string;
+  batch: string | null;
   test_date: string;
   max_marks: number;
   description: string | null;
@@ -122,6 +125,7 @@ const TeacherDashboard = () => {
 
   // Form states
   const [selectedClass, setSelectedClass] = useState("");
+  const [selectedBatch, setSelectedBatch] = useState("");
   const [logContent, setLogContent] = useState("");
   const [logSubject, setLogSubject] = useState("");
   const [logTopic, setLogTopic] = useState("");
@@ -135,6 +139,7 @@ const TeacherDashboard = () => {
     title: "",
     subject: "",
     class: "",
+    batch: "",
     test_date: "",
     max_marks: "100",
     description: "",
@@ -179,7 +184,7 @@ const TeacherDashboard = () => {
     // Fetch students for assigned classes
     const { data: studentsData } = await supabase
       .from("students")
-      .select("id, name, class, phone")
+      .select("id, name, class, batch, phone")
       .in("class", assignedClasses.length > 0 ? assignedClasses : CLASS_OPTIONS)
       .order("name");
     
@@ -229,14 +234,15 @@ const TeacherDashboard = () => {
   };
 
   const handleAddLog = async () => {
-    if (!selectedClass || !logContent.trim() || !teacher) {
-      toast({ title: "Error", description: "Please select a class and enter content", variant: "destructive" });
+    if (!selectedClass || !selectedBatch.trim() || !logContent.trim() || !teacher) {
+      toast({ title: "Error", description: "Please select a class and batch, then enter content", variant: "destructive" });
       return;
     }
 
     const { error } = await supabase.from("class_logs").insert({
       teacher_id: teacher.id,
       class: selectedClass,
+      batch: selectedBatch.trim() || null,
       subject: logSubject.trim() || null,
       topic: logTopic.trim() || null,
       content: logContent.trim(),
@@ -281,7 +287,7 @@ const TeacherDashboard = () => {
   };
 
   const handleAddTest = async () => {
-    if (!newTest.title || !newTest.subject || !newTest.class || !newTest.test_date || !teacher) {
+    if (!newTest.title || !newTest.subject || !newTest.class || !newTest.batch.trim() || !newTest.test_date || !teacher) {
       toast({ title: "Error", description: "Please fill all required fields", variant: "destructive" });
       return;
     }
@@ -293,6 +299,7 @@ const TeacherDashboard = () => {
         title: newTest.title,
         subject: newTest.subject,
         class: newTest.class,
+        batch: newTest.batch.trim() || null,
         test_date: newTest.test_date,
         max_marks: parseInt(newTest.max_marks) || 100,
         description: newTest.description || null,
@@ -307,7 +314,7 @@ const TeacherDashboard = () => {
     }
 
     toast({ title: "Test submitted", description: "Waiting for Admin/Owner approval before publishing." });
-    setNewTest({ title: "", subject: "", class: "", test_date: "", max_marks: "100", description: "" });
+    setNewTest({ title: "", subject: "", class: "", batch: "", test_date: "", max_marks: "100", description: "" });
     setIsAddTestOpen(false);
     fetchData(teacher.id, teacher.assigned_classes || []);
   };
@@ -315,7 +322,7 @@ const TeacherDashboard = () => {
   const openMarksEntry = (test: Test) => {
     setSelectedTest(test);
     // Initialize marks entries for students in this class
-    const classStudents = students.filter(s => s.class === test.class);
+    const classStudents = students.filter(s => s.class === test.class && (s.batch || "") === (test.batch || ""));
     const existingResults = testResults.filter(r => r.test_id === test.id);
     
     const entries: {[studentId: string]: { marks: string; remarks: string; photo: File | null; photoUrl: string | null }} = {};
@@ -368,7 +375,7 @@ const TeacherDashboard = () => {
     if (!selectedTest || !teacher) return;
 
     setIsLoading(true);
-    const classStudents = students.filter(s => s.class === selectedTest.class);
+    const classStudents = students.filter(s => s.class === selectedTest.class && (s.batch || "") === (selectedTest.batch || ""));
     
     for (const student of classStudents) {
       const entry = marksEntries[student.id];
@@ -497,7 +504,7 @@ const TeacherDashboard = () => {
   }
 
   const filteredStudents = selectedClass && selectedClass !== "all"
-    ? students.filter((s) => s.class === selectedClass)
+    ? students.filter((s) => s.class === selectedClass && (!selectedBatch || (s.batch || "") === selectedBatch))
     : students;
 
   const getTestResults = (testId: string) => {
@@ -614,7 +621,7 @@ const TeacherDashboard = () => {
                     {classLogs.map((log) => (
                       <div key={log.id} className="p-4 bg-green-50 rounded-lg border border-green-200">
                         <div className="flex justify-between items-start mb-2">
-                          <span className="font-medium text-green-800">{log.class} Class</span>
+                          <span className="font-medium text-green-800">{log.class} Class{log.batch ? ` · Batch ${log.batch}` : ""}</span>
                           <span className="text-sm text-muted-foreground flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
                             {format(new Date(log.log_date), "PPP")}
@@ -651,7 +658,7 @@ const TeacherDashboard = () => {
                   <div className="space-y-4">
                     {tests.map((test) => {
                       const results = getTestResults(test.id);
-                      const classStudentsCount = students.filter(s => s.class === test.class).length;
+                      const classStudentsCount = students.filter(s => s.class === test.class && (s.batch || "") === (test.batch || "")).length;
                       return (
                         <div key={test.id} className="p-4 rounded-lg border bg-background hover:border-green-300 transition-colors">
                           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -659,7 +666,7 @@ const TeacherDashboard = () => {
                               <div className="flex items-center gap-2 mb-2">
                                 <h3 className="font-semibold">{test.title}</h3>
                                 <Badge variant="secondary">{test.subject}</Badge>
-                                <Badge variant="outline">Class {test.class}</Badge>
+                                <Badge variant="outline">Class {test.class}{test.batch ? ` · Batch ${test.batch}` : ""}</Badge>
                               </div>
                               <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                                 <span className="flex items-center gap-1">
@@ -838,6 +845,10 @@ const TeacherDashboard = () => {
                 />
               </div>
               <div className="space-y-2">
+                <Label>Batch *</Label>
+                <Input value={newTest.batch} onChange={(e) => setNewTest({ ...newTest, batch: e.target.value })} placeholder="e.g. Morning A" required />
+              </div>
+              <div className="space-y-2">
                 <Label>Test Date *</Label>
                 <Input
                   type="date"
@@ -882,7 +893,7 @@ const TeacherDashboard = () => {
           <DialogHeader>
             <DialogTitle>Enter Marks - {selectedTest?.title}</DialogTitle>
             <DialogDescription>
-              {selectedTest?.subject} | Class {selectedTest?.class} | Max Marks: {selectedTest?.max_marks}
+              {selectedTest?.subject} | Class {selectedTest?.class}{selectedTest?.batch ? ` | Batch ${selectedTest.batch}` : ""} | Max Marks: {selectedTest?.max_marks}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -899,7 +910,7 @@ const TeacherDashboard = () => {
               }}
             />
             
-            {selectedTest && students.filter(s => s.class === selectedTest.class).map((student) => (
+            {selectedTest && students.filter(s => s.class === selectedTest.class && (s.batch || "") === (selectedTest.batch || "")).map((student) => (
               <div key={student.id} className="p-4 border rounded-lg space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{student.name}</span>
