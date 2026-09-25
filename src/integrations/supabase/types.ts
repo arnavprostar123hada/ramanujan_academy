@@ -14,6 +14,113 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_attendance: {
+        Row: {
+          admin_staff_id: string
+          attendance_date: string
+          check_in_distance_m: number | null
+          check_in_lat: number | null
+          check_in_lng: number | null
+          check_in_method: string | null
+          check_in_time: string | null
+          check_out_distance_m: number | null
+          check_out_lat: number | null
+          check_out_lng: number | null
+          check_out_time: string | null
+          created_at: string
+          geo_verified: boolean | null
+          id: string
+          is_late: boolean | null
+          status: string
+          worked_minutes: number | null
+        }
+        Insert: {
+          admin_staff_id: string
+          attendance_date: string
+          check_in_distance_m?: number | null
+          check_in_lat?: number | null
+          check_in_lng?: number | null
+          check_in_method?: string | null
+          check_in_time?: string | null
+          check_out_distance_m?: number | null
+          check_out_lat?: number | null
+          check_out_lng?: number | null
+          check_out_time?: string | null
+          created_at?: string
+          geo_verified?: boolean | null
+          id?: string
+          is_late?: boolean | null
+          status?: string
+          worked_minutes?: number | null
+        }
+        Update: {
+          admin_staff_id?: string
+          attendance_date?: string
+          check_in_distance_m?: number | null
+          check_in_lat?: number | null
+          check_in_lng?: number | null
+          check_in_method?: string | null
+          check_in_time?: string | null
+          check_out_distance_m?: number | null
+          check_out_lat?: number | null
+          check_out_lng?: number | null
+          check_out_time?: string | null
+          created_at?: string
+          geo_verified?: boolean | null
+          id?: string
+          is_late?: boolean | null
+          status?: string
+          worked_minutes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_attendance_admin_staff_id_fkey"
+            columns: ["admin_staff_id"]
+            isOneToOne: false
+            referencedRelation: "admin_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_staff: {
+        Row: {
+          created_at: string
+          email: string
+          expected_check_in: string | null
+          expected_check_out: string | null
+          id: string
+          is_active: boolean
+          name: string
+          phone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expected_check_in?: string | null
+          expected_check_out?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          phone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expected_check_in?: string | null
+          expected_check_out?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       announcements: {
         Row: {
           content: string
