@@ -191,22 +191,23 @@ const ParentPortal = () => {
     if (messagesData) setMessages(messagesData);
 
     // Fetch tests
-    const { data: testsData } = await supabase
+    let testsQuery = supabase
       .from("tests")
       .select("*")
       .eq("class", studentData.class)
-      .eq("approval_status", "approved")
-      .order("test_date", { ascending: false });
+      .eq("approval_status", "approved");
+    testsQuery = studentData.batch ? testsQuery.eq("batch", studentData.batch) : testsQuery.is("batch", null);
+    const { data: testsData } = await testsQuery.order("test_date", { ascending: false });
     if (testsData) setTests(testsData as Test[]);
 
     // Fetch approved teaching logs for this batch
-    const { data: logsData } = await supabase
+    let logsQuery = supabase
       .from("class_logs")
       .select("id,class,batch,subject,topic,content,homework,log_date,approval_status")
       .eq("class", studentData.class)
-      .eq("approval_status", "approved")
-      .order("log_date", { ascending: false })
-      .limit(30);
+      .eq("approval_status", "approved");
+    logsQuery = studentData.batch ? logsQuery.eq("batch", studentData.batch) : logsQuery.is("batch", null);
+    const { data: logsData } = await logsQuery.order("log_date", { ascending: false }).limit(30);
     if (logsData) setClassLogs(logsData as ClassLog[]);
 
     // Fetch test results
