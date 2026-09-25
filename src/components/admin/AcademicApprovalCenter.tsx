@@ -14,6 +14,7 @@ type Item = {
   student_id?: string;
   student_name?: string;
   class?: string;
+  batch?: string;
   subject?: string;
   title?: string;
   topic?: string;
@@ -36,8 +37,8 @@ export function AcademicApprovalCenter() {
   const load = async () => {
     setLoading(true);
     const [logs, tests, results] = await Promise.all([
-      supabase.from("class_logs").select("id,teacher_id,class,subject,topic,content,homework,created_at").eq("approval_status","pending").order("created_at",{ascending:false}),
-      supabase.from("tests").select("id,teacher_id,title,subject,class,test_date,max_marks,description,created_at").eq("approval_status","pending").order("created_at",{ascending:false}),
+      supabase.from("class_logs").select("id,teacher_id,class,batch,subject,topic,content,homework,created_at").eq("approval_status","pending").order("created_at",{ascending:false}),
+      supabase.from("tests").select("id,teacher_id,title,subject,class,batch,test_date,max_marks,description,created_at").eq("approval_status","pending").order("created_at",{ascending:false}),
       supabase.from("test_results").select("id,test_id,student_id,marks_obtained,remarks,created_at").eq("approval_status","pending").order("created_at",{ascending:false})
     ]);
 
@@ -47,8 +48,8 @@ export function AcademicApprovalCenter() {
 
     const [{data: teachers}, {data: students}, {data: resultTests}] = await Promise.all([
       teacherIds.length ? supabase.from("teachers").select("id,name").in("id",teacherIds) : Promise.resolve({data:[] as any[]}),
-      studentIds.length ? supabase.from("students").select("id,name,class").in("id",studentIds) : Promise.resolve({data:[] as any[]}),
-      testIds.length ? supabase.from("tests").select("id,title,subject,class,max_marks").in("id",testIds) : Promise.resolve({data:[] as any[]})
+      studentIds.length ? supabase.from("students").select("id,name,class,batch").in("id",studentIds) : Promise.resolve({data:[] as any[]}),
+      testIds.length ? supabase.from("tests").select("id,title,subject,class,batch,max_marks").in("id",testIds) : Promise.resolve({data:[] as any[]})
     ]);
 
     const teacherMap = new Map((teachers||[]).map(x=>[x.id,x.name]));
@@ -61,7 +62,7 @@ export function AcademicApprovalCenter() {
       ...(results.data||[]).map(x=>{
         const t=testMap.get(x.test_id);
         const s=studentMap.get(x.student_id);
-        return {...x,kind:"result" as const,student_id:x.student_id,student_name:s?.name,class:s?.class,subject:t?.subject,title:t?.title,max_marks:t?.max_marks};
+        return {...x,kind:"result" as const,student_id:x.student_id,student_name:s?.name,class:s?.class,batch:s?.batch,subject:t?.subject,title:t?.title,max_marks:t?.max_marks};
       })
     ].sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime());
 
@@ -85,7 +86,7 @@ export function AcademicApprovalCenter() {
 
     if (!error && action === "approved") {
       if (item.kind === "log") {
-        const { data: classStudents } = await supabase.from("students").select("id,parent_id").eq("class", item.class || "");
+        const { data: classStudents } = await supabase.from("students").select("id,parent_id").eq("class", item.class || "").eq("batch", item.batch || "");
         if (classStudents?.length) {
           await supabase.from("communications").insert(classStudents.map(s => ({
             channel: "portal",
@@ -135,9 +136,9 @@ export function AcademicApprovalCenter() {
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {item.kind==="log" && <><div><b>{item.class} · {item.subject || "Subject"}</b>{item.topic && <div className="text-sm">Topic: {item.topic}</div>}</div><p className="text-sm whitespace-pre-wrap">{item.content}</p>{item.homework && <p className="text-sm"><b>Homework:</b> {item.homework}</p>}</>}
-          {item.kind==="test" && <><div><b>{item.title}</b><div className="text-sm text-muted-foreground">{item.class} · {item.subject} · {item.test_date} · Max {item.max_marks}</div></div>{item.content && <p className="text-sm">{item.content}</p>}</>}
-          {item.kind==="result" && <><div><b>{item.student_name}</b><div className="text-sm text-muted-foreground">{item.class} · {item.subject} · {item.title}</div></div><div className="text-2xl font-bold">{item.marks_obtained}/{item.max_marks}</div>{item.remarks && <p className="text-sm">{item.remarks}</p>}</>}
+          {item.kind==="log" && <><div><b>{item.class}{item.batch ? ` · Batch ${item.batch}` : ""} · {item.subject || "Subject"}</b>{item.topic && <div className="text-sm">Topic: {item.topic}</div>}</div><p className="text-sm whitespace-pre-wrap">{item.content}</p>{item.homework && <p className="text-sm"><b>Homework:</b> {item.homework}</p>}</>}
+          {item.kind==="test" && <><div><b>{item.title}</b><div className="text-sm text-muted-foreground">{item.class}{item.batch ? ` · Batch ${item.batch}` : ""} · {item.subject} · {item.test_date} · Max {item.max_marks}</div></div>{item.content && <p className="text-sm">{item.content}</p>}</>}
+          {item.kind==="result" && <><div><b>{item.student_name}</b><div className="text-sm text-muted-foreground">{item.class}{item.batch ? ` · Batch ${item.batch}` : ""} · {item.subject} · {item.title}</div></div><div className="text-2xl font-bold">{item.marks_obtained}/{item.max_marks}</div>{item.remarks && <p className="text-sm">{item.remarks}</p>}</>}
           <Textarea placeholder="Optional admin note" value={reviewNote[item.kind+item.id]||""} onChange={e=>setReviewNote({...reviewNote,[item.kind+item.id]:e.target.value})}/>
           <div className="flex justify-end gap-2">
             <Button variant="outline" disabled={busy===item.kind+item.id} onClick={()=>review(item,"rejected")}><XCircle className="w-4 h-4 mr-1"/>Reject</Button>
