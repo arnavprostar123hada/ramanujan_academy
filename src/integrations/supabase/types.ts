@@ -189,6 +189,7 @@ export type Database = {
           admission_date: string
           agreed_fee: number | null
           batch: string | null
+          board: string | null
           class: string | null
           counsellor_id: string | null
           created_at: string
@@ -204,6 +205,7 @@ export type Database = {
           admission_date?: string
           agreed_fee?: number | null
           batch?: string | null
+          board?: string | null
           class?: string | null
           counsellor_id?: string | null
           created_at?: string
@@ -219,6 +221,7 @@ export type Database = {
           admission_date?: string
           agreed_fee?: number | null
           batch?: string | null
+          board?: string | null
           class?: string | null
           counsellor_id?: string | null
           created_at?: string
@@ -365,6 +368,7 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           batch: string | null
+          board: string | null
           class: string
           content: string
           created_at: string
@@ -381,6 +385,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           batch?: string | null
+          board?: string | null
           class: string
           content: string
           created_at?: string
@@ -397,6 +402,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           batch?: string | null
+          board?: string | null
           class?: string
           content?: string
           created_at?: string
@@ -1922,6 +1928,7 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           batch: string | null
+          board: string | null
           class: string
           created_at: string
           description: string | null
@@ -1940,6 +1947,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           batch?: string | null
+          board?: string | null
           class: string
           created_at?: string
           description?: string | null
@@ -1958,6 +1966,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           batch?: string | null
+          board?: string | null
           class?: string
           created_at?: string
           description?: string | null
@@ -2014,6 +2023,7 @@ export type Database = {
       zoom_links: {
         Row: {
           batch: string | null
+          board: string | null
           class: string
           created_at: string
           id: string
@@ -2029,6 +2039,7 @@ export type Database = {
         }
         Insert: {
           batch?: string | null
+          board?: string | null
           class: string
           created_at?: string
           id?: string
@@ -2044,6 +2055,7 @@ export type Database = {
         }
         Update: {
           batch?: string | null
+          board?: string | null
           class?: string
           created_at?: string
           id?: string
