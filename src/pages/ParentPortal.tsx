@@ -89,6 +89,17 @@ interface Message {
   created_at: string;
 }
 
+interface ClassLog {
+  id: string;
+  class: string;
+  subject: string | null;
+  topic: string | null;
+  content: string;
+  homework: string | null;
+  log_date: string;
+  approval_status: string;
+}
+
 interface Test {
   id: string;
   title: string;
@@ -117,6 +128,7 @@ const ParentPortal = () => {
   const [concerns, setConcerns] = useState<Concern[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [tests, setTests] = useState<Test[]>([]);
+  const [classLogs, setClassLogs] = useState<ClassLog[]>([]);
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [allClassResults, setAllClassResults] = useState<TestResult[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -161,6 +173,7 @@ const ParentPortal = () => {
       .from("student_concerns")
       .select("*")
       .eq("student_id", studentData.id)
+      .eq("approval_status", "approved")
       .order("created_at", { ascending: false });
     if (concernsData) setConcerns(concernsData);
 
@@ -177,8 +190,19 @@ const ParentPortal = () => {
       .from("tests")
       .select("*")
       .eq("class", studentData.class)
+      .eq("approval_status", "approved")
       .order("test_date", { ascending: false });
     if (testsData) setTests(testsData as Test[]);
+
+    // Fetch approved teaching logs for this batch
+    const { data: logsData } = await supabase
+      .from("class_logs")
+      .select("id,class,subject,topic,content,homework,log_date,approval_status")
+      .eq("class", studentData.class)
+      .eq("approval_status", "approved")
+      .order("log_date", { ascending: false })
+      .limit(30);
+    if (logsData) setClassLogs(logsData as ClassLog[]);
 
     // Fetch test results
     const { data: resultsData } = await supabase
@@ -194,7 +218,8 @@ const ParentPortal = () => {
       const { data: allResultsData } = await supabase
         .from("test_results")
         .select("*")
-        .in("test_id", classTestIds);
+        .in("test_id", classTestIds)
+        .eq("approval_status", "approved");
       if (allResultsData) setAllClassResults(allResultsData as TestResult[]);
     }
 
@@ -549,6 +574,13 @@ const ParentPortal = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="tests" className="space-y-4">
+          <TabsList className="flex flex-wrap h-auto p-1 gap-1">
+            <TabsTrigger value="updates">Class Updates</TabsTrigger>
+            <TabsTrigger value="tests">Tests & Results</TabsTrigger>
+          </TabsList>
+          <TabsContent value="updates" className="space-y-4">
+            <Card><CardHeader><CardTitle>Approved Class Updates</CardTitle></CardHeader><CardContent className="space-y-3">{classLogs.length ? classLogs.map(log => <div key={log.id} className="border rounded-lg p-4"><div className="flex justify-between gap-3"><div><b>{log.subject || "Class Update"}</b>{log.topic && <div className="text-sm text-muted-foreground">{log.topic}</div>}</div><span className="text-xs text-muted-foreground">{new Date(log.log_date).toLocaleDateString("en-IN")}</span></div><p className="text-sm mt-2 whitespace-pre-wrap">{log.content}</p>{log.homework && <p className="text-sm mt-2"><b>Homework:</b> {log.homework}</p>}</div>) : <p className="text-muted-foreground text-sm">No approved class updates yet.</p>}</CardContent></Card>
+          </TabsContent>
           <TabsList className="flex flex-wrap h-auto p-1 gap-1">
             <TabsTrigger value="tests" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
               <ClipboardList className="w-4 h-4" />
