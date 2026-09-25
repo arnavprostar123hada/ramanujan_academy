@@ -277,6 +277,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
   const [isEditStudentOpen, setIsEditStudentOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [isQuickFeeOpen, setIsQuickFeeOpen] = useState(false);
   const [isAddAnnouncementOpen, setIsAddAnnouncementOpen] = useState(false);
   const [isAddConcernOpen, setIsAddConcernOpen] = useState(false);
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
@@ -1200,12 +1201,12 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-              <Button className="h-11" onClick={() => setActiveTab("walk-in-enquiries")}><UserPlus className="w-4 h-4 mr-2" />New Enquiry</Button>
-              <Button variant="outline" className="h-11" onClick={() => setActiveTab("payments")}><IndianRupee className="w-4 h-4 mr-2" />Payment</Button>
-              <Button variant="outline" className="h-11" onClick={() => setActiveTab("students")}><GraduationCap className="w-4 h-4 mr-2" />Students</Button>
-              <Button variant="outline" className="h-11" onClick={() => setActiveTab("tests")}><ClipboardList className="w-4 h-4 mr-2" />Tests</Button>
-              <Button variant="outline" className="h-11" onClick={() => setActiveTab("student-attendance")}><CheckCircle className="w-4 h-4 mr-2" />Attendance</Button>
-              <Button variant="outline" className="h-11" onClick={() => setActiveTab("announcements")}><Bell className="w-4 h-4 mr-2" />Announce</Button>
+              <Button type="button" className="h-11" onClick={() => navigate("/enquiry")}><UserPlus className="w-4 h-4 mr-2" />New Enquiry</Button>
+              <Button type="button" variant="outline" className="h-11" onClick={() => setIsQuickFeeOpen(true)}><IndianRupee className="w-4 h-4 mr-2" />Payment</Button>
+              <Button type="button" variant="outline" className="h-11" onClick={() => setActiveTab("students")}><GraduationCap className="w-4 h-4 mr-2" />Students</Button>
+              <Button type="button" variant="outline" className="h-11" onClick={() => setActiveTab("tests")}><ClipboardList className="w-4 h-4 mr-2" />Tests</Button>
+              <Button type="button" variant="outline" className="h-11" onClick={() => setActiveTab("student-attendance")}><CheckCircle className="w-4 h-4 mr-2" />Attendance</Button>
+              <Button type="button" variant="outline" className="h-11" onClick={() => setActiveTab("announcements")}><Bell className="w-4 h-4 mr-2" />Announce</Button>
             </div>
             <div className="grid md:grid-cols-4 gap-3">
               {[["New Leads","new",UserPlus],["Counselling / Demo","counselling",Calendar],["Follow-ups Due","followups",PhoneIcon],["Admissions","admission",CheckCircle]].map(([label,key,Icon]) => { const value = key === "followups" ? leads.filter(l => l.next_follow_up_at && new Date(l.next_follow_up_at) <= new Date() && !["admission","lost"].includes(l.stage)).length : leads.filter(l => l.stage === key).length; return <div key={String(label)} className="rounded-xl border bg-muted/30 p-3"><div className="flex items-center justify-between"><span className="text-xs text-muted-foreground">{String(label)}</span><Icon className="w-4 h-4 text-primary" /></div><div className="text-2xl font-bold mt-1">{value}</div></div>; })}
@@ -1319,7 +1320,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-              <Button onClick={() => window.open("/enquiry", "_blank")} className="h-11">
+              <Button onClick={() => navigate("/enquiry")} className="h-11">
                 <UserPlus className="w-4 h-4 mr-2" /> New Enquiry
               </Button>
               <Button variant="outline" className="h-11" onClick={() => setActiveTab("walk-in-enquiries")}>
@@ -1608,7 +1609,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
               animate={{ opacity: 1, y: 0 }}
             >
               <div className="mb-4 flex justify-end">
-                <Button onClick={() => window.open("/enquiry", "_blank")}>
+                <Button onClick={() => navigate("/enquiry")}>
                   <Plus className="w-4 h-4 mr-2" />
                   Add New Enquiry
                 </Button>
@@ -3429,6 +3430,37 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                   Record Payment
                 </Button>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Quick Fee Collection Dialog */}
+        <Dialog open={isQuickFeeOpen} onOpenChange={setIsQuickFeeOpen}>
+          <DialogContent className="max-w-xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <IndianRupee className="w-5 h-5" />
+                Quick Fee Collection
+              </DialogTitle>
+              <DialogDescription>Select a student with outstanding fees to record the payment.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              {studentsWithFeeDue.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CheckCircle className="w-10 h-10 mx-auto mb-2" />
+                  <p>No outstanding students for the current installment.</p>
+                </div>
+              ) : studentsWithFeeDue.map((student) => (
+                <div key={student.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{student.name}</p>
+                    <p className="text-xs text-muted-foreground">Class {student.class} · {student.phone}</p>
+                  </div>
+                  <Button type="button" size="sm" onClick={() => { setSelectedStudent(student); setIsQuickFeeOpen(false); setIsPaymentOpen(true); }}>
+                    Collect
+                  </Button>
+                </div>
+              ))}
             </div>
           </DialogContent>
         </Dialog>
