@@ -9,7 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.jpg";
 
-const AdminLogin = () => {
+const AdminLogin = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
+  const isOwner = mode === "owner";
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -35,12 +36,12 @@ const AdminLogin = () => {
         .from("user_roles")
         .select("role")
         .eq("user_id", data.user.id)
-        .eq("role", "admin")
+        .eq("role", isOwner ? "owner" : "admin")
         .single();
 
       if (roleError || !roles) {
         await supabase.auth.signOut();
-        throw new Error("You do not have admin access");
+        throw new Error(isOwner ? "You do not have owner access" : "You do not have admin access");
       }
 
       toast({
@@ -48,7 +49,7 @@ const AdminLogin = () => {
         description: "Welcome to the admin panel",
       });
 
-      navigate("/admin/dashboard");
+      navigate(isOwner ? "/owner/dashboard" : "/admin/dashboard");
     } catch (error: any) {
       toast({
         title: "Login Failed",
@@ -71,8 +72,8 @@ const AdminLogin = () => {
         <div className="card-elevated p-8">
           <div className="text-center mb-8">
             <img src={logo} alt="Ramanujan Academy" className="w-20 h-20 mx-auto mb-4" />
-            <h1 className="font-heading text-2xl font-bold mb-2">Admin Login</h1>
-            <p className="text-muted-foreground text-sm">Access the admin panel</p>
+            <h1 className="font-heading text-2xl font-bold mb-2">{isOwner ? "Owner Login" : "Admin Staff Login"}</h1>
+            <p className="text-muted-foreground text-sm">{isOwner ? "Full control, including admin staff" : "Access the admin panel"}</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">

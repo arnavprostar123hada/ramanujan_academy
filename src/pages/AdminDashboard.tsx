@@ -81,6 +81,9 @@ import { ClassLogsCalendar } from "@/components/ClassLogsCalendar";
 import { EnquiryManagement } from "@/components/admin/EnquiryManagement";
 import { TeacherSalaryManagement } from "@/components/admin/TeacherSalaryManagement";
 import OnlineTestManagement from "@/components/admin/OnlineTestManagement";
+import { AdminStaffManagement } from "@/components/admin/AdminStaffManagement";
+import { GeofenceSettings } from "@/components/admin/GeofenceSettings";
+import { GeoAttendance } from "@/components/GeoAttendance";
 
 interface ContactSubmission {
   id: string;
@@ -235,7 +238,10 @@ const MONTHS = [
 
 const CLASSES = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"];
 
-const AdminDashboard = () => {
+const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
+  const isOwner = mode === "owner";
+  const loginPath = isOwner ? "/owner" : "/admin";
+  const [myStaff, setMyStaff] = useState<{ id: string; name: string; expected_check_in: string | null; expected_check_out: string | null } | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   const [submissions, setSubmissions] = useState<ContactSubmission[]>([]);
@@ -346,21 +352,30 @@ const AdminDashboard = () => {
   const checkAuth = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      navigate("/admin");
+      navigate(loginPath);
       return;
     }
 
-    // Verify admin role
+    // Verify role
     const { data: roles, error } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", session.user.id)
-      .eq("role", "admin")
+      .eq("role", isOwner ? "owner" : "admin")
       .maybeSingle();
 
     if (error || !roles) {
       await supabase.auth.signOut();
-      navigate("/admin");
+      navigate(loginPath);
+      return;
+    }
+    if (!isOwner) {
+      const { data: st } = await supabase
+        .from("admin_staff")
+        .select("id, name, expected_check_in, expected_check_out")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+      setMyStaff(st ?? null);
     }
   };
 
@@ -988,7 +1003,7 @@ const AdminDashboard = () => {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    navigate("/admin");
+    navigate(loginPath);
   };
 
   const formatDate = (dateString: string) => {
@@ -1214,7 +1229,7 @@ const AdminDashboard = () => {
           <div className="flex items-center gap-3">
             <img src={logo} alt="Ramanujan Academy" className="w-10 h-10" />
             <div>
-              <h1 className="font-heading font-bold">Admin Panel</h1>
+              <h1 className="font-heading font-bold">{isOwner ? "Owner Panel" : "Admin Panel"}</h1>
               <p className="text-xs text-muted-foreground">Ramanujan Academy</p>
             </div>
           </div>
@@ -1603,6 +1618,27 @@ const AdminDashboard = () => {
                     <Badge variant="destructive" className="ml-1 h-5 px-1.5">{getUnreadMessagesCount()}</Badge>
                   )}
                 </TabsTrigger>
+              </div>
+              {/* Staff */}
+              <div className="flex items-center gap-1 px-2 py-1 bg-rose-500/10 rounded-lg">
+                <span className="text-[10px] font-medium text-rose-600 uppercase tracking-wider mr-1 hidden md:inline">Staff</span>
+                {isOwner ? (
+                  <>
+                    <TabsTrigger value="admin-staff" className="gap-1.5 data-[state=active]:bg-rose-500 data-[state=active]:text-white">
+                      <Users className="w-4 h-4" />
+                      <span className="hidden sm:inline">Admins & Attendance</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="geofence" className="gap-1.5 data-[state=active]:bg-rose-500 data-[state=active]:text-white">
+                      <MapPin className="w-4 h-4" />
+                      <span className="hidden sm:inline">Geofence</span>
+                    </TabsTrigger>
+                  </>
+                ) : (
+                  <TabsTrigger value="my-attendance" className="gap-1.5 data-[state=active]:bg-rose-500 data-[state=active]:text-white">
+                    <MapPin className="w-4 h-4" />
+                    <span className="hidden sm:inline">My Attendance</span>
+                  </TabsTrigger>
+                )}
               </div>
             </TabsList>
           </div>
@@ -3129,6 +3165,28 @@ const AdminDashboard = () => {
               </Card>
             </motion.div>
           </TabsContent>
+
+          {isOwner && (
+            <>
+              <TabsContent value="admin-staff"><AdminStaffManagement /></TabsContent>
+              <TabsContent value="geofence"><GeofenceSettings /></TabsContent>
+            </>
+          )}
+          {!isOwner && (
+            <TabsContent value="my-attendance">
+              {myStaff ? (
+                <GeoAttendance
+                  kind="admin"
+                  teacherId={myStaff.id}
+                  teacherName={myStaff.name}
+                  expectedCheckIn={myStaff.expected_check_in}
+                  expectedCheckOut={myStaff.expected_check_out}
+                />
+              ) : (
+                <Card><CardContent className="p-6 text-muted-foreground">Your account is not registered as admin staff. Ask the owner to add you.</CardContent></Card>
+              )}
+            </TabsContent>
+          )}
 
           {/* Messages Tab */}
           <TabsContent value="messages">
