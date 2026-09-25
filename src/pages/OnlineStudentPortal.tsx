@@ -35,11 +35,13 @@ interface OnlineStudent {
   name: string;
   email: string;
   class: string;
+  batch: string | null;
 }
 
 interface ZoomLink {
   id: string;
   class: string;
+  batch: string | null;
   subject: string;
   zoom_url: string;
   meeting_id: string | null;
@@ -86,17 +88,18 @@ const OnlineStudentPortal = () => {
     if (data) {
       setStudent(data as OnlineStudent);
       setIsLoggedIn(true);
-      await fetchZoomLinks(data.class);
+      await fetchZoomLinks(data.class, data.batch);
     }
   };
 
-  const fetchZoomLinks = async (studentClass: string) => {
-    const { data } = await supabase
+  const fetchZoomLinks = async (studentClass: string, studentBatch?: string | null) => {
+    let query = supabase
       .from("zoom_links")
       .select("*")
       .eq("class", studentClass)
-      .eq("is_active", true)
-      .order("schedule_day");
+      .eq("is_active", true);
+    query = studentBatch ? query.eq("batch", studentBatch) : query.is("batch", null);
+    const { data } = await query.order("schedule_day");
     if (data) setZoomLinks(data as ZoomLink[]);
   };
 
@@ -391,7 +394,7 @@ const OnlineStudentPortal = () => {
                   <h2 className="font-bold text-lg">{student?.name}</h2>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <GraduationCap className="w-4 h-4" />
-                    <span>Class {student?.class}</span>
+                    <span>Class {student?.class}{student?.batch ? ` · Batch ${student.batch}` : ""}</span>
                     <Badge variant="secondary" className="text-xs">Online Student</Badge>
                   </div>
                 </div>
