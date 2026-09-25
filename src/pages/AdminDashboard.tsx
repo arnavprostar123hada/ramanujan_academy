@@ -79,6 +79,7 @@ import { PerformanceComment, PerformanceBadge, getPerformanceComment } from "@/c
 import { AccessCodeQR } from "@/components/AccessCodeQR";
 import { ClassLogsCalendar } from "@/components/ClassLogsCalendar";
 import { EnquiryManagement } from "@/components/admin/EnquiryManagement";
+import { GrowthOS } from "@/components/admin/GrowthOS";
 import { TeacherSalaryManagement } from "@/components/admin/TeacherSalaryManagement";
 import OnlineTestManagement from "@/components/admin/OnlineTestManagement";
 import { AdminStaffManagement } from "@/components/admin/AdminStaffManagement";
@@ -1295,8 +1296,8 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
               <Button onClick={() => navigate("/enquiry")} className="h-11">
                 <UserPlus className="w-4 h-4 mr-2" /> New Enquiry
               </Button>
-              <Button variant="outline" className="h-11" onClick={() => openDashboardTab("walk-in-enquiries")}>
-                <Users className="w-4 h-4 mr-2" /> Manage Leads
+              <Button variant="outline" className="h-11" onClick={() => openDashboardTab("growth")}>
+                <TrendingUp className="w-4 h-4 mr-2" /> Manage Leads
               </Button>
               <Button variant="outline" className="h-11" onClick={() => openDashboardTab("students")}>
                 <IndianRupee className="w-4 h-4 mr-2" /> Collect Fee
@@ -1445,6 +1446,10 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
               {/* People Management */}
               <div className="flex items-center gap-1 px-2 py-1 bg-blue-500/10 rounded-lg">
                 <span className="text-[10px] font-medium text-blue-600 uppercase tracking-wider mr-1 hidden md:inline">People</span>
+                <TabsTrigger value="growth" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <TrendingUp className="w-4 h-4" />
+                  <span className="hidden sm:inline">Growth</span>
+                </TabsTrigger>
                 <TabsTrigger value="walk-in-enquiries" className="gap-1.5 data-[state=active]:bg-blue-500 data-[state=active]:text-white">
                   <UserPlus className="w-4 h-4" />
                   <span className="hidden sm:inline">Walk-ins</span>
@@ -1575,6 +1580,10 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
 
           {/* Enquiries Tab */}
           {/* Walk-in Enquiries Tab */}
+          <TabsContent value="growth">
+            <GrowthOS />
+          </TabsContent>
+
           <TabsContent value="walk-in-enquiries">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
