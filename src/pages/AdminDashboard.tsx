@@ -80,6 +80,7 @@ import { AccessCodeQR } from "@/components/AccessCodeQR";
 import { ClassLogsCalendar } from "@/components/ClassLogsCalendar";
 import { EnquiryManagement } from "@/components/admin/EnquiryManagement";
 import { GrowthOS } from "@/components/admin/GrowthOS";
+import { AcademicApprovalCenter } from "@/components/admin/AcademicApprovalCenter";
 import { TeacherSalaryManagement } from "@/components/admin/TeacherSalaryManagement";
 import OnlineTestManagement from "@/components/admin/OnlineTestManagement";
 import { AdminStaffManagement } from "@/components/admin/AdminStaffManagement";
@@ -1480,6 +1481,10 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
               {/* Academics */}
               <div className="flex items-center gap-1 px-2 py-1 bg-green-500/10 rounded-lg">
                 <span className="text-[10px] font-medium text-green-600 uppercase tracking-wider mr-1 hidden md:inline">Academics</span>
+                <TabsTrigger value="academic-approvals" className="gap-1.5 data-[state=active]:bg-green-500 data-[state=active]:text-white">
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="hidden sm:inline">Approvals</span>
+                </TabsTrigger>
                 <TabsTrigger value="tests" className="gap-1.5 data-[state=active]:bg-green-500 data-[state=active]:text-white">
                   <ClipboardList className="w-4 h-4" />
                   <span className="hidden sm:inline">Tests</span>
@@ -1582,6 +1587,10 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
           {/* Walk-in Enquiries Tab */}
           <TabsContent value="growth">
             <GrowthOS />
+          </TabsContent>
+
+          <TabsContent value="academic-approvals">
+            <AcademicApprovalCenter />
           </TabsContent>
 
           <TabsContent value="walk-in-enquiries">
