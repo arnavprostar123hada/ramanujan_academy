@@ -575,13 +575,7 @@ const ParentPortal = () => {
         {/* Tabs */}
         <Tabs defaultValue="tests" className="space-y-4">
           <TabsList className="flex flex-wrap h-auto p-1 gap-1">
-            <TabsTrigger value="updates">Class Updates</TabsTrigger>
-            <TabsTrigger value="tests">Tests & Results</TabsTrigger>
-          </TabsList>
-          <TabsContent value="updates" className="space-y-4">
-            <Card><CardHeader><CardTitle>Approved Class Updates</CardTitle></CardHeader><CardContent className="space-y-3">{classLogs.length ? classLogs.map(log => <div key={log.id} className="border rounded-lg p-4"><div className="flex justify-between gap-3"><div><b>{log.subject || "Class Update"}</b>{log.topic && <div className="text-sm text-muted-foreground">{log.topic}</div>}</div><span className="text-xs text-muted-foreground">{new Date(log.log_date).toLocaleDateString("en-IN")}</span></div><p className="text-sm mt-2 whitespace-pre-wrap">{log.content}</p>{log.homework && <p className="text-sm mt-2"><b>Homework:</b> {log.homework}</p>}</div>) : <p className="text-muted-foreground text-sm">No approved class updates yet.</p>}</CardContent></Card>
-          </TabsContent>
-          <TabsList className="flex flex-wrap h-auto p-1 gap-1">
+            <TabsTrigger value="updates" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm"><BookOpen className="w-4 h-4" /><span>Updates</span></TabsTrigger>
             <TabsTrigger value="tests" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
               <ClipboardList className="w-4 h-4" />
               <span>Tests</span>
@@ -613,6 +607,10 @@ const ParentPortal = () => {
               <span>Chat</span>
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="updates" className="space-y-4">
+            <Card><CardHeader><CardTitle>Approved Class Updates</CardTitle></CardHeader><CardContent className="space-y-3">{classLogs.length ? classLogs.map(log => <div key={log.id} className="border rounded-lg p-4"><div className="flex justify-between gap-3"><div><b>{log.subject || "Class Update"}</b>{log.topic && <div className="text-sm text-muted-foreground">{log.topic}</div>}</div><span className="text-xs text-muted-foreground">{new Date(log.log_date).toLocaleDateString("en-IN")}</span></div><p className="text-sm mt-2 whitespace-pre-wrap">{log.content}</p>{log.homework && <p className="text-sm mt-2"><b>Homework:</b> {log.homework}</p>}</div>) : <p className="text-muted-foreground text-sm">No approved class updates yet.</p>}</CardContent></Card>
+          </TabsContent>
 
           {/* Tests Tab */}
           <TabsContent value="tests" className="space-y-6">
