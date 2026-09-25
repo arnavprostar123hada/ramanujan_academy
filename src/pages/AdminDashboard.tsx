@@ -385,163 +385,89 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
 
   const fetchData = async () => {
     setIsLoading(true);
+
+    // The original dashboard predates the Growth OS schema. Some of its legacy
+    // tables are intentionally no longer present, so one missing table must not
+    // prevent the rest of the dashboard (especially students) from loading.
+    const load = async <T,>(
+      query: PromiseLike<{ data: T | null; error: { message: string } | null }>
+    ): Promise<T | null> => {
+      const { data, error } = await query;
+      if (error) console.warn("Dashboard data source unavailable:", error.message);
+      return data ?? null;
+    };
+
     try {
-      // Fetch submissions
-      const { data: submissionsData, error: submissionsError } = await supabase
-        .from("contact_submissions")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const [
+        submissionsData,
+        studentsData,
+        paymentsData,
+        announcementsData,
+        concernsData,
+        messagesData,
+        teachersData,
+        logsData,
+        complaintsData,
+        testsData,
+        testResultsData,
+        enquiriesData,
+        zoomData,
+      ] = await Promise.all([
+        load(supabase.from("contact_submissions").select("*").order("created_at", { ascending: false })),
+        load(supabase.from("students").select("*").order("created_at", { ascending: false })),
+        load(supabase.from("student_payments").select("*").order("created_at", { ascending: false })),
+        load(supabase.from("announcements").select("*").order("created_at", { ascending: false })),
+        load(supabase.from("student_concerns").select("*").order("created_at", { ascending: false })),
+        load(supabase.from("parent_messages").select("*").order("created_at", { ascending: false })),
+        load(supabase.from("teachers").select("*").order("created_at", { ascending: false })),
+        load(supabase.from("class_logs").select("*").order("log_date", { ascending: false })),
+        load(supabase.from("student_complaints").select("*").order("created_at", { ascending: false })),
+        load(supabase.from("tests").select("*").order("test_date", { ascending: false })),
+        load(supabase.from("test_results").select("*").order("created_at", { ascending: false })),
+        load(supabase.from("enquiries").select("*").order("created_at", { ascending: false })),
+        load(supabase.from("zoom_links").select("*").order("created_at", { ascending: false })),
+      ]);
 
-      if (submissionsError) throw submissionsError;
-      setSubmissions(submissionsData || []);
-
-      // Fetch students
-      const { data: studentsData, error: studentsError } = await supabase
-        .from("students")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (!studentsError && studentsData) {
-        setStudents(studentsData as Student[]);
-      }
-
-      // Fetch payments
-      const { data: paymentsData, error: paymentsError } = await supabase
-        .from("student_payments")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (!paymentsError && paymentsData) {
-        setPayments(paymentsData as StudentPayment[]);
-      }
-
-      // Fetch announcements
-      const { data: announcementsData } = await supabase
-        .from("announcements")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (announcementsData) {
-        setAnnouncements(announcementsData as Announcement[]);
-      }
-
-      // Fetch student concerns
-      const { data: concernsData } = await supabase
-        .from("student_concerns")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (concernsData) {
-        setStudentConcerns(concernsData as StudentConcern[]);
-      }
-
-      // Fetch parent messages
-      const { data: messagesData } = await supabase
-        .from("parent_messages")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (messagesData) {
-        setParentMessages(messagesData as ParentMessage[]);
-      }
-
-      // Fetch teachers
-      const { data: teachersData } = await supabase
-        .from("teachers")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (teachersData) {
-        setTeachers(teachersData as Teacher[]);
-      }
-
-      // Fetch class logs
-      const { data: logsData } = await supabase
-        .from("class_logs")
-        .select("*")
-        .order("log_date", { ascending: false });
-
-      if (logsData) {
-        setClassLogs(logsData as ClassLog[]);
-      }
-
-      // Fetch student complaints
-      const { data: complaintsData } = await supabase
-        .from("student_complaints")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (complaintsData) {
-        setStudentComplaints(complaintsData as StudentComplaint[]);
-      }
-
-      // Fetch tests
-      const { data: testsData } = await supabase
-        .from("tests")
-        .select("*")
-        .order("test_date", { ascending: false });
-
-      if (testsData) {
-        setTests(testsData as Test[]);
-      }
-
-      // Fetch test results
-      const { data: testResultsData } = await supabase
-        .from("test_results")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (testResultsData) {
-        setTestResults(testResultsData as TestResult[]);
-      }
-
-      // Fetch enquiries
-      const { data: enquiriesData } = await supabase
-        .from("enquiries")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (enquiriesData) {
-        setEnquiries(enquiriesData as Enquiry[]);
-      }
-
-      // Fetch zoom links
-      const { data: zoomData } = await supabase
-        .from("zoom_links")
-        .select("*")
-        .order("created_at", { ascending: false });
+      setSubmissions((submissionsData ?? []) as ContactSubmission[]);
+      setStudents((studentsData ?? []) as Student[]);
+      setPayments((paymentsData ?? []) as StudentPayment[]);
+      setAnnouncements((announcementsData ?? []) as Announcement[]);
+      setStudentConcerns((concernsData ?? []) as StudentConcern[]);
+      setParentMessages((messagesData ?? []) as ParentMessage[]);
+      setTeachers((teachersData ?? []) as Teacher[]);
+      setClassLogs((logsData ?? []) as ClassLog[]);
+      setStudentComplaints((complaintsData ?? []) as StudentComplaint[]);
+      setTests((testsData ?? []) as Test[]);
+      setTestResults((testResultsData ?? []) as TestResult[]);
+      setEnquiries((enquiriesData ?? []) as Enquiry[]);
       if (zoomData) setZoomLinks(zoomData as any);
 
-      // Fetch visit stats
       const now = new Date();
       const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-      const startOfWeek = new Date(now.setDate(now.getDate() - 7)).toISOString();
+      const startOfWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-      const { count: totalVisits } = await supabase
-        .from("page_visits")
-        .select("*", { count: "exact", head: true });
+      const [totalVisits, todayVisits, weekVisits] = await Promise.all([
+        load(supabase.from("page_visits").select("*", { count: "exact", head: true })),
+        load(supabase.from("page_visits").select("*", { count: "exact", head: true }).gte("visited_at", startOfDay)),
+        load(supabase.from("page_visits").select("*", { count: "exact", head: true }).gte("visited_at", startOfWeek)),
+      ]);
 
-      const { count: todayVisits } = await supabase
-        .from("page_visits")
-        .select("*", { count: "exact", head: true })
-        .gte("visited_at", startOfDay);
-
-      const { count: weekVisits } = await supabase
-        .from("page_visits")
-        .select("*", { count: "exact", head: true })
-        .gte("visited_at", startOfWeek);
+      // Head/count queries return null data, so calculate stats separately only
+      // when the legacy page_visits table exists.
+      const [{ count: totalCount }, { count: todayCount }, { count: weekCount }] = await Promise.all([
+        supabase.from("page_visits").select("*", { count: "exact", head: true }),
+        supabase.from("page_visits").select("*", { count: "exact", head: true }).gte("visited_at", startOfDay),
+        supabase.from("page_visits").select("*", { count: "exact", head: true }).gte("visited_at", startOfWeek),
+      ]);
 
       setVisitStats({
-        total: totalVisits || 0,
-        today: todayVisits || 0,
-        thisWeek: weekVisits || 0,
+        total: totalCount ?? 0,
+        today: todayCount ?? 0,
+        thisWeek: weekCount ?? 0,
       });
     } catch (error) {
-      toast({
-        title: "Error fetching data",
-        description: "Please try again",
-        variant: "destructive",
-      });
+      console.error("Dashboard fetch error:", error);
+      // Keep the dashboard usable even when an optional legacy data source is unavailable.
     } finally {
       setIsLoading(false);
     }
