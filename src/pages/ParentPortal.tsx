@@ -40,6 +40,7 @@ interface Student {
   id: string;
   name: string;
   class: string;
+  batch: string | null;
   parent_name: string | null;
   access_code: string;
   student_type?: string;
@@ -93,6 +94,7 @@ interface Message {
 interface ClassLog {
   id: string;
   class: string;
+  batch: string | null;
   subject: string | null;
   topic: string | null;
   content: string;
@@ -106,6 +108,7 @@ interface Test {
   title: string;
   subject: string;
   class: string;
+  batch: string | null;
   test_date: string;
   max_marks: number;
   description: string | null;
@@ -183,6 +186,7 @@ const ParentPortal = () => {
       .from("parent_messages")
       .select("*")
       .eq("student_id", studentData.id)
+      .eq("approval_status", "approved")
       .order("created_at", { ascending: true });
     if (messagesData) setMessages(messagesData);
 
@@ -198,7 +202,7 @@ const ParentPortal = () => {
     // Fetch approved teaching logs for this batch
     const { data: logsData } = await supabase
       .from("class_logs")
-      .select("id,class,subject,topic,content,homework,log_date,approval_status")
+      .select("id,class,batch,subject,topic,content,homework,log_date,approval_status")
       .eq("class", studentData.class)
       .eq("approval_status", "approved")
       .order("log_date", { ascending: false })
@@ -210,6 +214,7 @@ const ParentPortal = () => {
       .from("test_results")
       .select("*")
       .eq("student_id", studentData.id)
+      .eq("approval_status", "approved")
       .order("created_at", { ascending: false });
     if (resultsData) setTestResults(resultsData as TestResult[]);
 
@@ -255,7 +260,7 @@ const ParentPortal = () => {
     try {
       const { data: studentData, error } = await supabase
         .from("students")
-        .select("id, name, class, parent_name, access_code, student_type")
+        .select("id, name, class, batch, parent_name, access_code, student_type")
         .eq("access_code", codeToUse)
         .single();
 
@@ -285,7 +290,7 @@ const ParentPortal = () => {
     try {
       const { data: studentData, error } = await supabase
         .from("students")
-        .select("id, name, class, parent_name, access_code, student_type")
+        .select("id, name, class, batch, parent_name, access_code, student_type")
         .ilike("name", studentName.trim())
         .eq("phone", phoneNumber.trim())
         .single();
@@ -559,7 +564,7 @@ const ParentPortal = () => {
                   <h2 className="font-bold text-lg">{student?.name}</h2>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <GraduationCap className="w-4 h-4" />
-                    <span>Class {student?.class}</span>
+                    <span>Class {student?.class}{student?.batch ? ` · Batch ${student.batch}` : ""}</span>
                     {student?.parent_name && (
                       <>
                         <span className="text-muted">•</span>
