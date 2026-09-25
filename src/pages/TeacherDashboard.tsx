@@ -62,6 +62,10 @@ interface ClassLog {
   teacher_id: string;
   class: string;
   content: string;
+  subject?: string | null;
+  topic?: string | null;
+  homework?: string | null;
+  approval_status?: string;
   log_date: string;
   created_at: string;
 }
@@ -87,6 +91,7 @@ interface Test {
   max_marks: number;
   description: string | null;
   is_notified: boolean;
+  approval_status?: string;
   created_at: string;
 }
 
@@ -118,6 +123,9 @@ const TeacherDashboard = () => {
   // Form states
   const [selectedClass, setSelectedClass] = useState("");
   const [logContent, setLogContent] = useState("");
+  const [logSubject, setLogSubject] = useState("");
+  const [logTopic, setLogTopic] = useState("");
+  const [logHomework, setLogHomework] = useState("");
   const [selectedStudent, setSelectedStudent] = useState("");
   const [complaintText, setComplaintText] = useState("");
 
@@ -229,7 +237,11 @@ const TeacherDashboard = () => {
     const { error } = await supabase.from("class_logs").insert({
       teacher_id: teacher.id,
       class: selectedClass,
+      subject: logSubject.trim() || null,
+      topic: logTopic.trim() || null,
       content: logContent.trim(),
+      homework: logHomework.trim() || null,
+      approval_status: "pending",
     });
 
     if (error) {
@@ -239,6 +251,9 @@ const TeacherDashboard = () => {
 
     toast({ title: "Success", description: "Class log added successfully" });
     setLogContent("");
+    setLogSubject("");
+    setLogTopic("");
+    setLogHomework("");
     fetchData(teacher.id, teacher.assigned_classes || []);
   };
 
@@ -281,6 +296,7 @@ const TeacherDashboard = () => {
         test_date: newTest.test_date,
         max_marks: parseInt(newTest.max_marks) || 100,
         description: newTest.description || null,
+        approval_status: "pending",
       })
       .select()
       .single();
@@ -290,33 +306,7 @@ const TeacherDashboard = () => {
       return;
     }
 
-    // Send notifications to parents
-    const classStudents = students.filter(s => s.class === newTest.class);
-    for (const student of classStudents) {
-      try {
-        await supabase.functions.invoke("notify-test", {
-          body: {
-            type: "announcement",
-            studentName: student.name,
-            studentClass: student.class,
-            parentPhone: student.phone,
-            testTitle: newTest.title,
-            subject: newTest.subject,
-            testDate: newTest.test_date,
-          },
-        });
-      } catch (e) {
-        console.log("Notification sent/logged for", student.name);
-      }
-    }
-
-    // Mark as notified
-    await supabase
-      .from("tests")
-      .update({ is_notified: true })
-      .eq("id", data.id);
-
-    toast({ title: "Success", description: "Test created and parents notified!" });
+    toast({ title: "Test submitted", description: "Waiting for Admin/Owner approval before publishing." });
     setNewTest({ title: "", subject: "", class: "", test_date: "", max_marks: "100", description: "" });
     setIsAddTestOpen(false);
     fetchData(teacher.id, teacher.assigned_classes || []);
@@ -394,6 +384,7 @@ const TeacherDashboard = () => {
             marks_obtained: marksValue,
             photo_url: entry.photoUrl,
             remarks: entry.remarks || null,
+            approval_status: "pending",
           }, {
             onConflict: 'test_id,student_id'
           });
@@ -403,26 +394,10 @@ const TeacherDashboard = () => {
           continue;
         }
 
-        // Send notification
-        try {
-          await supabase.functions.invoke("notify-test", {
-            body: {
-              type: "result",
-              studentName: student.name,
-              studentClass: student.class,
-              parentPhone: student.phone,
-              testTitle: selectedTest.title,
-              marksObtained: marksValue,
-              maxMarks: selectedTest.max_marks,
-            },
-          });
-        } catch (e) {
-          console.log("Result notification sent/logged for", student.name);
-        }
       }
     }
 
-    toast({ title: "Success", description: "Marks saved and parents notified!" });
+    toast({ title: "Marks submitted", description: "Waiting for Admin/Owner approval before publishing." });
     setIsEnterMarksOpen(false);
     setSelectedTest(null);
     fetchData(teacher.id, teacher.assigned_classes || []);
@@ -598,6 +573,14 @@ const TeacherDashboard = () => {
                       }))}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label>Subject</Label>
+                    <Input placeholder="e.g. Mathematics" value={logSubject} onChange={(e) => setLogSubject(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Topic / Chapter</Label>
+                    <Input placeholder="e.g. Quadratic Equations" value={logTopic} onChange={(e) => setLogTopic(e.target.value)} />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>What did you teach today?</Label>
@@ -607,6 +590,10 @@ const TeacherDashboard = () => {
                     onChange={(e) => setLogContent(e.target.value)}
                     rows={4}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>Homework / Practice</Label>
+                  <Textarea placeholder="Homework or practice for students..." value={logHomework} onChange={(e) => setLogHomework(e.target.value)} rows={2} />
                 </div>
                 <Button onClick={handleAddLog} className="bg-green-600 hover:bg-green-700">
                   <Send className="w-4 h-4 mr-2" /> Submit Log
@@ -633,7 +620,8 @@ const TeacherDashboard = () => {
                             {format(new Date(log.log_date), "PPP")}
                           </span>
                         </div>
-                        <p className="text-sm">{log.content}</p>
+                        {log.subject && <p className="text-xs text-muted-foreground mb-1">{log.subject}{log.topic ? " · " + log.topic : ""}</p>}<p className="text-sm">{log.content}</p>{log.homework && <p className="text-xs mt-2"><b>Homework:</b> {log.homework}</p>}
+                        <Badge variant={log.approval_status === "approved" ? "default" : log.approval_status === "rejected" ? "destructive" : "secondary"} className="mt-2">{log.approval_status || "pending"}</Badge>
                       </div>
                     ))}
                   </div>
