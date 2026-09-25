@@ -177,7 +177,6 @@ const ParentPortal = () => {
       .from("student_concerns")
       .select("*")
       .eq("student_id", studentData.id)
-      .eq("approval_status", "approved")
       .order("created_at", { ascending: false });
     if (concernsData) setConcerns(concernsData);
 
@@ -186,7 +185,6 @@ const ParentPortal = () => {
       .from("parent_messages")
       .select("*")
       .eq("student_id", studentData.id)
-      .eq("approval_status", "approved")
       .order("created_at", { ascending: true });
     if (messagesData) setMessages(messagesData);
 
