@@ -299,6 +299,14 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
   const [classLogsViewMode, setClassLogsViewMode] = useState<"list" | "calendar">("list");
   const [studentTypeFilter, setStudentTypeFilter] = useState<"all" | "offline" | "online">("all");
   const [activeTab, setActiveTab] = useState("walk-in-enquiries");
+
+  // Open a dashboard module and bring it into view so the action is visibly confirmed.
+  const openDashboardTab = (tab: string) => {
+    setActiveTab(tab);
+    window.setTimeout(() => {
+      document.getElementById("dashboard-tabs")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  };
   
   // Zoom links state
   const [zoomLinks, setZoomLinks] = useState<{ id: string; class: string; subject: string; zoom_url: string; meeting_id: string | null; passcode: string | null; schedule_day: string; schedule_time: string; teacher_name: string | null; is_active: boolean }[]>([]);
@@ -1193,42 +1201,6 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
       </header>
 
       <main className="container-custom py-8 px-4">
-        {/* Stats Cards */}
-        <Card className="card-elevated mb-6">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg"><TrendingUp className="w-5 h-5 text-primary" />Growth Command Center</CardTitle>
-            <p className="text-sm text-muted-foreground">Common actions and lead acquisition tracking at a glance.</p>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-              <Button type="button" className="h-11" onClick={() => navigate("/enquiry")}><UserPlus className="w-4 h-4 mr-2" />New Enquiry</Button>
-              <Button type="button" variant="outline" className="h-11" onClick={() => setIsQuickFeeOpen(true)}><IndianRupee className="w-4 h-4 mr-2" />Payment</Button>
-              <Button type="button" variant="outline" className="h-11" onClick={() => setActiveTab("students")}><GraduationCap className="w-4 h-4 mr-2" />Students</Button>
-              <Button type="button" variant="outline" className="h-11" onClick={() => setActiveTab("tests")}><ClipboardList className="w-4 h-4 mr-2" />Tests</Button>
-              <Button type="button" variant="outline" className="h-11" onClick={() => setActiveTab("student-attendance")}><CheckCircle className="w-4 h-4 mr-2" />Attendance</Button>
-              <Button type="button" variant="outline" className="h-11" onClick={() => setActiveTab("announcements")}><Bell className="w-4 h-4 mr-2" />Announce</Button>
-            </div>
-            <div className="grid md:grid-cols-4 gap-3">
-              {[["New Leads","new",UserPlus],["Counselling / Demo","counselling",Calendar],["Follow-ups Due","followups",PhoneIcon],["Admissions","admission",CheckCircle]].map(([label,key,Icon]) => { const value = key === "followups" ? leads.filter(l => l.next_follow_up_at && new Date(l.next_follow_up_at) <= new Date() && !["admission","lost"].includes(l.stage)).length : leads.filter(l => l.stage === key).length; return <div key={String(label)} className="rounded-xl border bg-muted/30 p-3"><div className="flex items-center justify-between"><span className="text-xs text-muted-foreground">{String(label)}</span><Icon className="w-4 h-4 text-primary" /></div><div className="text-2xl font-bold mt-1">{value}</div></div>; })}
-            </div>
-            <div className="grid lg:grid-cols-2 gap-4">
-              <div className="rounded-xl border p-4">
-                <div className="flex items-center justify-between mb-3"><div><h3 className="font-semibold">Lead Acquisition → Admission</h3><p className="text-xs text-muted-foreground">Current pipeline by stage</p></div><Badge variant="secondary">{leads.length} leads</Badge></div>
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                  {[["New","new"],["Contacted","contacted"],["Counselling","counselling"],["Demo","demo"],["Follow-up","followup"],["Fee Discussion","fee_discussion"],["Admission","admission"],["Nurture","nurture"],["Lost","lost"]].map(([label,stage]) => <div key={stage} className="text-center rounded-lg bg-muted/40 p-2"><div className="text-lg font-bold">{leads.filter(l => l.stage === stage).length}</div><div className="text-[10px] text-muted-foreground">{label}</div></div>)}
-                </div>
-              </div>
-              <div className="rounded-xl border p-4">
-                <div className="flex items-center justify-between mb-3"><div><h3 className="font-semibold">Lead Sources</h3><p className="text-xs text-muted-foreground">Where enquiries are coming from</p></div><Button size="sm" variant="ghost" onClick={() => setActiveTab("walk-in-enquiries")}>Track Leads</Button></div>
-                <div className="space-y-2">
-                  {Array.from(new Set(leads.map(l => l.source || "Other"))).slice(0, 6).map(source => { const sourceLeads = leads.filter(l => (l.source || "Other") === source); const sourceAdmissions = sourceLeads.filter(l => l.stage === "admission").length; const width = leads.length ? Math.max(4, sourceLeads.length / leads.length * 100) : 0; return <div key={source} className="flex items-center gap-3"><span className="text-sm w-28 truncate">{source}</span><div className="flex-1 h-2 bg-muted rounded-full overflow-hidden"><div className="h-full bg-primary rounded-full" style={{ width: width + "%" }} /></div><span className="text-xs font-medium">{sourceLeads.length} · {sourceAdmissions} admissions</span></div>; })}
-                  {leads.length === 0 && <p className="text-sm text-muted-foreground">No Growth OS leads yet. Start adding leads to begin acquisition tracking.</p>}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -1309,33 +1281,33 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
           </motion.div>
         </div>
 
-        {/* Admin Action Center */}
+        {/* Admin Quick Action Center */}
         <Card className="card-elevated mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-primary" />
-              Daily Action Center
+              Admin Quick Action Center
             </CardTitle>
-            <p className="text-sm text-muted-foreground">What the admin team should act on today.</p>
+            <p className="text-sm text-muted-foreground">One place for the team to handle enquiries, admissions, fees and daily operations.</p>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
               <Button onClick={() => navigate("/enquiry")} className="h-11">
                 <UserPlus className="w-4 h-4 mr-2" /> New Enquiry
               </Button>
-              <Button variant="outline" className="h-11" onClick={() => setActiveTab("walk-in-enquiries")}>
+              <Button variant="outline" className="h-11" onClick={() => openDashboardTab("walk-in-enquiries")}>
                 <Users className="w-4 h-4 mr-2" /> Manage Leads
               </Button>
-              <Button variant="outline" className="h-11" onClick={() => setActiveTab("students")}>
+              <Button variant="outline" className="h-11" onClick={() => openDashboardTab("students")}>
                 <IndianRupee className="w-4 h-4 mr-2" /> Collect Fee
               </Button>
-              <Button variant="outline" className="h-11" onClick={() => setActiveTab("students")}>
+              <Button variant="outline" className="h-11" onClick={() => openDashboardTab("students")}>
                 <AlertTriangle className="w-4 h-4 mr-2" /> Outstanding
               </Button>
-              <Button variant="outline" className="h-11" onClick={() => setActiveTab("tests")}>
+              <Button variant="outline" className="h-11" onClick={() => openDashboardTab("tests")}>
                 <ClipboardList className="w-4 h-4 mr-2" /> Tests
               </Button>
-              <Button variant="outline" className="h-11" onClick={() => setActiveTab("student-attendance")}>
+              <Button variant="outline" className="h-11" onClick={() => openDashboardTab("student-attendance")}>
                 <CheckCircle className="w-4 h-4 mr-2" /> Attendance
               </Button>
             </div>
@@ -1364,7 +1336,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                     <h3 className="font-semibold">Lead Acquisition → Admission</h3>
                     <p className="text-xs text-muted-foreground">Track every enquiry until admission.</p>
                   </div>
-                  <Button size="sm" variant="ghost" onClick={() => setActiveTab("walk-in-enquiries")}>Open Leads</Button>
+                  <Button size="sm" variant="ghost" onClick={() => openDashboardTab("walk-in-enquiries")}>Open Leads</Button>
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                   {[["New","new"],["Contacted","contacted"],["Counselling","counselling"],["Demo","demo"],["Follow-up","followup"],["Fee Discussion","fee_discussion"],["Admission","admission"],["Nurture","nurture"],["Lost","lost"]].map(([label,stage]) => (
@@ -1397,7 +1369,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                     </div>
                   ))}
                   {studentsWithFeeDue.length === 0 && <p className="text-sm text-muted-foreground">No outstanding fees in the current installment.</p>}
-                  {studentsWithFeeDue.length > 6 && <Button variant="ghost" size="sm" onClick={() => setActiveTab("students")}>View all outstanding</Button>}
+                  {studentsWithFeeDue.length > 6 && <Button variant="ghost" size="sm" onClick={() => openDashboardTab("students")}>View all outstanding</Button>}
                 </div>
               </div>
             </div>
@@ -1465,7 +1437,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
         )}
 
         {/* Tabs for different sections */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <div id="dashboard-tabs" className="scroll-mt-24"><Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           {/* Tab Categories */}
           <div className="space-y-3">
             {/* Tab Group Labels */}
@@ -3376,6 +3348,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
             </motion.div>
           </TabsContent>
         </Tabs>
+        </div>
 
         {/* Payment QR Dialog */}
         <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
