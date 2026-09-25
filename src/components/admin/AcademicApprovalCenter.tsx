@@ -74,12 +74,40 @@ export function AcademicApprovalCenter() {
     setBusy(item.kind+item.id);
     const {data:{user}} = await supabase.auth.getUser();
     const table = item.kind==="log" ? "class_logs" : item.kind==="test" ? "tests" : "test_results";
+    const now = new Date().toISOString();
     const {error} = await supabase.from(table).update({
       approval_status: action,
       approved_by: user?.id || null,
-      approved_at: new Date().toISOString(),
-      published_at: action==="approved" ? new Date().toISOString() : null
+      approved_at: now,
+      published_at: action==="approved" ? now : null
     }).eq("id",item.id);
+
+    if (!error && action === "approved") {
+      if (item.kind === "log") {
+        const { data: classStudents } = await supabase.from("students").select("id,parent_id").eq("class", item.class || "");
+        if (classStudents?.length) {
+          await supabase.from("communications").insert(classStudents.map(s => ({
+            channel: "portal",
+            recipient_type: "parent",
+            recipient_id: s.parent_id || null,
+            student_id: s.id,
+            message: "New approved class update" + (item.subject ? ": " + item.subject : "") + (item.topic ? " - " + item.topic : ""),
+            status: "queued",
+            sent_at: null,
+            created_by: user?.id || null
+          })));
+        }
+      } else if (item.kind === "result") {
+        await supabase.from("communications").insert({
+          channel: "portal",
+          recipient_type: "parent",
+          student_id: item.student_name ? undefined : undefined,
+          message: "A new test result has been approved and published.",
+          status: "queued",
+          created_by: user?.id || null
+        });
+      }
+    }
     if(error) toast({title:"Could not update approval",description:error.message,variant:"destructive"});
     else toast({title:action==="approved" ? "Approved & published" : "Rejected"});
     setBusy(null);
