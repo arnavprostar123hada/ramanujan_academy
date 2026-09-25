@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { 
-  Users, 
+  Users, MapPin,
   FileText, 
   Eye, 
   LogOut, 
