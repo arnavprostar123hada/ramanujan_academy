@@ -30,9 +30,22 @@ Deno.serve(async (req) => {
       const { data: created, error } = await admin.auth.admin.createUser({
         email, password, email_confirm: true,
       });
-      if (error) return json({ error: error.message }, 400);
-      const uid = created.user.id;
-      await admin.from("user_roles").insert({ user_id: uid, role: "admin" });
+      let uid = created?.user?.id as string | undefined;
+      if (error) {
+        // Email already registered: reuse that account as admin staff
+        const target = String(email).toLowerCase();
+        for (let page = 1; page <= 20 && !uid; page++) {
+          const { data: list } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+          const found = list?.users.find((x) => x.email?.toLowerCase() === target);
+          if (found) uid = found.id;
+          if (!list || list.users.length < 200) break;
+        }
+        if (!uid) return json({ error: error.message }, 400);
+        const { data: existing } = await admin.from("admin_staff").select("id").eq("user_id", uid).maybeSingle();
+        if (existing) return json({ error: "This person is already an admin staff member" }, 400);
+        await admin.auth.admin.updateUserById(uid, { password });
+      }
+      await admin.from("user_roles").upsert({ user_id: uid, role: "admin" }, { onConflict: "user_id,role" });
       const { error: e2 } = await admin.from("admin_staff").insert({ user_id: uid, name, email, phone: phone || null });
       if (e2) return json({ error: e2.message }, 400);
       return json({ success: true });
