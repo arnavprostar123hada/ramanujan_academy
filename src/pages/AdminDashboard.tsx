@@ -446,15 +446,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
       const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
       const startOfWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-      const [totalVisits, todayVisits, weekVisits] = await Promise.all([
-        load(supabase.from("page_visits").select("*", { count: "exact", head: true })),
-        load(supabase.from("page_visits").select("*", { count: "exact", head: true }).gte("visited_at", startOfDay)),
-        load(supabase.from("page_visits").select("*", { count: "exact", head: true }).gte("visited_at", startOfWeek)),
-      ]);
-
-      // Head/count queries return null data, so calculate stats separately only
-      // when the legacy page_visits table exists.
-      const [{ count: totalCount }, { count: todayCount }, { count: weekCount }] = await Promise.all([
+        const [totalVisits, todayVisits, weekVisits] = await Promise.all([
         supabase.from("page_visits").select("*", { count: "exact", head: true }),
         supabase.from("page_visits").select("*", { count: "exact", head: true }).gte("visited_at", startOfDay),
         supabase.from("page_visits").select("*", { count: "exact", head: true }).gte("visited_at", startOfWeek),
