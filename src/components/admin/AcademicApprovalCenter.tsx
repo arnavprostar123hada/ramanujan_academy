@@ -11,6 +11,7 @@ type Item = {
   id: string;
   kind: "log" | "test" | "result";
   teacher_name?: string;
+  student_id?: string;
   student_name?: string;
   class?: string;
   subject?: string;
@@ -60,7 +61,7 @@ export function AcademicApprovalCenter() {
       ...(results.data||[]).map(x=>{
         const t=testMap.get(x.test_id);
         const s=studentMap.get(x.student_id);
-        return {...x,kind:"result" as const,student_name:s?.name,class:s?.class,subject:t?.subject,title:t?.title,max_marks:t?.max_marks};
+        return {...x,kind:"result" as const,student_id:x.student_id,student_name:s?.name,class:s?.class,subject:t?.subject,title:t?.title,max_marks:t?.max_marks};
       })
     ].sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime());
 
@@ -101,7 +102,7 @@ export function AcademicApprovalCenter() {
         await supabase.from("communications").insert({
           channel: "portal",
           recipient_type: "parent",
-          student_id: item.student_name ? undefined : undefined,
+          student_id: item.student_id || null,
           message: "A new test result has been approved and published.",
           status: "queued",
           created_by: user?.id || null
