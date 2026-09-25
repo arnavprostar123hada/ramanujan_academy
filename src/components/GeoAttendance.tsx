@@ -23,6 +23,8 @@ interface Props {
   teacherName: string;
   expectedCheckIn?: string | null;
   expectedCheckOut?: string | null;
+  /** "teacher" (default) or "admin" staff */
+  kind?: "teacher" | "admin";
 }
 
 interface Fence {
@@ -49,7 +51,9 @@ interface Record {
 const today = () => format(new Date(), "yyyy-MM-dd");
 const nowTime = () => format(new Date(), "HH:mm:ss");
 
-export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expectedCheckOut }: Props) {
+export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expectedCheckOut, kind = "teacher" }: Props) {
+  const table = (kind === "admin" ? "admin_attendance" : "teacher_attendance") as "teacher_attendance";
+  const idCol = (kind === "admin" ? "admin_staff_id" : "teacher_id") as "teacher_id";
   const { toast } = useToast();
   const [fence, setFence] = useState<Fence | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
@@ -76,9 +80,9 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
         .order("created_at", { ascending: true })
         .limit(1),
       supabase
-        .from("teacher_attendance")
+        .from(table)
         .select("*")
-        .eq("teacher_id", teacherId)
+        .eq(idCol, teacherId)
         .order("attendance_date", { ascending: false })
         .limit(14),
     ]);
@@ -87,7 +91,7 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
     setHistory(rows);
     setRecord(rows.find((r) => r.attendance_date === today()) ?? null);
     setLoading(false);
-  }, [teacherId]);
+  }, [teacherId, table, idCol]);
 
   useEffect(() => {
     void load();
@@ -134,10 +138,10 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
       const late = minutesLate(expectedCheckIn, new Date());
       const isLate = late !== null && late > LATE_GRACE_MINUTES;
       const { data, error } = await supabase
-        .from("teacher_attendance")
+        .from(table)
         .upsert(
           {
-            teacher_id: teacherId,
+            [idCol]: teacherId,
             attendance_date: today(),
             status: "present",
             check_in_time: nowTime(),
@@ -148,7 +152,7 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
             check_in_method: method,
             geo_verified: true,
           },
-          { onConflict: "teacher_id,attendance_date" }
+          { onConflict: `${idCol},attendance_date` }
         )
         .select()
         .maybeSingle();
@@ -166,7 +170,7 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
           : `Welcome, ${teacherName}. Marked present at ${format(new Date(), "hh:mm a")}.`,
       });
     },
-    [coords, fence, record, expectedCheckIn, teacherId, teacherName, toast, load]
+    [coords, fence, record, expectedCheckIn, teacherId, teacherName, toast, load, table, idCol]
   );
 
   const doCheckOut = useCallback(
@@ -182,7 +186,7 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
           ? distanceMeters(coords.lat, coords.lng, fence.latitude, fence.longitude)
           : null;
       const { data, error } = await supabase
-        .from("teacher_attendance")
+        .from(table)
         .update({
           check_out_time: out,
           check_out_lat: coords?.lat ?? null,
