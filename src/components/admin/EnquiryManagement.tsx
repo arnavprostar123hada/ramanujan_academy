@@ -44,6 +44,7 @@ interface Enquiry {
   id: string;
   name: string;
   class: string;
+  batch: string | null;
   board: string;
   date_of_birth: string | null;
   gender: string;
@@ -203,6 +204,7 @@ export const EnquiryManagement = ({ enquiries, onRefresh }: EnquiryManagementPro
           name: selectedEnquiry.name,
           phone: selectedEnquiry.parent_phone,
           class: selectedEnquiry.class,
+          batch: selectedEnquiry.batch || null,
           parent_name: selectedEnquiry.parent_name,
           email: selectedEnquiry.parent_email,
         } as any)
@@ -325,7 +327,7 @@ export const EnquiryManagement = ({ enquiries, onRefresh }: EnquiryManagementPro
                       <div>
                         <div className="flex items-center gap-2">
                           <h4 className="font-semibold">{enquiry.name}</h4>
-                          <Badge variant="secondary">{enquiry.class}</Badge>
+                          <Badge variant="secondary">Class {enquiry.class}{enquiry.batch ? ` · Batch ${enquiry.batch}` : ""}</Badge>
                           <Badge variant="outline">{enquiry.board}</Badge>
                         </div>
                         <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
