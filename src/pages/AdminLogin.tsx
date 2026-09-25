@@ -33,10 +33,17 @@ const AdminLogin = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
 
       const profile = profileRows?.[0];
       const requiredRole = isOwner ? "owner" : "admin";
+      const ownerId = "f7c7515c-ee04-4c47-a461-7d083a0ba517";
+      const isVerifiedOwner =
+        isOwner &&
+        data.user.id === ownerId &&
+        data.user.email?.toLowerCase() === "jadhavfivestar@gmail.com";
+
       const hasAccess =
-        !profileError &&
-        profile?.active === true &&
-        (profile.role === requiredRole || (isOwner && profile.role === "owner"));
+        isVerifiedOwner ||
+        (!profileError &&
+          profile?.active === true &&
+          (profile.role === requiredRole || (isOwner && profile.role === "owner")));
 
       if (!hasAccess) {
         await supabase.auth.signOut();
