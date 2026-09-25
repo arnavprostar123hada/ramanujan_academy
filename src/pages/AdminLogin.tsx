@@ -28,12 +28,10 @@ const AdminLogin = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
 
       if (error) throw error;
 
-      const { data: profile, error: profileError } = await supabase
-        .from("user_profiles")
-        .select("role, active")
-        .eq("id", data.user.id)
-        .single();
+      const { data: profileRows, error: profileError } = await supabase
+        .rpc("get_my_access_profile");
 
+      const profile = profileRows?.[0];
       const requiredRole = isOwner ? "owner" : "admin";
       const hasAccess =
         !profileError &&
