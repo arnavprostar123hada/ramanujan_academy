@@ -89,6 +89,7 @@ export function AcademicApprovalCenter() {
       if (item.kind === "log") {
         let studentsQuery = supabase.from("students").select("id,parent_id").eq("class", item.class || "");
         studentsQuery = item.batch ? studentsQuery.eq("batch", item.batch) : studentsQuery.is("batch", null);
+        studentsQuery = item.board ? studentsQuery.eq("board", item.board) : studentsQuery.is("board", null);
         const { data: classStudents } = await studentsQuery;
         if (classStudents?.length) {
           await supabase.from("communications").insert(classStudents.map(s => ({
