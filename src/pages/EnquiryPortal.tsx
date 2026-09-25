@@ -27,6 +27,7 @@ const EnquiryPortal = () => {
   const [formData, setFormData] = useState({
     name: "",
     class: "",
+    batch: "",
     board: "",
     date_of_birth: "",
     gender: "",
@@ -87,6 +88,7 @@ const EnquiryPortal = () => {
         .insert({
           name: formData.name.trim(),
           class: formData.class,
+          batch: formData.batch,
           board: formData.board,
           date_of_birth: formData.date_of_birth || null,
           gender: formData.gender,
@@ -222,6 +224,11 @@ const EnquiryPortal = () => {
                         options={CLASSES.map((cls) => ({ value: cls, label: cls }))}
                         required
                       />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="batch">Batch</Label>
+                      <Input id="batch" value={formData.batch} onChange={(e) => setFormData({ ...formData, batch: e.target.value })} placeholder="e.g. Morning A" />
                     </div>
 
                     <div className="space-y-2">
