@@ -23,9 +23,9 @@ function calculateCredits(inputTokens: number, outputTokens: number) {
 }
 
 const MAX_MESSAGES = 8;
-const MAX_MESSAGE_CHARS = 6000;
-const MAX_SOURCE_CHARS = 20000;
-const MAX_TOTAL_INPUT_CHARS = 30000;
+const MAX_MESSAGE_CHARS = 8000;
+const MAX_SOURCE_CHARS = 40000;
+const MAX_TOTAL_INPUT_CHARS = 50000;
 const CACHE_HOURS = 24;
 const TEACHER_MONTHLY_CREDITS = 50;
 
