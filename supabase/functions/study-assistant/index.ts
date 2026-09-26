@@ -22,10 +22,24 @@ function calculateCredits(inputTokens: number, outputTokens: number) {
   return Math.max(0.01, Math.ceil(((inputTokens + outputTokens) / 1000) * 100) / 100);
 }
 
-const MAX_MESSAGES = 6;
-const MAX_MESSAGE_CHARS = 1800;
-const MAX_SOURCE_CHARS = 4500;
+const MAX_MESSAGES = 8;
+const MAX_MESSAGE_CHARS = 6000;
+const MAX_SOURCE_CHARS = 20000;
+const MAX_TOTAL_INPUT_CHARS = 30000;
 const CACHE_HOURS = 24;
+const TEACHER_MONTHLY_CREDITS = 50;
+
+function sanitizeText(value: string) {
+  return value
+    .normalize("NFKC")
+    .replace(/\uFFFD/g, "")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, "")
+    .replace(/[\uE000-\uF8FF]/g, "")
+    .replace(/â€™/g, "’").replace(/â€œ/g, "“").replace(/â€/g, "”")
+    .replace(/â€“/g, "–").replace(/â€”/g, "—").replace(/â€¦/g, "…")
+    .replace(/Â /g, " ").replace(/Â/g, "");
+}
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -50,10 +64,19 @@ async function sha256(value: string) {
 
 function cleanMessages(messages: unknown): Msg[] {
   if (!Array.isArray(messages)) return [];
-  return messages
+  const cleaned = messages
     .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
     .slice(-MAX_MESSAGES)
-    .map((m) => ({ role: m.role, content: m.content.slice(0, MAX_MESSAGE_CHARS) }));
+    .map((m) => ({ role: m.role, content: sanitizeText(m.content.slice(0, MAX_MESSAGE_CHARS)) }));
+  let total = 0;
+  return cleaned.reverse().filter((m) => {
+    if (total >= MAX_TOTAL_INPUT_CHARS) return false;
+    const remaining = MAX_TOTAL_INPUT_CHARS - total;
+    if (m.content.length > remaining) m.content = m.content.slice(0, remaining);
+    total += m.content.length;
+    return true;
+  }).reverse();
+}
 }
 
 function fallback(messages: Msg[], mode: string, sourceText = "", actorRole = "student") {
@@ -138,6 +161,47 @@ async function getAdminClient() {
   }
   if (!url || !key) return null;
   return createClient(url, key, { auth: { persistSession: false } });
+}
+
+async function getTeacherCredits(admin: ReturnType<typeof createClient> | null, teacherId: string) {
+  if (!admin || !teacherId) return null;
+  const now = new Date();
+  const { data } = await admin.from("teacher_ai_credits")
+    .select("teacher_id, credits, monthly_allowance, last_reset")
+    .eq("teacher_id", teacherId)
+    .maybeSingle();
+
+  if (!data) {
+    const { data: created } = await admin.from("teacher_ai_credits")
+      .insert({ teacher_id: teacherId, credits: TEACHER_MONTHLY_CREDITS, monthly_allowance: TEACHER_MONTHLY_CREDITS, last_reset: now.toISOString(), updated_at: now.toISOString() })
+      .select("teacher_id, credits, monthly_allowance, last_reset")
+      .single();
+    return created || null;
+  }
+
+  const lastReset = new Date(data.last_reset);
+  const monthChanged = now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear();
+  if (!monthChanged) return data;
+
+  const { data: reset } = await admin.from("teacher_ai_credits")
+    .update({ credits: data.monthly_allowance || TEACHER_MONTHLY_CREDITS, last_reset: now.toISOString(), updated_at: now.toISOString() })
+    .eq("teacher_id", teacherId)
+    .select("teacher_id, credits, monthly_allowance, last_reset")
+    .single();
+  return reset || data;
+}
+
+async function spendTeacherCredits(admin: ReturnType<typeof createClient> | null, teacherId: string, amount: number) {
+  if (!admin || amount <= 0) return true;
+  const current = await getTeacherCredits(admin, teacherId);
+  if (!current || Number(current.credits) < amount) return false;
+  const { data } = await admin.from("teacher_ai_credits")
+    .update({ credits: Number(current.credits) - amount, updated_at: new Date().toISOString() })
+    .eq("teacher_id", teacherId)
+    .gte("credits", amount)
+    .select("credits")
+    .single();
+  return !!data;
 }
 
 async function readCache(admin: ReturnType<typeof createClient> | null, cacheKey: string) {
@@ -226,14 +290,26 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const mode = typeof body.mode === "string" ? body.mode : "chat";
     const actorRole = body.actorRole === "teacher" ? "teacher" : "student";
+    const teacherId = typeof body.teacherId === "string" ? body.teacherId : "";
     const messages = cleanMessages(body.messages);
-    const sourceText = typeof body.sourceText === "string" ? body.sourceText.slice(0, MAX_SOURCE_CHARS) : "";
+    const rawSource = typeof body.sourceText === "string" ? body.sourceText : "";
+    const sourceText = sanitizeText(rawSource.slice(0, MAX_SOURCE_CHARS));
 
     if (!messages.length && !sourceText) return json({ error: "Please provide a message." }, 400);
+    if (actorRole === "teacher" && !teacherId) return json({ error: "Teacher identity is required." }, 400);
 
-    const normalized = JSON.stringify({ actorRole, mode, messages, sourceText });
+    const normalized = JSON.stringify({ actorRole, teacherId: actorRole === "teacher" ? teacherId : "", mode, messages, sourceText });
     const cacheKey = await sha256(normalized);
     const admin = await getAdminClient();
+
+    const teacherCredits = actorRole === "teacher" ? await getTeacherCredits(admin, teacherId) : null;
+    if (actorRole === "teacher" && mode === "teacher_balance") {
+      return json({ credits: Number(teacherCredits?.credits || 0), monthlyAllowance: Number(teacherCredits?.monthly_allowance || TEACHER_MONTHLY_CREDITS) });
+    }
+    if (actorRole === "teacher" && !teacherCredits) return json({ error: "Teacher credit account is unavailable." }, 503);
+    if (actorRole === "teacher" && Number(teacherCredits?.credits || 0) < 0.01) {
+      return json({ error: "Teacher AI credits exhausted for this month.", credits: 0 }, 402);
+    }
 
     const cached = await readCache(admin, cacheKey);
     if (cached) {
@@ -269,11 +345,23 @@ Deno.serve(async (req) => {
         : sse(content, fallbackUsage);
     }
 
-    await writeCache(admin, cacheKey, mode, result.content);
+    const cleanResult = sanitizeText(result.content);
+    if (actorRole === "teacher" && result.usage.credits > 0) {
+      const spent = await spendTeacherCredits(admin, teacherId, result.usage.credits);
+      if (!spent) {
+        return json({ error: "Not enough Teacher AI credits for this response. Please try a shorter request or wait for next month's allowance." }, 402);
+      }
+    }
+
+    await writeCache(admin, cacheKey, mode, cleanResult);
+
+    const responseUsage = actorRole === "teacher"
+      ? { ...result.usage, credits: result.usage.credits, teacherCreditsRemaining: Math.max(0, Number(teacherCredits?.credits || 0) - result.usage.credits) }
+      : result.usage;
 
     return mode === "quiz" || mode === "mindmap"
-      ? json({ content: result.content, cached: false, usage: result.usage })
-      : sse(result.content, result.usage);
+      ? json({ content: cleanResult, cached: false, usage: responseUsage })
+      : sse(cleanResult, responseUsage);
   } catch (e) {
     console.error("study-assistant error", e);
     return json({ error: "AI service temporarily unavailable." }, 503);
