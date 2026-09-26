@@ -332,6 +332,20 @@ async function streamChat({ messages, mode, sourceText, onDelta, onDone, onUsage
     }
   }
 
+  // Flush any incomplete UTF-8 sequence and process a final SSE line.
+  buf += decoder.decode();
+  if (buf.trim().startsWith("data: ")) {
+    const finalPayload = buf.trim().slice(6).trim();
+    if (finalPayload !== "[DONE]") {
+      try {
+        const p = JSON.parse(finalPayload);
+        const c = p.choices?.[0]?.delta?.content;
+        if (c) onDelta(c);
+        if (p.usage) onUsage?.(p.usage);
+      } catch {}
+    }
+  }
+
   onDone();
 }
 
