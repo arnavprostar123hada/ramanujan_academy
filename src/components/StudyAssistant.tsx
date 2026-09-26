@@ -256,10 +256,25 @@ function extractJson<T>(response: string): T | null {
   }
 }
 
-// ─── Streaming helper ───
-async function streamChat({ messages, mode, sourceText, onDelta, onDone }: {
+// ─── Usage-aware AI helpers ───
+type AIUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  credits: number;
+  cached?: boolean;
+};
+
+function creditsFromTokens(inputTokens: number, outputTokens: number) {
+  // 1 RA Credit = 1,000 total AI tokens.
+  // Keep fractional credits so short answers cost less than long answers.
+  return Math.max(0.01, Math.ceil(((inputTokens + outputTokens) / 1000) * 100) / 100);
+}
+
+async function streamChat({ messages, mode, sourceText, onDelta, onDone, onUsage }: {
   messages: Msg[]; mode: string; sourceText?: string;
   onDelta: (t: string) => void; onDone: () => void;
+  onUsage?: (usage: AIUsage) => void;
 }) {
   const resp = await fetch(CHAT_URL, {
     method: "POST",
@@ -271,29 +286,53 @@ async function streamChat({ messages, mode, sourceText, onDelta, onDone }: {
     if (resp.status === 402) throw new Error("AI credits exhausted.");
     throw new Error("Failed to get AI response");
   }
+
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
   let done = false;
+
   while (!done) {
     const { done: d, value } = await reader.read();
     if (d) break;
     buf += decoder.decode(value, { stream: true });
+
     let ni: number;
     while ((ni = buf.indexOf("\n")) !== -1) {
       let line = buf.slice(0, ni); buf = buf.slice(ni + 1);
       if (line.endsWith("\r")) line = line.slice(0, -1);
       if (line.startsWith(":") || !line.trim() || !line.startsWith("data: ")) continue;
+
       const json = line.slice(6).trim();
       if (json === "[DONE]") { done = true; break; }
-      try { const p = JSON.parse(json); const c = p.choices?.[0]?.delta?.content; if (c) onDelta(c); }
-      catch { buf = line + "\n" + buf; break; }
+
+      try {
+        const p = JSON.parse(json);
+        const c = p.choices?.[0]?.delta?.content;
+        if (c) onDelta(c);
+        if (p.usage) onUsage?.(p.usage);
+      } catch {
+        buf = line + "\n" + buf;
+        break;
+      }
     }
   }
+
   onDone();
 }
 
 // ─── Non-streaming fetch ───
+async function fetchAI(messages: Msg[], mode: string, sourceText?: string): Promise<{ content: string; usage?: AIUsage }> {
+  const resp = await fetch(CHAT_URL, {
+    method: "POST",
+    headers: await getFunctionHeaders(),
+    body: JSON.stringify({ messages, mode, sourceText, actorRole: "student" }),
+  });
+  if (!resp.ok) throw new Error("AI request failed");
+  return resp.json();
+}
+
+
 async function fetchAI(messages: Msg[], mode: string, sourceText?: string) {
   const resp = await fetch(CHAT_URL, {
     method: "POST",
@@ -512,7 +551,6 @@ const AudioSummary = ({ sourceText, studentId, spend }: { sourceText: string; st
 
   const generateSummary = async () => {
     if (!sourceText.trim()) { toast({ title: "Add source material first!", variant: "destructive" }); return; }
-    if (!await spend(1)) { toast({ title: "Not enough RA Points!", variant: "destructive" }); return; }
     setIsGenerating(true);
     setSummary("");
     let text = "";
@@ -521,6 +559,7 @@ const AudioSummary = ({ sourceText, studentId, spend }: { sourceText: string; st
         messages: [{ role: "user", content: `Create a concise audio-friendly summary (no markdown, no special formatting, plain text only) of this material for a student to listen to. Make it engaging and educational:\n\n${sourceText.slice(0, 3000)}` }],
         mode: "chat",
         onDelta: (c) => { text += c; setSummary(text); },
+        onUsage: settleAIUsage,
         onDone: () => setIsGenerating(false),
       });
     } catch { toast({ title: "Failed to generate summary", variant: "destructive" }); setIsGenerating(false); }
@@ -565,6 +604,22 @@ const AudioSummary = ({ sourceText, studentId, spend }: { sourceText: string; st
 const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent }: { studentName: string; studentId: string; studentClass?: string; isOnlineStudent?: boolean }) => {
   const { toast } = useToast();
   const { points, spend, earn } = useRAPoints(studentId, isOnlineStudent);
+  const settleAIUsage = useCallback(async (usage?: AIUsage) => {
+    if (!usage || usage.cached) return true;
+    const inputTokens = Number(usage.inputTokens || 0);
+    const outputTokens = Number(usage.outputTokens || 0);
+    const totalTokens = Number(usage.totalTokens || inputTokens + outputTokens);
+    const credits = Number(usage.credits || creditsFromTokens(inputTokens, outputTokens));
+    if (credits <= 0) return true;
+    const ok = await spend(credits);
+    if (!ok) {
+      toast({ title: "Not enough RA Credits!", description: `${credits.toFixed(2)} credits were needed for this response.`, variant: "destructive" });
+      return false;
+    }
+    return true;
+  }, [spend, toast]);
+
+
   const { leaderboard, refresh: refreshLeaderboard } = useLeaderboard();
   const [activeTab, setActiveTab] = useState("chat");
 
@@ -648,7 +703,6 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
   // ─── Chat with persistence ───
   const sendChat = useCallback(async () => {
     if (!chatInput.trim() || isChatLoading) return;
-    if (!await spend(1)) { toast({ title: "Not enough RA Points! 😅", description: "Earn points by taking quizzes.", variant: "destructive" }); return; }
     const userMsg: Msg = { role: "user", content: chatInput.trim() };
     chatPersistence.setMessages(prev => [...prev, userMsg]);
     chatPersistence.saveMessage(userMsg);
@@ -672,13 +726,12 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
       toast({ title: e instanceof Error ? e.message : "Failed to get AI response", variant: "destructive" });
       setIsChatLoading(false);
     }
-  }, [chatInput, chatPersistence.messages, isChatLoading, toast, spend]);
+  }, [chatInput, chatPersistence.messages, isChatLoading, toast, settleAIUsage]);
 
   // ─── Notebook ───
   const sendNotebook = useCallback(async () => {
     if (!notebookInput.trim() || isNotebookLoading) return;
     if (!notebookSource.trim()) { toast({ title: "Add source material first!", variant: "destructive" }); return; }
-    if (!await spend(1)) { toast({ title: "Not enough RA Points!", variant: "destructive" }); return; }
     const userMsg: Msg = { role: "user", content: notebookInput.trim() };
     notebookPersistence.setMessages(prev => [...prev, userMsg]);
     notebookPersistence.saveMessage(userMsg);
@@ -702,12 +755,11 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
       toast({ title: e instanceof Error ? e.message : "Failed", variant: "destructive" });
       setIsNotebookLoading(false);
     }
-  }, [notebookInput, notebookPersistence.messages, notebookSource, isNotebookLoading, toast, spend]);
+  }, [notebookInput, notebookPersistence.messages, notebookSource, isNotebookLoading, toast, settleAIUsage]);
 
   // ─── Mind Map ───
   const generateMindMap = async () => {
     if (!mindMapSource.trim()) return;
-    if (!await spend(1)) { toast({ title: "Not enough RA Points!", variant: "destructive" }); return; }
     setIsMindMapLoading(true);
     setMindMapData(null);
     let raw = "";
@@ -715,6 +767,8 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
       await streamChat({
         messages: [{ role: "user", content: mindMapSource.trim() }], mode: "mindmap",
         onDelta: (c) => { raw += c; },
+        onUsage: settleAIUsage,
+
         onDone: () => {
           const parsed = extractJson<MindMapNode>(raw);
           if (parsed) setMindMapData(parsed);
@@ -728,11 +782,11 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
   // ─── Quiz ───
   const generateQuiz = async () => {
     if (!quizTopic.trim()) return;
-    if (!await spend(1)) { toast({ title: "Not enough RA Points!", variant: "destructive" }); return; }
     setIsQuizLoading(true);
     setQuiz(null); setQuizAnswers({}); setQuizSubmitted(false);
     try {
       const data = await fetchAI([{ role: "user", content: `Generate a quiz about: ${quizTopic.trim()}` }], "quiz");
+      if (!(await settleAIUsage(data.usage))) return;
       const parsed = extractJson<Quiz>(data.content);
       if (parsed?.questions?.length) setQuiz(parsed);
       else toast({ title: "Failed to generate quiz. Try again.", variant: "destructive" });
@@ -752,7 +806,6 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
   // ─── Notes ───
   const solveNote = async () => {
     if (!noteContent.trim()) return;
-    if (!await spend(1)) { toast({ title: "Not enough RA Points!", variant: "destructive" }); return; }
     setIsNoteSolving(true); setNoteSolution("");
     let sol = "";
     try {
@@ -898,179 +951,3 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
                   placeholder="Start typing..."
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
-                  disabled={isChatLoading}
-                  className="rounded-xl text-sm bg-muted/30 border-border/40 focus-visible:border-primary/50"
-                />
-                <Button type="submit" size="icon" className="rounded-xl shrink-0 h-10 w-10" disabled={isChatLoading || !chatInput.trim()}>
-                  <Send className="w-4 h-4" />
-                </Button>
-              </form>
-            </motion.div>
-          )}
-
-          {/* ─── Notebook (Sources) with Audio Summary ─── */}
-          {activeTab === "notebook" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
-              {!sourceUploaded ? (
-                <div className="space-y-3">
-                  <div className="text-center py-4">
-                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                      <Upload className="w-7 h-7 text-primary/40" />
-                    </div>
-                    <h3 className="font-bold text-sm">Add your sources</h3>
-                    <p className="text-[10px] text-muted-foreground mt-1">PDF, images, text files — we'll extract the content</p>
-                  </div>
-                  <Textarea placeholder="Paste your study material here..." value={notebookSource} onChange={(e) => setNotebookSource(e.target.value)} className="min-h-[100px] text-sm bg-muted/30 border-border/40 rounded-xl" />
-                  <div className="grid grid-cols-2 gap-2">
-                    <FileUploadButton onUpload={handleNotebookFileUpload} loading={isExtractingFile} accept=".txt,.md,.pdf,.csv,.doc,.docx" label={isExtractingFile ? "Extracting..." : "Upload PDF/Text"} />
-                    <label className="cursor-pointer">
-                      <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleNotebookFileUpload(f); e.target.value = ""; }} disabled={isExtractingFile} />
-                      <Button variant="outline" className="w-full rounded-xl pointer-events-none" disabled={isExtractingFile} asChild>
-                        <span><ImageIcon className="w-4 h-4 mr-1.5" /> Upload Image</span>
-                      </Button>
-                    </label>
-                  </div>
-                  {notebookSource.trim() && <Badge variant="secondary" className="text-[10px]"><FileText className="w-3 h-3 mr-1" /> {notebookSource.length} chars loaded</Badge>}
-                  <Button className="w-full rounded-xl" onClick={() => { if (notebookSource.trim()) { setSourceUploaded(true); toast({ title: "✅ Source added!" }); } }} disabled={!notebookSource.trim()}>
-                    <CheckCircle2 className="w-4 h-4 mr-1.5" /> Add Source & Start
-                  </Button>
-                  <Button variant="outline" className="w-full rounded-xl text-muted-foreground" onClick={() => window.open("https://notebooklm.google.com", "_blank")}>
-                    <ExternalLink className="w-4 h-4 mr-1.5" /> Open Google NotebookLM
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Badge variant="secondary" className="gap-1 rounded-lg"><FileText className="w-3 h-3" /> Source loaded ({notebookSource.length} chars)</Badge>
-                    <Button variant="ghost" size="sm" onClick={() => { setSourceUploaded(false); setNotebookSource(""); notebookPersistence.clearMessages(); }} className="h-7 text-xs">
-                      <X className="w-3.5 h-3.5 mr-1" /> Reset
-                    </Button>
-                  </div>
-
-                  {/* Audio Summary */}
-                  <AudioSummary sourceText={notebookSource} studentId={studentId} spend={spend} />
-
-                  <div className="h-[220px] overflow-y-auto rounded-xl p-3 space-y-3 bg-muted/20 border border-border/30">
-                    {notebookPersistence.messages.length === 0 && (
-                      <div className="h-full flex items-center justify-center text-muted-foreground">
-                        <p className="text-xs text-center">Ask questions about your uploaded material</p>
-                      </div>
-                    )}
-                    {notebookPersistence.messages.map((msg, i) => (
-                      <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-sm ${
-                          msg.role === "user" ? "bg-primary text-primary-foreground rounded-br-md" : "bg-card border border-border/50 shadow-sm rounded-bl-md"
-                        }`}>
-                          {msg.role === "assistant" ? (
-                            <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                              <ReactMarkdown>{msg.content}</ReactMarkdown>
-                            </div>
-                          ) : msg.content}
-                        </div>
-                      </motion.div>
-                    ))}
-                    {isNotebookLoading && notebookPersistence.messages[notebookPersistence.messages.length - 1]?.role !== "assistant" && (
-                      <div className="flex justify-start">
-                        <div className="bg-card border px-4 py-2.5 rounded-2xl rounded-bl-md flex items-center gap-1.5">
-                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                          <span className="text-xs text-muted-foreground">Analyzing...</span>
-                        </div>
-                      </div>
-                    )}
-                    <div ref={notebookEndRef} />
-                  </div>
-                  <form onSubmit={(e) => { e.preventDefault(); sendNotebook(); }} className="flex gap-2">
-                    <Input placeholder="Ask about your material..." value={notebookInput} onChange={(e) => setNotebookInput(e.target.value)} disabled={isNotebookLoading} className="rounded-xl text-sm bg-muted/30 border-border/40" />
-                    <Button type="submit" size="icon" className="rounded-xl shrink-0" disabled={isNotebookLoading || !notebookInput.trim()}>
-                      <Send className="w-4 h-4" />
-                    </Button>
-                  </form>
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {/* ─── Quiz ─── */}
-          {activeTab === "quiz" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
-              {!quiz ? (
-                <div className="space-y-3">
-                  <div className="text-center py-4">
-                    <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-3">
-                      <Trophy className="w-7 h-7 text-accent-foreground/60" />
-                    </div>
-                    <h3 className="font-bold text-sm">Quiz Generator</h3>
-                    <p className="text-[10px] text-muted-foreground mt-1">Earn 2 RA points per correct answer</p>
-                  </div>
-                  <Input placeholder="Enter a topic (e.g., Photosynthesis, WW2)" value={quizTopic} onChange={(e) => setQuizTopic(e.target.value)} className="text-sm rounded-xl bg-muted/30 border-border/40" />
-                  <Button onClick={generateQuiz} disabled={isQuizLoading || !quizTopic.trim()} className="w-full rounded-xl">
-                    {isQuizLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</> : <><Brain className="w-4 h-4 mr-2" /> Generate Quiz</>}
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-sm">{quiz.title}</h3>
-                    <Button variant="ghost" size="sm" onClick={() => { setQuiz(null); setQuizAnswers({}); setQuizSubmitted(false); }} className="h-7 text-xs">
-                      <X className="w-3.5 h-3.5 mr-1" /> New
-                    </Button>
-                  </div>
-                  <div className="max-h-[360px] overflow-y-auto space-y-3 pr-1">
-                    {quiz.questions.map((q, qi) => (
-                      <motion.div key={qi} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: qi * 0.08 }} className="p-3 border border-border/40 rounded-xl bg-card">
-                        <p className="text-sm font-medium mb-2">{qi + 1}. {q.question}</p>
-                        <div className="space-y-1.5">
-                          {q.options.map((opt, oi) => {
-                            const isSelected = quizAnswers[qi] === oi;
-                            const isCorrect = quizSubmitted && oi === q.correct;
-                            const isWrong = quizSubmitted && isSelected && oi !== q.correct;
-                            return (
-                              <button
-                                key={oi}
-                                onClick={() => !quizSubmitted && setQuizAnswers({ ...quizAnswers, [qi]: oi })}
-                                className={`w-full text-left px-3 py-2 rounded-lg text-sm border transition-all ${
-                                  isCorrect ? "border-primary bg-primary/10" :
-                                  isWrong ? "border-destructive bg-destructive/10" :
-                                  isSelected ? "border-primary bg-primary/5" :
-                                  "border-border/40 hover:border-primary/40"
-                                } ${quizSubmitted ? "cursor-default" : "cursor-pointer"}`}
-                              >
-                                <span className="flex items-center gap-2">
-                                  {isCorrect && <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />}
-                                  {isWrong && <XCircle className="w-4 h-4 text-destructive shrink-0" />}
-                                  {opt}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                        {quizSubmitted && (
-                          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs text-muted-foreground mt-2 p-2 bg-muted/30 rounded-lg">
-                            💡 {q.explanation}
-                          </motion.p>
-                        )}
-                      </motion.div>
-                    ))}
-                  </div>
-                  {!quizSubmitted ? (
-                    <Button onClick={submitQuiz} className="w-full rounded-xl" disabled={Object.keys(quizAnswers).length < quiz.questions.length}>
-                      <CheckCircle2 className="w-4 h-4 mr-2" /> Submit ({Object.keys(quizAnswers).length}/{quiz.questions.length})
-                    </Button>
-                  ) : (
-                    <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center py-3 bg-primary/5 rounded-xl border border-primary/20">
-                      <p className="font-bold text-lg">🎉 {quiz.questions.filter((q, i) => quizAnswers[i] === q.correct).length}/{quiz.questions.length}</p>
-                      <p className="text-xs text-muted-foreground">+{quiz.questions.filter((q, i) => quizAnswers[i] === q.correct).length * 2} RA Points</p>
-                    </motion.div>
-                  )}
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {/* ─── Interactive Mind Map ─── */}
-          {activeTab === "mindmap" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
-              <Textarea placeholder="Enter a topic or paste your notes to generate a mind map..." value={mindMapSource} onChange={(e) => setMindMapSource(e.target.value)} className="min-h-[60px] text-sm rounded-xl bg-muted/30 border-border/40" />
-              <div className="grid grid-cols-3 gap-2">
-                <FileUploadButton onUpload={handleMindMapFileUpload} loading={isMindMapExtractingFile} accept=".txt,.md,.pdf,.csv" label="PDF" />
-                <label className="cursor-pointer">
