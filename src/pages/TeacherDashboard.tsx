@@ -836,85 +836,64 @@ const TeacherDashboard = () => {
 
       {/* Add Test Dialog */}
       <Dialog open={isAddTestOpen} onOpenChange={setIsAddTestOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg max-h-[85dvh]">
           <DialogHeader>
             <DialogTitle>Create New Test</DialogTitle>
-            <DialogDescription>
-              Announce a test. Parents will be notified automatically.
-            </DialogDescription>
+            <DialogDescription>Submit the test for Admin/Owner approval.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
                 <Label>Test Title *</Label>
-                <Input
-                  value={newTest.title}
-                  onChange={(e) => setNewTest({ ...newTest, title: e.target.value })}
-                  placeholder="e.g., Unit Test 1"
-                />
+                <Input value={newTest.title} onChange={(e) => setNewTest({ ...newTest, title: e.target.value })} placeholder="e.g. Unit Test 1" />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Label>Subject *</Label>
-                <Input
-                  value={newTest.subject}
-                  onChange={(e) => setNewTest({ ...newTest, subject: e.target.value })}
-                  placeholder="e.g., Mathematics"
-                />
+                <Input value={newTest.subject} onChange={(e) => setNewTest({ ...newTest, subject: e.target.value })} placeholder="e.g. Mathematics" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-1">
                 <Label>Class *</Label>
                 <NativeSelect
                   value={newTest.class}
                   onValueChange={(v) => setNewTest({ ...newTest, class: v })}
                   placeholder="Select class"
-                  options={(teacher?.assigned_classes?.length ? teacher.assigned_classes : CLASS_OPTIONS).map((cls) => ({
-                    value: cls,
-                    label: `${cls} Class`,
-                  }))}
+                  options={(teacher?.assigned_classes?.length ? teacher.assigned_classes : CLASS_OPTIONS).map((cls) => ({ value: cls, label: `${cls} Class` }))}
                   required
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Label>Batch *</Label>
-                <Input value={newTest.batch} onChange={(e) => setNewTest({ ...newTest, batch: e.target.value })} placeholder="e.g. Morning A" required />
+                <Input value={newTest.batch} onChange={(e) => setNewTest({ ...newTest, batch: e.target.value })} placeholder="Morning A" required />
               </div>
-              <div className="space-y-2">
-                <Label>Board *</Label><Input value={newTest.board} onChange={(e) => setNewTest({ ...newTest, board: e.target.value })} placeholder="ICSE / CBSE / SSC" required />
+              <div className="space-y-1">
+                <Label>Board *</Label>
+                <Input value={newTest.board} onChange={(e) => setNewTest({ ...newTest, board: e.target.value })} placeholder="ICSE / CBSE / SSC" required />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
                 <Label>Test Date *</Label>
-                <Input
-                  type="date"
-                  value={newTest.test_date}
-                  onChange={(e) => setNewTest({ ...newTest, test_date: e.target.value })}
-                />
+                <Input type="date" value={newTest.test_date} onChange={(e) => setNewTest({ ...newTest, test_date: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label>Maximum Marks</Label>
+                <Input type="number" value={newTest.max_marks} onChange={(e) => setNewTest({ ...newTest, max_marks: e.target.value })} placeholder="100" />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Maximum Marks</Label>
-              <Input
-                type="number"
-                value={newTest.max_marks}
-                onChange={(e) => setNewTest({ ...newTest, max_marks: e.target.value })}
-                placeholder="100"
-              />
-            </div>
-            <div className="space-y-2">
+
+            <div className="space-y-1">
               <Label>Description (Optional)</Label>
-              <Textarea
-                value={newTest.description}
-                onChange={(e) => setNewTest({ ...newTest, description: e.target.value })}
-                placeholder="Additional details about the test..."
-                rows={3}
-              />
+              <Textarea value={newTest.description} onChange={(e) => setNewTest({ ...newTest, description: e.target.value })} placeholder="Additional details..." rows={2} />
             </div>
-            <div className="flex gap-3 pt-4">
-              <Button variant="outline" onClick={() => setIsAddTestOpen(false)} className="flex-1">
-                Cancel
-              </Button>
-              <Button onClick={handleAddTest} className="flex-1 bg-green-600 hover:bg-green-700">
-                Create & Notify Parents
-              </Button>
+
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" onClick={() => setIsAddTestOpen(false)} className="flex-1">Cancel</Button>
+              <Button onClick={handleAddTest} className="flex-1 bg-green-600 hover:bg-green-700">Submit Test</Button>
             </div>
           </div>
         </DialogContent>
