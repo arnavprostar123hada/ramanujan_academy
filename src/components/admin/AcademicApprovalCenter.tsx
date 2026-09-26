@@ -140,7 +140,7 @@ export function AcademicApprovalCenter() {
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {item.kind==="log" && <><div><b>{item.class}{item.batch ? ` · Batch ${item.batch}` : ""}{item.board ? ` · ${item.board}` : ""}} · {item.subject || "Subject"}</b>{item.topic && <div className="text-sm">Topic: {item.topic}</div>}</div><p className="text-sm whitespace-pre-wrap">{item.content}</p>{item.homework && <p className="text-sm"><b>Homework:</b> {item.homework}</p>}</>}
+          {item.kind==="log" && <><div><b>{item.class}{item.batch ? ` · Batch ${item.batch}` : ""}{item.board ? ` · ${item.board}` : ""} · {item.subject || "Subject"}</b>{item.topic && <div className="text-sm">Topic: {item.topic}</div>}</div><p className="text-sm whitespace-pre-wrap">{item.content}</p>{item.homework && <p className="text-sm"><b>Homework:</b> {item.homework}</p>}</>}
           {item.kind==="test" && <><div><b>{item.title}</b><div className="text-sm text-muted-foreground">{item.class}{item.batch ? ` · Batch ${item.batch}` : ""} · {item.subject} · {item.test_date} · Max {item.max_marks}</div></div>{item.content && <p className="text-sm">{item.content}</p>}</>}
           {item.kind==="result" && <><div><b>{item.student_name}</b><div className="text-sm text-muted-foreground">{item.class}{item.batch ? ` · Batch ${item.batch}` : ""} · {item.subject} · {item.title}</div></div><div className="text-2xl font-bold">{item.marks_obtained}/{item.max_marks}</div>{item.remarks && <p className="text-sm">{item.remarks}</p>}</>}
           <Textarea placeholder="Optional admin note" value={reviewNote[item.kind+item.id]||""} onChange={e=>setReviewNote({...reviewNote,[item.kind+item.id]:e.target.value})}/>
