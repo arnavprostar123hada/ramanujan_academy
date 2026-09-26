@@ -1,3 +1,75 @@
+-- Production-safe foundation tables. Some environments had the frontend code
+-- before these tables were present in the database.
+CREATE TABLE IF NOT EXISTS public.online_students (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id uuid REFERENCES public.students(id) ON DELETE SET NULL,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  email text NOT NULL,
+  class text NOT NULL DEFAULT '10th',
+  batch text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(user_id),
+  UNIQUE(email)
+);
+
+ALTER TABLE public.online_students ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view own online student profile" ON public.online_students;
+CREATE POLICY "Users can view own online student profile"
+  ON public.online_students FOR SELECT TO authenticated
+  USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "Users can insert own online student profile" ON public.online_students;
+CREATE POLICY "Users can insert own online student profile"
+  ON public.online_students FOR INSERT TO authenticated
+  WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "Users can update own online student profile" ON public.online_students;
+CREATE POLICY "Users can update own online student profile"
+  ON public.online_students FOR UPDATE TO authenticated
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+DROP POLICY IF EXISTS "Admins can manage online students" ON public.online_students;
+CREATE POLICY "Admins can manage online students"
+  ON public.online_students FOR ALL TO authenticated
+  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'owner'))
+  WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'owner'));
+
+CREATE TABLE IF NOT EXISTS public.student_chat_messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id uuid NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
+  role text NOT NULL CHECK (role IN ('user','assistant')),
+  content text NOT NULL,
+  mode text NOT NULL DEFAULT 'chat',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_student_chat_messages_student_mode_created
+  ON public.student_chat_messages(student_id, mode, created_at);
+ALTER TABLE public.student_chat_messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Students can read own chat messages" ON public.student_chat_messages;
+CREATE POLICY "Students can read own chat messages"
+  ON public.student_chat_messages FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.online_students o
+      WHERE o.student_id = student_chat_messages.student_id
+        AND o.user_id = auth.uid()
+    )
+  );
+DROP POLICY IF EXISTS "Students can insert own chat messages" ON public.student_chat_messages;
+CREATE POLICY "Students can insert own chat messages"
+  ON public.student_chat_messages FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.online_students o
+      WHERE o.student_id = student_chat_messages.student_id
+        AND o.user_id = auth.uid()
+    )
+  );
+DROP POLICY IF EXISTS "Admins can view student chat messages" ON public.student_chat_messages;
+CREATE POLICY "Admins can view student chat messages"
+  ON public.student_chat_messages FOR SELECT TO authenticated
+  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'owner'));
+
 -- Student AI history + atomic RA Points accounting
 ALTER TABLE public.online_students
   ADD COLUMN IF NOT EXISTS student_id uuid REFERENCES public.students(id) ON DELETE SET NULL;
