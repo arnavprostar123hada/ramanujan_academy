@@ -182,6 +182,20 @@ ${sourceText || "No source material supplied."}
   return "You are Ramanujan Academy Student AI. Explain concepts simply, solve school-level questions step by step, use examples, and keep answers focused. Do not overwhelm the student with unnecessary detail.";
 }
 
+async function getAuthenticatedUserId(req: Request) {
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY");
+  const authorization = req.headers.get("Authorization");
+  if (!url || !key || !authorization?.startsWith("Bearer ")) return null;
+  const client = createClient(url, key, {
+    auth: { persistSession: false },
+    global: { headers: { Authorization: authorization } },
+  });
+  const { data, error } = await client.auth.getUser();
+  if (error) return null;
+  return data.user?.id || null;
+}
+
 async function getAdminClient() {
   const url = Deno.env.get("SUPABASE_URL");
   const secretJson = Deno.env.get("SUPABASE_SECRET_KEYS");
@@ -323,6 +337,7 @@ Deno.serve(async (req) => {
     const mode = typeof body.mode === "string" ? body.mode : "chat";
     const actorRole = body.actorRole === "teacher" ? "teacher" : "student";
     const teacherId = typeof body.teacherId === "string" ? body.teacherId : "";
+    const studentId = typeof body.studentId === "string" ? body.studentId : "";
     const messages = cleanMessages(body.messages);
     const rawSource = typeof body.sourceText === "string" ? body.sourceText : "";
     const sourceText = sanitizeText(rawSource.slice(0, MAX_SOURCE_CHARS));
@@ -330,9 +345,10 @@ Deno.serve(async (req) => {
     if (!messages.length && !sourceText) return json({ error: "Please provide a message." }, 400);
     if (actorRole === "teacher" && !teacherId) return json({ error: "Teacher identity is required." }, 400);
 
-    const normalized = JSON.stringify({ actorRole, teacherId: actorRole === "teacher" ? teacherId : "", mode, messages, sourceText });
+    const normalized = JSON.stringify({ actorRole, teacherId: actorRole === "teacher" ? teacherId : "", studentId: actorRole === "student" ? resolvedStudentId : "", mode, messages, sourceText });
     const cacheKey = await sha256(normalized);
     const admin = await getAdminClient();
+    const authenticatedUserId = await getAuthenticatedUserId(req);
 
     const teacherCredits = actorRole === "teacher" ? await getTeacherCredits(admin, teacherId) : null;
     if (actorRole === "teacher" && mode === "teacher_balance") {
@@ -341,6 +357,21 @@ Deno.serve(async (req) => {
     if (actorRole === "teacher" && !teacherCredits) return json({ error: "Teacher credit account is unavailable." }, 503);
     if (actorRole === "teacher" && Number(teacherCredits?.credits || 0) < 0.01) {
       return json({ error: "Teacher AI credits exhausted for this month.", credits: 0 }, 402);
+    }
+
+    let resolvedStudentId = "";
+    if (actorRole === "student") {
+      if (!authenticatedUserId || !studentId || !admin) {
+        return json({ error: "Student identity is required." }, 401);
+      }
+      const { data: onlineStudent } = await admin
+        .from("online_students")
+        .select("student_id")
+        .eq("user_id", authenticatedUserId)
+        .eq("student_id", studentId)
+        .maybeSingle();
+      resolvedStudentId = onlineStudent?.student_id || "";
+      if (!resolvedStudentId) return json({ error: "Student identity is not authorized." }, 403);
     }
 
     const cached = await readCache(admin, cacheKey);
@@ -379,6 +410,30 @@ Deno.serve(async (req) => {
     }
 
     const cleanResult = sanitizeText(result.content);
+
+    if (actorRole === "student" && result.usage.credits > 0) {
+      const { data: chargeRows, error: chargeError } = await admin.rpc("consume_student_ra_points_admin", {
+        p_student_id: resolvedStudentId,
+        p_points: result.usage.credits,
+        p_reason: "ai_response",
+        p_metadata: {
+          mode,
+          input_tokens: result.usage.inputTokens,
+          output_tokens: result.usage.outputTokens,
+          total_tokens: result.usage.totalTokens,
+        },
+      });
+      const charge = Array.isArray(chargeRows) ? chargeRows[0] : chargeRows;
+      if (chargeError || !charge?.ok) {
+        return json({
+          error: "Not enough RA Points for this response.",
+          required: result.usage.credits,
+          balance: Number(charge?.balance || 0),
+        }, 402);
+      }
+      result.usage.credits = Number(charge.charged || result.usage.credits);
+    }
+
     if (actorRole === "teacher" && result.usage.credits > 0) {
       const spent = await spendTeacherCredits(admin, teacherId, result.usage.credits);
       if (!spent) {
