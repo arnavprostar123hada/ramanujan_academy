@@ -124,50 +124,23 @@ async function createAudioSummary(sourceText: string) {
 }
 
 async function spendPoints(studentId: string) {
-  const { data, error } = await supabase
-    .from("ra_points")
-    .select("points, last_reset")
-    .eq("student_id", studentId)
-    .maybeSingle();
-
-  if (error || !data) return false;
-
-  const now = new Date();
-  const lastReset = new Date(data.last_reset);
-  const monthChanged =
-    now.getMonth() !== lastReset.getMonth() ||
-    now.getFullYear() !== lastReset.getFullYear();
-
-  const available = monthChanged ? 20 : Number(data.points);
-  if (available < AUDIO_SUMMARY_COST) return false;
-
-  const { error: updateError } = await supabase
-    .from("ra_points")
-    .update({
-      points: available - AUDIO_SUMMARY_COST,
-      last_reset: monthChanged ? now.toISOString() : data.last_reset,
-      updated_at: now.toISOString(),
-    })
-    .eq("student_id", studentId);
-
-  return !updateError;
+  const { data, error } = await supabase.rpc("consume_student_ra_points", {
+    p_student_id: studentId,
+    p_points: AUDIO_SUMMARY_COST,
+    p_reason: "audio_summary",
+    p_metadata: { voice: "af_heart", tts: "kokoro" },
+  });
+  const row = Array.isArray(data) ? data[0] : data;
+  return !error && !!row?.ok;
 }
 
 async function refundPoints(studentId: string) {
-  const { data } = await supabase
-    .from("ra_points")
-    .select("points")
-    .eq("student_id", studentId)
-    .maybeSingle();
-
-  if (!data) return;
-  await supabase
-    .from("ra_points")
-    .update({
-      points: Number(data.points) + AUDIO_SUMMARY_COST,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("student_id", studentId);
+  await supabase.rpc("refund_student_ra_points", {
+    p_student_id: studentId,
+    p_points: AUDIO_SUMMARY_COST,
+    p_reason: "audio_summary_refund",
+    p_metadata: { voice: "af_heart", tts: "kokoro" },
+  });
 }
 
 const AudioSummary = ({ studentId }: { studentId: string }) => {
@@ -329,7 +302,7 @@ const AudioSummary = ({ studentId }: { studentId: string }) => {
               </div>
 
               <p className="text-[11px] text-muted-foreground text-center">
-                Voice engine: {engine === "kokoro" ? "Kokoro TTS" : "Browser voice fallback"}
+                Voice engine: {engine === "kokoro" ? "Kokoro TTS · American Heart" : "Browser voice fallback"}
               </p>
             </motion.div>
           )}
