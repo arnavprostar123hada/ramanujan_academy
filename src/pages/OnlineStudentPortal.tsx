@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import StudyAssistant from "@/components/StudyAssistant";
 import StudentOnlineTest from "@/components/StudentOnlineTest";
+import AudioSummary from "@/components/AudioSummary";
 
 const CLASSES = ["1st","2nd","3rd","4th","5th","6th","7th","8th","9th","10th","11th","12th"];
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -407,7 +408,7 @@ const OnlineStudentPortal = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="timetable" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4 h-auto p-1">
+          <TabsList className="grid w-full grid-cols-5 h-auto p-1">
             <TabsTrigger value="timetable" className="flex items-center gap-1.5 py-2.5">
               <Clock className="w-4 h-4" />
               <span>Timetable</span>
@@ -419,6 +420,10 @@ const OnlineStudentPortal = () => {
             <TabsTrigger value="tests" className="flex items-center gap-1.5 py-2.5">
               <FileText className="w-4 h-4" />
               <span>Online Test</span>
+            </TabsTrigger>
+            <TabsTrigger value="audio" className="flex items-center gap-1.5 py-2.5">
+              <Sparkles className="w-4 h-4" />
+              <span>Audio Summary</span>
             </TabsTrigger>
             <TabsTrigger value="ai" className="flex items-center gap-1.5 py-2.5">
               <Sparkles className="w-4 h-4" />
@@ -600,6 +605,11 @@ const OnlineStudentPortal = () => {
                 studentClass={student.class}
               />
             )}
+          </TabsContent>
+
+          {/* Audio Summary Tab */}
+          <TabsContent value="audio" className="space-y-4">
+            {student && <AudioSummary studentId={student.id} />}
           </TabsContent>
 
           {/* AI Tab */}
