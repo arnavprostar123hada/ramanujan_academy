@@ -129,13 +129,36 @@ function useChatPersistence(studentId: string, mode: string) {
   return { messages, setMessages, saveMessage, clearMessages, loaded };
 }
 
+async function getFunctionHeaders() {
+  const { data } = await supabase.auth.getSession();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  };
+  if (data.session?.access_token) {
+    headers.Authorization = `Bearer ${data.session.access_token}`;
+  }
+  return headers;
+}
+
+async function getMultipartHeaders() {
+  const { data } = await supabase.auth.getSession();
+  const headers: Record<string, string> = {
+    apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  };
+  if (data.session?.access_token) {
+    headers.Authorization = `Bearer ${data.session.access_token}`;
+  }
+  return headers;
+}
+
 // ─── Extract text from file via edge function ───
 async function extractTextFromFile(file: File): Promise<string> {
   const formData = new FormData();
   formData.append("file", file);
   const resp = await fetch(EXTRACT_URL, {
     method: "POST",
-    headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+    headers: await getMultipartHeaders(),
     body: formData,
   });
   if (!resp.ok) throw new Error("Failed to extract text");
@@ -164,7 +187,7 @@ async function streamChat({ messages, mode, sourceText, onDelta, onDone }: {
 }) {
   const resp = await fetch(CHAT_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+    headers: await getFunctionHeaders(),
     body: JSON.stringify({ messages, mode, sourceText, actorRole: "student" }),
   });
   if (!resp.ok || !resp.body) {
