@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      geofence_locations: {
+        Row: {
+          id: string
+          name: string
+          latitude: number
+          longitude: number
+          radius_meters: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name?: string
+          latitude: number
+          longitude: number
+          radius_meters?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          latitude?: number
+          longitude?: number
+          radius_meters?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       academic_interventions: {
         Row: {
           action_plan: string | null
