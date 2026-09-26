@@ -16,10 +16,11 @@ type AIUsage = {
   cached?: boolean;
 };
 
-function calculateCredits(inputTokens: number, outputTokens: number) {
-  // 1 RA Credit = 1,000 total AI tokens. Fractional credits make longer
-  // answers cost more without penalizing short, useful responses equally.
-  return Math.max(0.01, Math.ceil(((inputTokens + outputTokens) / 1000) * 100) / 100);
+function calculateCredits(inputTokens: number, outputTokens: number, reportedTotalTokens = 0) {
+  // Strict billing: use the provider's reported total when available.
+  // 1 RA Credit = 1,000 total AI tokens, rounded UP to 0.01 credit.
+  const totalTokens = reportedTotalTokens > 0 ? reportedTotalTokens : inputTokens + outputTokens;
+  return Math.max(0.01, Math.ceil((totalTokens / 1000) * 100) / 100);
 }
 
 const MAX_MESSAGES = 8;
@@ -298,7 +299,7 @@ async function callProvider(baseUrl: string, apiKey: string, model: string, syst
       inputTokens,
       outputTokens,
       totalTokens,
-      credits: calculateCredits(inputTokens, outputTokens),
+      credits: calculateCredits(inputTokens, outputTokens, totalTokens),
     } satisfies AIUsage,
   };
 }
@@ -320,7 +321,7 @@ async function callAI(systemPrompt: string, messages: Msg[], wantJson: boolean, 
       const result = await callProvider(provider.url, provider.key, provider.model, systemPrompt, messages, wantJson);
       if (result.content) {
         console.log("AI provider used:", provider.name, provider.model, result.usage);
-        return result;
+        return { ...result, provider: provider.name };
       }
     } catch (error) {
       console.error("AI provider failed", provider.name, provider.model, error);
@@ -397,7 +398,7 @@ Deno.serve(async (req) => {
       return mode === "quiz" || mode === "mindmap" ? json({ content: local, fallback: true }) : sse(local);
     }
 
-    let result: { content: string; usage: AIUsage } | null = null;
+    let result: { content: string; usage: AIUsage; provider?: string } | null = null;
     try {
       result = await callAI(
         buildSystemPrompt(mode, sourceText, actorRole),
@@ -429,6 +430,7 @@ Deno.serve(async (req) => {
           input_tokens: result.usage.inputTokens,
           output_tokens: result.usage.outputTokens,
           total_tokens: result.usage.totalTokens,
+          provider: result.provider || null,
         },
       });
       const charge = Array.isArray(chargeRows) ? chargeRows[0] : chargeRows;
