@@ -85,6 +85,7 @@ import { TeacherSalaryManagement } from "@/components/admin/TeacherSalaryManagem
 import OnlineTestManagement from "@/components/admin/OnlineTestManagement";
 import { AdminStaffManagement } from "@/components/admin/AdminStaffManagement";
 import { GeofenceSettings } from "@/components/admin/GeofenceSettings";
+import { CommunicationCenter } from "@/components/admin/CommunicationCenter";
 import { GeoAttendance } from "@/components/GeoAttendance";
 
 interface ContactSubmission {
