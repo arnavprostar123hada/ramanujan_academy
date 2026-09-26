@@ -161,9 +161,18 @@ function useRAPoints(studentId: string, isOnline = false) {
     return true;
   };
 
-  const earn = async (n: number) => {
+  const earn = async (n: number, reason = "reward") => {
     if (!loaded) return false;
-    return await updateDB(points + n);
+    const { data, error } = await supabase.rpc("award_student_ra_points", {
+      p_student_id: studentId,
+      p_points: n,
+      p_reason: reason,
+      p_metadata: { client: "student_portal" },
+    });
+    const row = Array.isArray(data) ? data[0] : data;
+    if (error || !row?.ok) return false;
+    setPoints(Number(row.balance));
+    return true;
   };
 
   return { points, spend, earn, refresh, loaded };
@@ -845,7 +854,7 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
     if (!quiz) return;
     setQuizSubmitted(true);
     const correct = quiz.questions.filter((q, i) => quizAnswers[i] === q.correct).length;
-    await earn(correct * 2);
+    await earn(correct * 2, "quiz_reward");
     refreshLeaderboard();
     toast({ title: `🎉 Score: ${correct}/${quiz.questions.length}`, description: `+${correct * 2} RA Points!` });
   };
