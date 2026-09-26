@@ -198,6 +198,7 @@ async function callAI(systemPrompt: string, messages: Msg[], wantJson: boolean) 
   const providers = [
     { name: "gemini", key: Deno.env.get("GEMINI_API_KEY"), url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: Deno.env.get("GEMINI_MODEL") || "gemini-3.8-flash" },
     { name: "openrouter", key: Deno.env.get("OPENROUTER_API_KEY"), url: "https://openrouter.ai/api/v1/chat/completions", model: Deno.env.get("OPENROUTER_MODEL") || "google/gemini-3.8-flash" },
+    { name: "groq", key: Deno.env.get("GROQ_API_KEY"), url: "https://api.groq.com/openai/v1/chat/completions", model: Deno.env.get("GROQ_MODEL") || "openai/gpt-oss-120b" },
     { name: "nvidia", key: Deno.env.get("NVIDIA_API_KEY"), url: "https://integrate.api.nvidia.com/v1/chat/completions", model: Deno.env.get("NVIDIA_MODEL") || "qwen/qwen3-next-80b-a3b-instruct" },
     { name: "mistral", key: Deno.env.get("MISTRAL_API_KEY"), url: "https://api.mistral.ai/v1/chat/completions", model: Deno.env.get("MISTRAL_MODEL") || "mistral-small-latest" },
     { name: "huggingface", key: Deno.env.get("HF_TOKEN"), url: "https://router.huggingface.co/v1/chat/completions", model: Deno.env.get("HF_MODEL") || "Qwen/Qwen3.8-Flash-Next:cheapest" },
