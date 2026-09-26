@@ -135,7 +135,7 @@ async function extractTextFromFile(file: File): Promise<string> {
   formData.append("file", file);
   const resp = await fetch(EXTRACT_URL, {
     method: "POST",
-    headers: { Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+    headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
     body: formData,
   });
   if (!resp.ok) throw new Error("Failed to extract text");
@@ -164,8 +164,8 @@ async function streamChat({ messages, mode, sourceText, onDelta, onDone }: {
 }) {
   const resp = await fetch(CHAT_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-    body: JSON.stringify({ messages, mode, sourceText }),
+    headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+    body: JSON.stringify({ messages, mode, sourceText, actorRole: "student" }),
   });
   if (!resp.ok || !resp.body) {
     if (resp.status === 429) throw new Error("Rate limit exceeded. Please wait a moment.");
@@ -199,7 +199,7 @@ async function fetchAI(messages: Msg[], mode: string, sourceText?: string) {
   const resp = await fetch(CHAT_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-    body: JSON.stringify({ messages, mode, sourceText }),
+    body: JSON.stringify({ messages, mode, sourceText, actorRole: "student" }),
   });
   if (!resp.ok) throw new Error("AI request failed");
   return resp.json();
