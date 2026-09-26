@@ -184,6 +184,7 @@ const TeacherDashboard = () => {
     setTeacher(data);
     setIsLoggedIn(true);
     localStorage.setItem("teacher_access_code", accessCode.trim().toUpperCase());
+    localStorage.setItem("ramanujan_teacher_id", data.id);
     fetchData(data.id, data.assigned_classes || []);
   };
 
@@ -238,6 +239,7 @@ const TeacherDashboard = () => {
     setTeacher(null);
     setAccessCode("");
     localStorage.removeItem("teacher_access_code");
+    localStorage.removeItem("ramanujan_teacher_id");
   };
 
   const handleAddLog = async () => {
