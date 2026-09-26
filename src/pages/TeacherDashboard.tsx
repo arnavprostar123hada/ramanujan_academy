@@ -744,7 +744,7 @@ const TeacherDashboard = () => {
 
           {/* Complaints Tab */}
           <TabsContent value="ai" className="space-y-6">
-            <TeacherAIAssistant teacherName={teacher?.name} />
+            <TeacherAIAssistant teacherName={teacher?.name} teacherId={teacher?.id} />
           </TabsContent>
 
           <TabsContent value="complaints" className="space-y-6">
