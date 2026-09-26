@@ -8,6 +8,20 @@ const corsHeaders = {
 
 type Msg = { role: "user" | "assistant"; content: string };
 
+type AIUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  credits: number;
+  cached?: boolean;
+};
+
+function calculateCredits(inputTokens: number, outputTokens: number) {
+  // 1 RA Credit = 1,000 total AI tokens. Fractional credits make longer
+  // answers cost more without penalizing short, useful responses equally.
+  return Math.max(0.01, Math.ceil(((inputTokens + outputTokens) / 1000) * 100) / 100);
+}
+
 const MAX_MESSAGES = 6;
 const MAX_MESSAGE_CHARS = 1800;
 const MAX_SOURCE_CHARS = 4500;
@@ -160,9 +174,24 @@ async function callProvider(baseUrl: string, apiKey: string, model: string, syst
       stream: false,
     }),
   });
+
   if (!response.ok) throw new Error(`provider:${response.status}`);
   const data = await response.json();
-  return data.choices?.[0]?.message?.content?.trim() || "";
+  const content = data.choices?.[0]?.message?.content?.trim() || "";
+  const usage = data.usage || {};
+  const inputTokens = Number(usage.prompt_tokens ?? usage.input_tokens ?? 0);
+  const outputTokens = Number(usage.completion_tokens ?? usage.output_tokens ?? 0);
+  const totalTokens = Number(usage.total_tokens ?? (inputTokens + outputTokens));
+
+  return {
+    content,
+    usage: {
+      inputTokens,
+      outputTokens,
+      totalTokens,
+      credits: calculateCredits(inputTokens, outputTokens),
+    } satisfies AIUsage,
+  };
 }
 
 async function callAI(systemPrompt: string, messages: Msg[], wantJson: boolean) {
@@ -173,19 +202,20 @@ async function callAI(systemPrompt: string, messages: Msg[], wantJson: boolean) 
     { name: "mistral", key: Deno.env.get("MISTRAL_API_KEY"), url: "https://api.mistral.ai/v1/chat/completions", model: Deno.env.get("MISTRAL_MODEL") || "mistral-small-latest" },
     { name: "huggingface", key: Deno.env.get("HF_TOKEN"), url: "https://router.huggingface.co/v1/chat/completions", model: Deno.env.get("HF_MODEL") || "Qwen/Qwen3.8-Flash-Next:cheapest" },
   ];
+
   for (const provider of providers) {
     if (!provider.key) continue;
     try {
-      const content = await callProvider(provider.url, provider.key, provider.model, systemPrompt, messages, wantJson);
-      if (content) {
-        console.log("AI provider used:", provider.name, provider.model);
-        return content;
+      const result = await callProvider(provider.url, provider.key, provider.model, systemPrompt, messages, wantJson);
+      if (result.content) {
+        console.log("AI provider used:", provider.name, provider.model, result.usage);
+        return result;
       }
     } catch (error) {
       console.error("AI provider failed", provider.name, provider.model, error);
     }
   }
-  return "";
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -206,9 +236,10 @@ Deno.serve(async (req) => {
 
     const cached = await readCache(admin, cacheKey);
     if (cached) {
+      const cachedUsage: AIUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0, credits: 0, cached: true };
       return mode === "quiz" || mode === "mindmap"
-        ? json({ content: cached, cached: true })
-        : sse(cached);
+        ? json({ content: cached, cached: true, usage: cachedUsage })
+        : sse(cached, cachedUsage);
     }
 
     // Cheap local responses avoid spending gateway credits on greetings/simple requests.
@@ -218,9 +249,9 @@ Deno.serve(async (req) => {
       return mode === "quiz" || mode === "mindmap" ? json({ content: local, fallback: true }) : sse(local);
     }
 
-    let content = "";
+    let result: { content: string; usage: AIUsage } | null = null;
     try {
-      content = await callAI(
+      result = await callAI(
         buildSystemPrompt(mode, sourceText, actorRole),
         messages,
         mode === "quiz" || mode === "mindmap",
@@ -229,18 +260,19 @@ Deno.serve(async (req) => {
       console.error("All AI providers failed, using fallback", e);
     }
 
-    if (!content) {
-      content = fallback(messages, mode, sourceText, actorRole);
+    if (!result?.content) {
+      const content = fallback(messages, mode, sourceText, actorRole);
+      const fallbackUsage: AIUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0, credits: 0, cached: true };
       return mode === "quiz" || mode === "mindmap"
-        ? json({ content, fallback: true })
-        : sse(content);
+        ? json({ content, fallback: true, usage: fallbackUsage })
+        : sse(content, fallbackUsage);
     }
 
-    await writeCache(admin, cacheKey, mode, content);
+    await writeCache(admin, cacheKey, mode, result.content);
 
     return mode === "quiz" || mode === "mindmap"
-      ? json({ content, cached: false })
-      : sse(content);
+      ? json({ content: result.content, cached: false, usage: result.usage })
+      : sse(result.content, result.usage);
   } catch (e) {
     console.error("study-assistant error", e);
     return json({ error: "AI service temporarily unavailable." }, 503);
