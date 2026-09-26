@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { Loader2, Volume2, VolumeX, Sparkles, Play, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -210,6 +211,7 @@ const AudioSummary = ({ studentId }: { studentId: string }) => {
       const text = await createAudioSummary(sourceText);
       setSummary(text);
 
+      let engineUsed: "kokoro" | "browser" = "browser";
       try {
         const kokoro = await loadKokoro();
         const audio = await kokoro.generate(text, {
@@ -226,6 +228,7 @@ const AudioSummary = ({ studentId }: { studentId: string }) => {
         audioRef.current.src = url;
         audioRef.current.onplay = () => setIsSpeaking(true);
         audioRef.current.onended = () => setIsSpeaking(false);
+        engineUsed = "kokoro";
         setEngine("kokoro");
       } catch (kokoroError) {
         console.warn("Kokoro TTS unavailable; using browser speech fallback.", kokoroError);
@@ -238,7 +241,7 @@ const AudioSummary = ({ studentId }: { studentId: string }) => {
 
       toast({
         title: "Audio Summary ready",
-        description: `5 RA Points used · ${engine === "kokoro" ? "Kokoro" : "voice synthesis"}`,
+        description: `5 RA Points used · ${engineUsed === "kokoro" ? "Kokoro" : "browser voice fallback"}`,
       });
     } catch (error) {
       await refundPoints(studentId);
