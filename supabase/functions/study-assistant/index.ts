@@ -167,17 +167,22 @@ async function callProvider(baseUrl: string, apiKey: string, model: string, syst
 
 async function callAI(systemPrompt: string, messages: Msg[], wantJson: boolean) {
   const providers = [
-    { key: Deno.env.get("NVIDIA_API_KEY"), url: "https://integrate.api.nvidia.com/v1/chat/completions", model: Deno.env.get("NVIDIA_MODEL") || "qwen/qwen3-next-80b-a3b-instruct" },
-    { key: Deno.env.get("MISTRAL_API_KEY"), url: "https://api.mistral.ai/v1/chat/completions", model: Deno.env.get("MISTRAL_MODEL") || "mistral-small-latest" },
-    { key: Deno.env.get("HF_TOKEN"), url: "https://router.huggingface.co/v1/chat/completions", model: Deno.env.get("HF_MODEL") || "Qwen/Qwen3.8-Flash-Next:cheapest" },
+    { name: "gemini", key: Deno.env.get("GEMINI_API_KEY"), url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: Deno.env.get("GEMINI_MODEL") || "gemini-3.8-flash" },
+    { name: "openrouter", key: Deno.env.get("OPENROUTER_API_KEY"), url: "https://openrouter.ai/api/v1/chat/completions", model: Deno.env.get("OPENROUTER_MODEL") || "google/gemini-3.8-flash" },
+    { name: "nvidia", key: Deno.env.get("NVIDIA_API_KEY"), url: "https://integrate.api.nvidia.com/v1/chat/completions", model: Deno.env.get("NVIDIA_MODEL") || "qwen/qwen3-next-80b-a3b-instruct" },
+    { name: "mistral", key: Deno.env.get("MISTRAL_API_KEY"), url: "https://api.mistral.ai/v1/chat/completions", model: Deno.env.get("MISTRAL_MODEL") || "mistral-small-latest" },
+    { name: "huggingface", key: Deno.env.get("HF_TOKEN"), url: "https://router.huggingface.co/v1/chat/completions", model: Deno.env.get("HF_MODEL") || "Qwen/Qwen3.8-Flash-Next:cheapest" },
   ];
   for (const provider of providers) {
     if (!provider.key) continue;
     try {
       const content = await callProvider(provider.url, provider.key, provider.model, systemPrompt, messages, wantJson);
-      if (content) return content;
+      if (content) {
+        console.log("AI provider used:", provider.name, provider.model);
+        return content;
+      }
     } catch (error) {
-      console.error("AI provider failed", provider.model, error);
+      console.error("AI provider failed", provider.name, provider.model, error);
     }
   }
   return "";
