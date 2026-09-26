@@ -15,7 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
-import StudentOnlineTest from "@/components/StudentOnlineTest";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/study-assistant`;
 const EXTRACT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`;
@@ -315,20 +314,6 @@ async function streamChat({ messages, mode, sourceText, onDelta, onDone, onUsage
         buf = line + "\n" + buf;
         break;
       }
-    }
-  }
-
-  // Flush any incomplete UTF-8 sequence and process a final SSE line.
-  buf += decoder.decode();
-  if (buf.trim().startsWith("data: ")) {
-    const finalPayload = buf.trim().slice(6).trim();
-    if (finalPayload !== "[DONE]") {
-      try {
-        const p = JSON.parse(finalPayload);
-        const c = p.choices?.[0]?.delta?.content;
-        if (c) onDelta(c);
-        if (p.usage) onUsage?.(p.usage);
-      } catch {}
     }
   }
 
@@ -776,24 +761,45 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
 
   // ─── Mind Map ───
   const generateMindMap = async () => {
-    if (!mindMapSource.trim()) return;
+    if (!mindMapSource.trim() || isMindMapLoading) return;
+
+    const MIND_MAP_COST = 10;
+    if (!(await spend(MIND_MAP_COST))) {
+      toast({
+        title: "Not enough RA Points",
+        description: "A Mind Map costs 10 RA Points.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsMindMapLoading(true);
     setMindMapData(null);
     let raw = "";
+    let received = false;
+
     try {
       await streamChat({
-        messages: [{ role: "user", content: mindMapSource.trim() }], mode: "mindmap",
-        onDelta: (c) => { raw += c; },
-        onUsage: settleAIUsage,
-
-        onDone: () => {
+        messages: [{ role: "user", content: mindMapSource.trim() }],
+        mode: "mindmap",
+        onDelta: (chunk) => { raw += chunk; },
+        onDone: async () => {
           const parsed = extractJson<MindMapNode>(raw);
-          if (parsed) setMindMapData(parsed);
-          else toast({ title: "Failed to parse mind map. Try again.", variant: "destructive" });
+          if (parsed) {
+            received = true;
+            setMindMapData(parsed);
+          } else {
+            await earn(MIND_MAP_COST);
+            toast({ title: "Failed to parse mind map. Your 10 RA Points were refunded.", variant: "destructive" });
+          }
           setIsMindMapLoading(false);
         },
       });
-    } catch { toast({ title: "Failed to generate mind map", variant: "destructive" }); setIsMindMapLoading(false); }
+    } catch {
+      if (!received) await earn(MIND_MAP_COST);
+      toast({ title: "Failed to generate mind map. Your 10 RA Points were refunded.", variant: "destructive" });
+      setIsMindMapLoading(false);
+    }
   };
 
   // ─── Quiz ───
@@ -858,7 +864,6 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
     { id: "quiz", icon: Brain, label: "Quiz" },
     { id: "mindmap", icon: Network, label: "Mind Map" },
     { id: "notes", icon: StickyNote, label: "Notes" },
-    ...(studentClass ? [{ id: "tests", icon: FileText, label: "Tests" }] : []),
     { id: "leaderboard", icon: Trophy, label: "Ranks" },
   ];
 
