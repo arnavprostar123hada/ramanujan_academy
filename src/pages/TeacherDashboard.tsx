@@ -23,7 +23,8 @@ import {
   X,
   Loader2,
   ScanLine,
-  MapPin
+  MapPin,
+  Sparkles
 
 } from "lucide-react";
 import { format } from "date-fns";
@@ -36,6 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import { QRCodeScanner } from "@/components/QRCodeScanner";
 import { GeoAttendance } from "@/components/GeoAttendance";
+import TeacherAIAssistant from "@/components/TeacherAIAssistant";
 
 
 interface Teacher {
@@ -539,7 +541,7 @@ const TeacherDashboard = () => {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
         <Tabs defaultValue="attendance" className="space-y-6">
-          <TabsList className="grid w-full max-w-3xl grid-cols-4">
+          <TabsList className="grid w-full max-w-4xl grid-cols-5">
             <TabsTrigger value="attendance" className="flex items-center gap-2">
               <MapPin className="w-4 h-4" /> Attendance
             </TabsTrigger>
@@ -548,6 +550,10 @@ const TeacherDashboard = () => {
             </TabsTrigger>
             <TabsTrigger value="tests" className="flex items-center gap-2">
               <ClipboardList className="w-4 h-4" /> Tests
+            </TabsTrigger>
+            <TabsTrigger value="ai" className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">Teacher AI</span>
             </TabsTrigger>
             <TabsTrigger value="complaints" className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4" /> Complaints
@@ -737,6 +743,10 @@ const TeacherDashboard = () => {
           </TabsContent>
 
           {/* Complaints Tab */}
+          <TabsContent value="ai" className="space-y-6">
+            <TeacherAIAssistant teacherName={teacher?.name} />
+          </TabsContent>
+
           <TabsContent value="complaints" className="space-y-6">
             <Card>
               <CardHeader>
