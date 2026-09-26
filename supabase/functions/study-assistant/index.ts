@@ -345,8 +345,6 @@ Deno.serve(async (req) => {
     if (!messages.length && !sourceText) return json({ error: "Please provide a message." }, 400);
     if (actorRole === "teacher" && !teacherId) return json({ error: "Teacher identity is required." }, 400);
 
-    const normalized = JSON.stringify({ actorRole, teacherId: actorRole === "teacher" ? teacherId : "", studentId: actorRole === "student" ? resolvedStudentId : "", mode, messages, sourceText });
-    const cacheKey = await sha256(normalized);
     const admin = await getAdminClient();
     const authenticatedUserId = await getAuthenticatedUserId(req);
 
@@ -373,6 +371,16 @@ Deno.serve(async (req) => {
       resolvedStudentId = onlineStudent?.student_id || "";
       if (!resolvedStudentId) return json({ error: "Student identity is not authorized." }, 403);
     }
+
+    const normalized = JSON.stringify({
+      actorRole,
+      teacherId: actorRole === "teacher" ? teacherId : "",
+      studentId: actorRole === "student" ? resolvedStudentId : "",
+      mode,
+      messages,
+      sourceText,
+    });
+    const cacheKey = await sha256(normalized);
 
     const cached = await readCache(admin, cacheKey);
     if (cached) {
