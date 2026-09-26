@@ -73,6 +73,11 @@ async function callTeacherAI(messages: Message[], teacherId: string, onUsage?: (
 
 export default function TeacherAIAssistant({ teacherName, teacherId }: { teacherName?: string; teacherId?: string }) {
   const { toast } = useToast();
+  const [sessionTeacherId, setSessionTeacherId] = useState<string>("");
+  useEffect(() => {
+    setSessionTeacherId(teacherId || localStorage.getItem("ramanujan_teacher_id") || "");
+  }, [effectiveTeacherId]);
+  const effectiveTeacherId = teacherId || sessionTeacherId;
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -87,14 +92,14 @@ export default function TeacherAIAssistant({ teacherName, teacherId }: { teacher
   const visibleMessages = messages.length ? messages : welcome;
 
   useEffect(() => {
-    if (!teacherId) return;
+    if (!effectiveTeacherId) return;
     let cancelled = false;
     const loadCredits = async () => {
       try {
         const response = await fetch(import.meta.env.VITE_SUPABASE_URL + "/functions/v1/study-assistant", {
           method: "POST",
           headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
-          body: JSON.stringify({ mode: "teacher_balance", actorRole: "teacher", teacherId, messages: [{ role: "user", content: "balance" }] }),
+          body: JSON.stringify({ mode: "teacher_balance", actorRole: "teacher", teacherId: effectiveTeacherId, messages: [{ role: "user", content: "balance" }] }),
         });
         if (!response.ok) return;
         const data = await response.json();
@@ -113,7 +118,7 @@ export default function TeacherAIAssistant({ teacherName, teacherId }: { teacher
     setMessages(next);
     setLoading(true);
     try {
-      const answer = await callTeacherAI(next, teacherId || "", (usage) => {
+      const answer = await callTeacherAI(next, effectiveTeacherId, (usage) => {
         if (typeof usage.teacherCreditsRemaining === "number") setCredits(usage.teacherCreditsRemaining);
       });
       setMessages([...next, { role: "assistant", content: answer }]);
