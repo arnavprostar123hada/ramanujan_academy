@@ -113,6 +113,16 @@ function useRAPoints(studentId: string, isOnline = false) {
     };
   }, [studentId, monthlyAllowance]);
 
+  const refresh = async () => {
+    const { data } = await supabase
+      .from("ra_points")
+      .select("points, last_reset")
+      .eq("student_id", studentId)
+      .maybeSingle();
+    if (data) setPoints(Number(data.points));
+    return data?.points ?? null;
+  };
+
   const updateDB = async (newPoints: number) => {
     const previousPoints = points;
     setPoints(newPoints);
@@ -137,9 +147,18 @@ function useRAPoints(studentId: string, isOnline = false) {
     return true;
   };
 
-  const spend = async (n: number) => {
-    if (!loaded || points < n) return false;
-    return await updateDB(points - n);
+  const spend = async (n: number, reason = "ai_fixed_cost") => {
+    if (!loaded) return false;
+    const { data, error } = await supabase.rpc("consume_student_ra_points", {
+      p_student_id: studentId,
+      p_points: n,
+      p_reason: reason,
+      p_metadata: { client: "student_portal" },
+    });
+    const row = Array.isArray(data) ? data[0] : data;
+    if (error || !row?.ok) return false;
+    setPoints(Number(row.balance));
+    return true;
   };
 
   const earn = async (n: number) => {
@@ -147,7 +166,7 @@ function useRAPoints(studentId: string, isOnline = false) {
     return await updateDB(points + n);
   };
 
-  return { points, spend, earn, loaded };
+  return { points, spend, earn, refresh, loaded };
 }
 
 // ─── Leaderboard (DB-backed) ───
@@ -262,6 +281,7 @@ type AIUsage = {
   totalTokens: number;
   credits: number;
   cached?: boolean;
+  studentPointsRemaining?: number;
 };
 
 function creditsFromTokens(inputTokens: number, outputTokens: number) {
@@ -270,15 +290,15 @@ function creditsFromTokens(inputTokens: number, outputTokens: number) {
   return Math.max(0.01, Math.ceil(((inputTokens + outputTokens) / 1000) * 100) / 100);
 }
 
-async function streamChat({ messages, mode, sourceText, onDelta, onDone, onUsage }: {
-  messages: Msg[]; mode: string; sourceText?: string;
+async function streamChat({ messages, mode, sourceText, studentId, onDelta, onDone, onUsage }: {
+  messages: Msg[]; mode: string; sourceText?: string; studentId?: string;
   onDelta: (t: string) => void; onDone: () => void;
   onUsage?: (usage: AIUsage) => void;
 }) {
   const resp = await fetch(CHAT_URL, {
     method: "POST",
     headers: await getFunctionHeaders(),
-    body: JSON.stringify({ messages, mode, sourceText, actorRole: "student" }),
+    body: JSON.stringify({ messages, mode, sourceText, actorRole: "student", studentId }),
   });
   if (!resp.ok || !resp.body) {
     if (resp.status === 429) throw new Error("Rate limit exceeded. Please wait a moment.");
@@ -605,9 +625,13 @@ const AudioSummary = ({ sourceText, settleAIUsage }: { sourceText: string; settl
 // ─── Main Component ───
 const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent }: { studentName: string; studentId: string; studentClass?: string; isOnlineStudent?: boolean }) => {
   const { toast } = useToast();
-  const { points, spend, earn } = useRAPoints(studentId, isOnlineStudent);
+  const { points, spend, earn, refresh: refreshPoints } = useRAPoints(studentId, isOnlineStudent);
   const settleAIUsage = useCallback(async (usage?: AIUsage) => {
     if (!usage || usage.cached) return true;
+    if (typeof usage.studentPointsRemaining === "number") {
+      await refreshPoints();
+      return true;
+    }
     const inputTokens = Number(usage.inputTokens || 0);
     const outputTokens = Number(usage.outputTokens || 0);
     const totalTokens = Number(usage.totalTokens || inputTokens + outputTokens);
@@ -749,7 +773,7 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
       });
     };
     try {
-      await streamChat({ messages: [...notebookPersistence.messages, userMsg], mode: "notebook", sourceText: notebookSource, onDelta: upsert, onUsage: settleAIUsage, onDone: () => {
+      await streamChat({ messages: [...notebookPersistence.messages, userMsg], mode: "notebook", sourceText: notebookSource, studentId, onDelta: upsert, onUsage: settleAIUsage, onDone: () => {
         setIsNotebookLoading(false);
         notebookPersistence.saveMessage({ role: "assistant", content: assistant });
       }});
@@ -781,7 +805,7 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
     try {
       await streamChat({
         messages: [{ role: "user", content: mindMapSource.trim() }],
-        mode: "mindmap",
+        mode: "mindmap", studentId,
         onDelta: (chunk) => { raw += chunk; },
         onDone: async () => {
           const parsed = extractJson<MindMapNode>(raw);
@@ -833,7 +857,7 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
     let sol = "";
     try {
       await streamChat({
-        messages: [{ role: "user", content: noteContent.trim() }], mode: "solve",
+        messages: [{ role: "user", content: noteContent.trim() }], mode: "solve", studentId,
         onDelta: (c) => { sol += c; setNoteSolution(sol); },
         onUsage: settleAIUsage,
         onDone: () => setIsNoteSolving(false),
