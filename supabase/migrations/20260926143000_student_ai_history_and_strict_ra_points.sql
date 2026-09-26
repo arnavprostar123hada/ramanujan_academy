@@ -31,8 +31,8 @@ CREATE POLICY "Users can update own online student profile"
 DROP POLICY IF EXISTS "Admins can manage online students" ON public.online_students;
 CREATE POLICY "Admins can manage online students"
   ON public.online_students FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'owner'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'owner'));
+  USING (EXISTS (SELECT 1 FROM public.user_profiles up WHERE up.id = auth.uid() AND up.active = true AND up.role IN ('admin','owner')))
+  WITH CHECK (EXISTS (SELECT 1 FROM public.user_profiles up WHERE up.id = auth.uid() AND up.active = true AND up.role IN ('admin','owner')));
 
 CREATE TABLE IF NOT EXISTS public.student_chat_messages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -68,7 +68,7 @@ CREATE POLICY "Students can insert own chat messages"
 DROP POLICY IF EXISTS "Admins can view student chat messages" ON public.student_chat_messages;
 CREATE POLICY "Admins can view student chat messages"
   ON public.student_chat_messages FOR SELECT TO authenticated
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'owner'));
+  USING (EXISTS (SELECT 1 FROM public.user_profiles up WHERE up.id = auth.uid() AND up.active = true AND up.role IN ('admin','owner')));
 
 -- Student AI history + atomic RA Points accounting
 ALTER TABLE public.online_students
@@ -112,7 +112,7 @@ ALTER TABLE public.student_ai_usage ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Admins can view student AI usage" ON public.student_ai_usage;
 CREATE POLICY "Admins can view student AI usage"
   ON public.student_ai_usage FOR SELECT TO authenticated
-  USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'owner'));
+  USING (EXISTS (SELECT 1 FROM public.user_profiles up WHERE up.id = auth.uid() AND up.active = true AND up.role IN ('admin','owner')));
 
 -- Atomic point consumption. Browser never supplies the resulting balance.
 CREATE OR REPLACE FUNCTION public.consume_student_ra_points(
