@@ -433,6 +433,8 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          event_key: string | null
+          requires_approval: boolean
           updated_at: string
         }
         Insert: {
@@ -443,6 +445,8 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          event_key?: string | null
+          requires_approval?: boolean
           updated_at?: string
         }
         Update: {
@@ -453,8 +457,22 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          event_key?: string | null
+          requires_approval?: boolean
           updated_at?: string
         }
+        Relationships: []
+      }
+      communication_automation_rules: {
+        Row: { id: string; name: string; event_key: string; template_id: string | null; audience: string; is_active: boolean; created_at: string }
+        Insert: { id?: string; name: string; event_key: string; template_id?: string | null; audience?: string; is_active?: boolean; created_at?: string }
+        Update: { id?: string; name?: string; event_key?: string; template_id?: string | null; audience?: string; is_active?: boolean; created_at?: string }
+        Relationships: []
+      }
+      communication_queue: {
+        Row: { id: string; event_key: string; channel: string; recipient_type: string; recipient_name: string | null; recipient_phone: string | null; parent_id: string | null; student_id: string | null; lead_id: string | null; template_id: string | null; message: string | null; document_url: string | null; status: string; requires_approval: boolean; approved_by: string | null; approved_at: string | null; sent_at: string | null; provider_message_id: string | null; failure_reason: string | null; created_at: string }
+        Insert: { id?: string; event_key: string; channel?: string; recipient_type?: string; recipient_name?: string | null; recipient_phone?: string | null; parent_id?: string | null; student_id?: string | null; lead_id?: string | null; template_id?: string | null; message?: string | null; document_url?: string | null; status?: string; requires_approval?: boolean; approved_by?: string | null; approved_at?: string | null; sent_at?: string | null; provider_message_id?: string | null; failure_reason?: string | null; created_at?: string }
+        Update: { id?: string; event_key?: string; channel?: string; recipient_type?: string; recipient_name?: string | null; recipient_phone?: string | null; parent_id?: string | null; student_id?: string | null; lead_id?: string | null; template_id?: string | null; message?: string | null; document_url?: string | null; status?: string; requires_approval?: boolean; approved_by?: string | null; approved_at?: string | null; sent_at?: string | null; provider_message_id?: string | null; failure_reason?: string | null; created_at?: string }
         Relationships: []
       }
       communications: {
