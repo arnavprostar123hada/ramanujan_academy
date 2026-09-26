@@ -74,10 +74,10 @@ async function callTeacherAI(messages: Message[], teacherId: string, onUsage?: (
 export default function TeacherAIAssistant({ teacherName, teacherId }: { teacherName?: string; teacherId?: string }) {
   const { toast } = useToast();
   const [sessionTeacherId, setSessionTeacherId] = useState<string>("");
+  const effectiveTeacherId = teacherId || sessionTeacherId;
   useEffect(() => {
     setSessionTeacherId(teacherId || localStorage.getItem("ramanujan_teacher_id") || "");
-  }, [effectiveTeacherId]);
-  const effectiveTeacherId = teacherId || sessionTeacherId;
+  }, [teacherId, sessionTeacherId]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
