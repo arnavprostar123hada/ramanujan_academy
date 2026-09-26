@@ -459,6 +459,7 @@ const TeacherDashboard = () => {
           setTeacher(data);
           setIsLoggedIn(true);
           localStorage.setItem("teacher_access_code", code.toUpperCase());
+          localStorage.setItem("ramanujan_teacher_id", data.id);
           fetchData(data.id, data.assigned_classes || []);
           toast({ title: "Login successful!" });
         } else {
