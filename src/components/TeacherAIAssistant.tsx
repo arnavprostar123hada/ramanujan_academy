@@ -15,7 +15,9 @@ const QUICK_PROMPTS = [
   { label: "Parent Message", icon: MessageSquareText, text: "Write a respectful WhatsApp message to a parent about a student who needs more practice in [subject/topic]. Keep it concise and action-oriented." },
 ];
 
-async function callTeacherAI(messages: Message[]) {
+type TeacherUsage = { credits?: number; teacherCreditsRemaining?: number; cached?: boolean };
+
+async function callTeacherAI(messages: Message[], teacherId: string, onUsage?: (usage: TeacherUsage) => void) {
   const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/study-assistant`;
   const response = await fetch(url, {
     method: "POST",
@@ -23,7 +25,7 @@ async function callTeacherAI(messages: Message[]) {
       "Content-Type": "application/json",
       apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
     },
-    body: JSON.stringify({ messages: messages.slice(-6), mode: "teacher_chat", actorRole: "teacher" }),
+    body: JSON.stringify({ messages: messages.slice(-8), mode: "teacher_chat", actorRole: "teacher", teacherId }),
   });
 
   if (!response.ok) {
@@ -39,7 +41,7 @@ async function callTeacherAI(messages: Message[]) {
   if (response.headers.get("content-type")?.includes("text/event-stream")) {
     const reader = response.body?.getReader();
     if (!reader) throw new Error("No AI response body.");
-    const decoder = new TextDecoder();
+    const decoder = new TextDecoder("utf-8", { fatal: false });
     let buffer = "";
     let result = "";
     while (true) {
@@ -57,6 +59,7 @@ async function callTeacherAI(messages: Message[]) {
         try {
           const parsed = JSON.parse(payload);
           result += parsed.choices?.[0]?.delta?.content || "";
+          if (parsed.usage) onUsage?.(parsed.usage);
         } catch {}
       }
     }
@@ -64,14 +67,17 @@ async function callTeacherAI(messages: Message[]) {
   }
 
   const data = await response.json();
+  if (data?.usage) onUsage?.(data.usage);
   return data?.content || data?.error || "I could not generate a response.";
 }
 
-export default function TeacherAIAssistant({ teacherName }: { teacherName?: string }) {
+export default function TeacherAIAssistant({ teacherName, teacherId }: { teacherName?: string; teacherId?: string }) {
   const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [credits, setCredits] = useState<number | null>(null);
+  const [monthlyCredits, setMonthlyCredits] = useState(50);
 
   const welcome = useMemo(() => [{
     role: "assistant" as const,
@@ -79,6 +85,25 @@ export default function TeacherAIAssistant({ teacherName }: { teacherName?: stri
   }], [teacherName]);
 
   const visibleMessages = messages.length ? messages : welcome;
+
+  useEffect(() => {
+    if (!teacherId) return;
+    let cancelled = false;
+    const loadCredits = async () => {
+      try {
+        const response = await fetch(import.meta.env.VITE_SUPABASE_URL + "/functions/v1/study-assistant", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+          body: JSON.stringify({ mode: "teacher_balance", actorRole: "teacher", teacherId, messages: [{ role: "user", content: "balance" }] }),
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!cancelled) { setCredits(Number(data.credits || 0)); setMonthlyCredits(Number(data.monthlyAllowance || 50)); }
+      } catch {}
+    };
+    loadCredits();
+    return () => { cancelled = true; };
+  }, [teacherId]);
 
   const send = async (text = input) => {
     const value = text.trim();
@@ -88,7 +113,9 @@ export default function TeacherAIAssistant({ teacherName }: { teacherName?: stri
     setMessages(next);
     setLoading(true);
     try {
-      const answer = await callTeacherAI(next);
+      const answer = await callTeacherAI(next, teacherId || "", (usage) => {
+        if (typeof usage.teacherCreditsRemaining === "number") setCredits(usage.teacherCreditsRemaining);
+      });
       setMessages([...next, { role: "assistant", content: answer }]);
     } catch (error) {
       toast({ title: "Teacher AI", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
@@ -103,7 +130,7 @@ export default function TeacherAIAssistant({ teacherName }: { teacherName?: stri
         <CardTitle className="flex items-center gap-2">
           <Bot className="w-5 h-5 text-primary" />
           Teacher AI
-          <Badge variant="secondary" className="ml-auto text-[10px]">Low-cost + cached</Badge>
+          <Badge variant="secondary" className="ml-auto text-[10px]">{credits === null ? "AI Credits" : `${credits.toFixed(2)} / ${monthlyCredits.toFixed(0)} credits`}</Badge>
         </CardTitle>
         <p className="text-xs text-muted-foreground">Plan lessons, generate practice, analyze teaching needs and draft parent communication.</p>
       </CardHeader>
@@ -158,7 +185,7 @@ export default function TeacherAIAssistant({ teacherName }: { teacherName?: stri
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           </Button>
         </div>
-        <p className="text-[10px] text-muted-foreground">Tip: Ctrl/Cmd + Enter to send. Repeated identical requests are cached to reduce AI usage.</p>
+        <p className="text-[10px] text-muted-foreground">Tip: Ctrl/Cmd + Enter to send. Teacher AI gets a monthly credit allowance; repeated identical requests are cached.</p>
       </CardContent>
     </Card>
   );
