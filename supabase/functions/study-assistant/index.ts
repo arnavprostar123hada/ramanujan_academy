@@ -77,7 +77,6 @@ function cleanMessages(messages: unknown): Msg[] {
     return true;
   }).reverse();
 }
-}
 
 function fallback(messages: Msg[], mode: string, sourceText = "", actorRole = "student") {
   const last = messages.filter((m) => m.role === "user").at(-1)?.content?.trim() || "";
