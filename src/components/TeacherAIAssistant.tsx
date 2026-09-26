@@ -77,7 +77,7 @@ export default function TeacherAIAssistant({ teacherName, teacherId }: { teacher
   const effectiveTeacherId = teacherId || sessionTeacherId;
   useEffect(() => {
     setSessionTeacherId(teacherId || localStorage.getItem("ramanujan_teacher_id") || "");
-  }, [teacherId, sessionTeacherId]);
+  }, [teacherId]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -108,7 +108,7 @@ export default function TeacherAIAssistant({ teacherName, teacherId }: { teacher
     };
     loadCredits();
     return () => { cancelled = true; };
-  }, [teacherId]);
+  }, [effectiveTeacherId]);
 
   const send = async (text = input) => {
     const value = text.trim();
