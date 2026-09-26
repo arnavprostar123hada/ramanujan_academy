@@ -198,7 +198,7 @@ async function streamChat({ messages, mode, sourceText, onDelta, onDone }: {
 async function fetchAI(messages: Msg[], mode: string, sourceText?: string) {
   const resp = await fetch(CHAT_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+    headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
     body: JSON.stringify({ messages, mode, sourceText, actorRole: "student" }),
   });
   if (!resp.ok) throw new Error("AI request failed");
