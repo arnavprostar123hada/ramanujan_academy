@@ -187,3 +187,66 @@ $$;
 
 REVOKE ALL ON FUNCTION public.refund_student_ra_points(uuid, numeric, text, jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.refund_student_ra_points(uuid, numeric, text, jsonb) TO authenticated;
+
+
+-- Service-side atomic consumption for authenticated Edge Functions.
+CREATE OR REPLACE FUNCTION public.consume_student_ra_points_admin(
+  p_student_id uuid,
+  p_points numeric,
+  p_reason text DEFAULT 'ai_usage',
+  p_metadata jsonb DEFAULT '{}'::jsonb
+)
+RETURNS TABLE(ok boolean, balance numeric, charged numeric)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  current_points numeric;
+  last_reset_at timestamptz;
+  allowance numeric;
+  online boolean;
+  charged_amount numeric;
+BEGIN
+  IF p_student_id IS NULL OR p_points IS NULL OR p_points <= 0 OR p_points > 100 THEN
+    RETURN QUERY SELECT false, 0::numeric, 0::numeric; RETURN;
+  END IF;
+
+  SELECT EXISTS (SELECT 1 FROM public.online_students o WHERE o.student_id = p_student_id) INTO online;
+  allowance := CASE WHEN online THEN 20 ELSE 100 END;
+
+  SELECT points, last_reset INTO current_points, last_reset_at
+  FROM public.ra_points WHERE student_id = p_student_id FOR UPDATE;
+
+  IF NOT FOUND THEN
+    INSERT INTO public.ra_points(student_id, points, last_reset, updated_at)
+    VALUES (p_student_id, allowance, now(), now())
+    ON CONFLICT (student_id) DO NOTHING;
+    SELECT points, last_reset INTO current_points, last_reset_at
+    FROM public.ra_points WHERE student_id = p_student_id FOR UPDATE;
+  END IF;
+
+  IF date_trunc('month', last_reset_at) < date_trunc('month', now()) THEN
+    current_points := allowance;
+    UPDATE public.ra_points SET points = current_points, last_reset = now(), updated_at = now()
+    WHERE student_id = p_student_id;
+  END IF;
+
+  charged_amount := round(p_points::numeric, 2);
+  IF current_points < charged_amount THEN
+    RETURN QUERY SELECT false, current_points, 0::numeric; RETURN;
+  END IF;
+
+  UPDATE public.ra_points
+  SET points = round(current_points - charged_amount, 2), updated_at = now()
+  WHERE student_id = p_student_id;
+
+  INSERT INTO public.student_ai_usage(student_id, mode, action, credits, metadata)
+  VALUES (p_student_id, 'points', p_reason, charged_amount, p_metadata);
+
+  RETURN QUERY SELECT true, round(current_points - charged_amount, 2), charged_amount;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.consume_student_ra_points_admin(uuid, numeric, text, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.consume_student_ra_points_admin(uuid, numeric, text, jsonb) TO service_role;
