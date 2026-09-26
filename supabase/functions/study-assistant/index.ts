@@ -289,7 +289,7 @@ async function callProvider(baseUrl: string, apiKey: string, model: string, syst
   };
 }
 
-async function callAI(systemPrompt: string, messages: Msg[], wantJson: boolean) {
+async function callAI(systemPrompt: string, messages: Msg[], wantJson: boolean, mode = "") {
   const providers = [
     { name: "gemini", key: Deno.env.get("GEMINI_API_KEY"), url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: Deno.env.get("GEMINI_MODEL") || "gemini-3.8-flash" },
     { name: "openrouter", key: Deno.env.get("OPENROUTER_API_KEY"), url: "https://openrouter.ai/api/v1/chat/completions", model: Deno.env.get("OPENROUTER_MODEL") || "google/gemini-3.8-flash" },
@@ -300,6 +300,7 @@ async function callAI(systemPrompt: string, messages: Msg[], wantJson: boolean) 
   ];
 
   for (const provider of providers) {
+    if (mode === "mindmap" && provider.name !== "gemini") continue;
     if (!provider.key) continue;
     try {
       const result = await callProvider(provider.url, provider.key, provider.model, systemPrompt, messages, wantJson);
@@ -363,6 +364,7 @@ Deno.serve(async (req) => {
         buildSystemPrompt(mode, sourceText, actorRole),
         messages,
         mode === "quiz" || mode === "mindmap",
+        mode,
       );
     } catch (e) {
       console.error("All AI providers failed, using fallback", e);
