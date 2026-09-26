@@ -122,34 +122,13 @@ const OnlineStudentPortal = () => {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Signup failed");
 
-      // Create the main academy Student record first so online learning,
-      // chat history, AI usage and tests all live under the same student.
-      const { data: mainStudent, error: studentError } = await supabase
-        .from("students")
-        .insert({
-          name: name.trim(),
-          email: email.trim(),
-          phone: `ONLINE-${authData.user.id.slice(0, 8)}`,
-          class: selectedClass,
-          student_type: "online",
-        })
-        .select("id")
-        .single();
-
-      if (studentError || !mainStudent) throw studentError || new Error("Student profile creation failed");
-
-      // Create online student login/profile linked to the main Student record.
-      const { data: studentData, error: profileError } = await supabase
-        .from("online_students")
-        .insert({
-          user_id: authData.user.id,
-          student_id: mainStudent.id,
-          name: name.trim(),
-          email: email.trim(),
-          class: selectedClass,
-        })
-        .select()
-        .single();
+      // Secure RPC creates the protected Students-tab record, online profile,
+      // and initial RA Points in one authenticated transaction.
+      const { error: profileError } = await supabase.rpc("create_online_student_profile", {
+        p_name: name.trim(),
+        p_email: email.trim(),
+        p_class: selectedClass,
+      });
 
       if (profileError) throw profileError;
 
