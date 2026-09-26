@@ -29,16 +29,48 @@ const MAX_TOTAL_INPUT_CHARS = 50000;
 const CACHE_HOURS = 24;
 const TEACHER_MONTHLY_CREDITS = 50;
 
+function repairMojibake(value: string) {
+  // Repair UTF-8 text that was accidentally decoded as Windows-1252/Latin-1.
+  // This covers common corruption such as Marathi/Hindi "à¤...", accents "Ã...",
+  // smart punctuation "â€™", and emoji "ðŸ...".
+  if (!/[ÃÂâðà]/.test(value)) return value;
+
+  const cp1252: Record<number, number> = {
+    0x20ac: 0x80, 0x201a: 0x82, 0x192: 0x83, 0x201e: 0x84,
+    0x2026: 0x85, 0x2020: 0x86, 0x2021: 0x87, 0x2c6: 0x88,
+    0x2030: 0x89, 0x160: 0x8a, 0x2039: 0x8b, 0x152: 0x8c,
+    0x17d: 0x8e, 0x2018: 0x91, 0x2019: 0x92, 0x201c: 0x93,
+    0x201d: 0x94, 0x2022: 0x95, 0x2013: 0x96, 0x2014: 0x97,
+    0x2dc: 0x98, 0x2122: 0x99, 0x161: 0x9a, 0x203a: 0x9b,
+    0x153: 0x9c, 0x17e: 0x9e, 0x178: 0x9f,
+  };
+
+  const bytes: number[] = [];
+  for (const ch of value) {
+    const code = ch.charCodeAt(0);
+    if (code <= 0xff) bytes.push(code);
+    else if (cp1252[code] !== undefined) bytes.push(cp1252[code]);
+    else return value;
+  }
+
+  try {
+    const repaired = new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array(bytes));
+    return repaired.includes("\uFFFD") ? value : repaired;
+  } catch {
+    return value;
+  }
+}
+
 function sanitizeText(value: string) {
-  return value
+  const normalized = value
     .normalize("NFKC")
     .replace(/\uFFFD/g, "")
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
     .replace(/[\u200B-\u200D\u2060\uFEFF]/g, "")
-    .replace(/[\uE000-\uF8FF]/g, "")
-    .replace(/â€™/g, "’").replace(/â€œ/g, "“").replace(/â€/g, "”")
-    .replace(/â€“/g, "–").replace(/â€”/g, "—").replace(/â€¦/g, "…")
-    .replace(/Â /g, " ").replace(/Â/g, "");
+    .replace(/[\uE000-\uF8FF]/g, "");
+
+  return repairMojibake(normalized)
+    .replace(/\uFFFD/g, "");
 }
 
 function json(data: unknown, status = 200) {
