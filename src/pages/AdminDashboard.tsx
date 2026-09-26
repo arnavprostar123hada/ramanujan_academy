@@ -87,6 +87,7 @@ import { AdminStaffManagement } from "@/components/admin/AdminStaffManagement";
 import { GeofenceSettings } from "@/components/admin/GeofenceSettings";
 import { CommunicationCenter } from "@/components/admin/CommunicationCenter";
 import { GeoAttendance } from "@/components/GeoAttendance";
+import StudentAIHistory from "@/components/admin/StudentAIHistory";
 
 interface ContactSubmission {
   id: string;
@@ -275,6 +276,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [studentConcerns, setStudentConcerns] = useState<StudentConcern[]>([]);
   const [isAccessCodeDialogOpen, setIsAccessCodeDialogOpen] = useState(false);
+  const [isStudentAIHistoryOpen, setIsStudentAIHistoryOpen] = useState(false);
   const [parentMessages, setParentMessages] = useState<ParentMessage[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [classLogs, setClassLogs] = useState<ClassLog[]>([]);
@@ -1914,6 +1916,17 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                             </div>
 
                             <div className="flex flex-wrap gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="View AI Chat & Usage"
+                                onClick={() => {
+                                  setSelectedStudent(student);
+                                  setIsStudentAIHistoryOpen(true);
+                                }}
+                              >
+                                <History className="w-4 h-4" />
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -3837,6 +3850,22 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                 </Button>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Student AI History Dialog */}
+        <Dialog open={isStudentAIHistoryOpen} onOpenChange={setIsStudentAIHistoryOpen}>
+          <DialogContent className="max-w-3xl max-h-[90dvh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <History className="w-5 h-5 text-primary" />
+                AI History — {selectedStudent?.name}
+              </DialogTitle>
+              <DialogDescription>
+                Saved AI chats, token usage and RA Point charges for this student.
+              </DialogDescription>
+            </DialogHeader>
+            {selectedStudent && <StudentAIHistory studentId={selectedStudent.id} />}
           </DialogContent>
         </Dialog>
 
