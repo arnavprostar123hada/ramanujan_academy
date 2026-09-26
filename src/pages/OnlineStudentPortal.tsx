@@ -34,6 +34,7 @@ const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sun
 
 interface OnlineStudent {
   id: string;
+  student_id: string;
   user_id: string;
   name: string;
   email: string;
@@ -121,11 +122,28 @@ const OnlineStudentPortal = () => {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Signup failed");
 
-      // Create online student profile
+      // Create the main academy Student record first so online learning,
+      // chat history, AI usage and tests all live under the same student.
+      const { data: mainStudent, error: studentError } = await supabase
+        .from("students")
+        .insert({
+          name: name.trim(),
+          email: email.trim(),
+          phone: `ONLINE-${authData.user.id.slice(0, 8)}`,
+          class: selectedClass,
+          student_type: "online",
+        })
+        .select("id")
+        .single();
+
+      if (studentError || !mainStudent) throw studentError || new Error("Student profile creation failed");
+
+      // Create online student login/profile linked to the main Student record.
       const { data: studentData, error: profileError } = await supabase
         .from("online_students")
         .insert({
           user_id: authData.user.id,
+          student_id: mainStudent.id,
           name: name.trim(),
           email: email.trim(),
           class: selectedClass,
@@ -601,7 +619,7 @@ const OnlineStudentPortal = () => {
           <TabsContent value="tests" className="space-y-4">
             {student && (
               <StudentOnlineTest
-                studentId={student.id}
+                studentId={student.student_id}
                 studentClass={student.class}
               />
             )}
