@@ -170,7 +170,7 @@ async function callProvider(baseUrl: string, apiKey: string, model: string, syst
       model,
       messages: [{ role: "system", content: systemPrompt }, ...messages],
       temperature: 0.2,
-      max_tokens: wantJson ? 1100 : 700,
+      max_tokens: wantJson ? 1400 : 1800,
       stream: false,
     }),
   });
