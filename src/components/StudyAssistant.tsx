@@ -332,17 +332,6 @@ async function fetchAI(messages: Msg[], mode: string, sourceText?: string): Prom
   return resp.json();
 }
 
-
-async function fetchAI(messages: Msg[], mode: string, sourceText?: string) {
-  const resp = await fetch(CHAT_URL, {
-    method: "POST",
-    headers: await getFunctionHeaders(),
-    body: JSON.stringify({ messages, mode, sourceText, actorRole: "student" }),
-  });
-  if (!resp.ok) throw new Error("AI request failed");
-  return resp.json();
-}
-
 // ─── Interactive Mind Map with pan/zoom ───
 const BRANCH_COLORS = [
   "hsl(var(--primary))",
@@ -542,7 +531,7 @@ const FileUploadButton = ({ onUpload, loading, accept, label }: { onUpload: (f: 
 );
 
 // ─── Audio Summary Component ───
-const AudioSummary = ({ sourceText, studentId, spend }: { sourceText: string; studentId: string; spend: (n: number) => Promise<boolean> }) => {
+const AudioSummary = ({ sourceText, settleAIUsage }: { sourceText: string; settleAIUsage: (usage?: AIUsage) => Promise<boolean> }) => {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [summary, setSummary] = useState("");
@@ -718,7 +707,7 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
       });
     };
     try {
-      await streamChat({ messages: [...chatPersistence.messages, userMsg], mode: "chat", onDelta: upsert, onDone: () => {
+      await streamChat({ messages: [...chatPersistence.messages, userMsg], mode: "chat", onDelta: upsert, onUsage: settleAIUsage, onDone: () => {
         setIsChatLoading(false);
         chatPersistence.saveMessage({ role: "assistant", content: assistant });
       }});
@@ -747,7 +736,7 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
       });
     };
     try {
-      await streamChat({ messages: [...notebookPersistence.messages, userMsg], mode: "notebook", sourceText: notebookSource, onDelta: upsert, onDone: () => {
+      await streamChat({ messages: [...notebookPersistence.messages, userMsg], mode: "notebook", sourceText: notebookSource, onDelta: upsert, onUsage: settleAIUsage, onDone: () => {
         setIsNotebookLoading(false);
         notebookPersistence.saveMessage({ role: "assistant", content: assistant });
       }});
@@ -812,6 +801,7 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
       await streamChat({
         messages: [{ role: "user", content: noteContent.trim() }], mode: "solve",
         onDelta: (c) => { sol += c; setNoteSolution(sol); },
+        onUsage: settleAIUsage,
         onDone: () => setIsNoteSolving(false),
       });
     } catch { toast({ title: "Failed to solve", variant: "destructive" }); setIsNoteSolving(false); }
@@ -876,7 +866,7 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
                 className="flex items-center gap-1 bg-accent/15 px-2.5 py-1.5 rounded-lg"
               >
                 <Star className="w-3.5 h-3.5 text-primary fill-primary" />
-                <span className="font-bold text-xs">{points}</span>
+                <span className="font-bold text-xs">{Number(points).toFixed(2)}</span>
               </motion.div>
             </div>
           </div>
