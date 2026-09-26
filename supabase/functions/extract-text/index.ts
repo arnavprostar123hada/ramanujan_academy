@@ -1,96 +1,47 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { extractText, getDocumentProxy } from "npm:unpdf@1.8.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
-  try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+export default {
+  fetch: async (req: Request) => {
+    if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+    if (req.method !== "POST") return json({ error: "POST only" }, 405);
 
-    const formData = await req.formData();
-    const file = formData.get("file") as File | null;
-    if (!file) {
-      return new Response(JSON.stringify({ error: "No file provided" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    try {
+      const form = await req.formData();
+      const file = form.get("file");
+      if (!(file instanceof File)) return json({ error: "No file supplied." }, 400);
 
-    const fileName = file.name.toLowerCase();
-    const fileType = file.type;
+      const name = file.name.toLowerCase();
+      if (file.size > 10 * 1024 * 1024) return json({ error: "File is too large. Maximum 10 MB." }, 413);
 
-    // For text files, just read directly
-    if (fileType.startsWith("text/") || fileName.endsWith(".txt") || fileName.endsWith(".md") || fileName.endsWith(".csv")) {
-      const text = await file.text();
-      return new Response(JSON.stringify({ text, type: "text" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // For PDFs and images, use Gemini vision to extract text
-    if (fileType === "application/pdf" || fileType.startsWith("image/")) {
-      const arrayBuffer = await file.arrayBuffer();
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-      
-      const mimeType = fileType === "application/pdf" ? "application/pdf" : fileType;
-      
-      const prompt = fileType === "application/pdf"
-        ? "Extract ALL text content from this PDF document. Preserve the structure, headings, paragraphs, lists, and tables as much as possible. Return only the extracted text content, no commentary."
-        : "Extract ALL text content visible in this image. If it's a diagram, describe the structure and labels. If it's handwritten, transcribe it. If it contains formulas, write them out. Return the extracted content.";
-
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: prompt },
-                {
-                  type: "image_url",
-                  image_url: { url: `data:${mimeType};base64,${base64}` },
-                },
-              ],
-            },
-          ],
-        }),
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error("AI extraction error:", response.status, errText);
-        return new Response(JSON.stringify({ error: "Failed to extract text from file" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      if (name.endsWith(".txt") || name.endsWith(".md") || name.endsWith(".csv")) {
+        const text = (await file.text()).slice(0, 20000);
+        return json({ text });
       }
 
-      const data = await response.json();
-      const text = data.choices?.[0]?.message?.content || "";
-      return new Response(JSON.stringify({ text, type: fileType.startsWith("image/") ? "image" : "pdf" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+      if (name.endsWith(".pdf") || file.type === "application/pdf") {
+        const buffer = new Uint8Array(await file.arrayBuffer());
+        const pdf = await getDocumentProxy(buffer);
+        if (pdf.numPages > 40) return json({ error: "PDF is too long. Maximum 40 pages." }, 413);
+        const result = await extractText(pdf, { mergePages: true });
+        return json({ text: String(result.text || "").slice(0, 20000), totalPages: result.totalPages });
+      }
 
-    return new Response(JSON.stringify({ error: `Unsupported file type: ${fileType}` }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (e) {
-    console.error("extract-text error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-});
+      return json({ error: "This upload type is not supported yet. Use PDF, TXT, MD or CSV." }, 415);
+    } catch (e) {
+      console.error("extract-text error", e);
+      return json({ error: "Could not extract text from this file." }, 500);
+    }
+  },
+};
