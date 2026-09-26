@@ -240,7 +240,7 @@ const TeacherDashboard = () => {
 
   const handleAddLog = async () => {
     if (!selectedClass || !selectedBatch.trim() || !selectedBoard.trim() || !logContent.trim() || !teacher) {
-      toast({ title: "Error", description: "Please select a class and batch, then enter content", variant: "destructive" });
+      toast({ title: "Error", description: "Please select Class, Batch and Board, then enter what you taught.", variant: "destructive" });
       return;
     }
 
@@ -266,6 +266,9 @@ const TeacherDashboard = () => {
     setLogSubject("");
     setLogTopic("");
     setLogHomework("");
+    setSelectedClass("");
+    setSelectedBatch("");
+    setSelectedBoard("");
     fetchData(teacher.id, teacher.assigned_classes || []);
   };
 
@@ -576,7 +579,7 @@ const TeacherDashboard = () => {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Select Class</Label>
+                    <Label>Select Class *</Label>
                     <NativeSelect
                       value={selectedClass}
                       onValueChange={setSelectedClass}
@@ -588,7 +591,28 @@ const TeacherDashboard = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Board</Label><Input value={selectedBoard} onChange={(e) => setSelectedBoard(e.target.value)} placeholder="ICSE / CBSE / SSC" />
+                    <Label>Batch *</Label>
+                    <Input
+                      value={selectedBatch}
+                      onChange={(e) => setSelectedBatch(e.target.value)}
+                      placeholder="e.g. Morning A"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Board *</Label>
+                    <NativeSelect
+                      value={selectedBoard}
+                      onValueChange={setSelectedBoard}
+                      placeholder="Select board"
+                      options={[
+                        { value: "CBSE", label: "CBSE" },
+                        { value: "ICSE", label: "ICSE" },
+                        { value: "SSC", label: "SSC" },
+                        { value: "Other", label: "Other" },
+                      ]}
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label>Subject</Label>
                     <Input placeholder="e.g. Mathematics" value={logSubject} onChange={(e) => setLogSubject(e.target.value)} />
                   </div>
@@ -674,7 +698,7 @@ const TeacherDashboard = () => {
                               <div className="flex items-center gap-2 mb-2">
                                 <h3 className="font-semibold">{test.title}</h3>
                                 <Badge variant="secondary">{test.subject}</Badge>
-                                <Badge variant="outline">Class {test.class}{test.batch ? ` · Batch ${test.batch}` : ""}{test.board ? ` · ${test.board}` : ""}{test.batch ? ` · Batch ${test.batch}` : ""}</Badge>
+                                <Badge variant="outline">Class {test.class}{test.batch ? ` · Batch ${test.batch}` : ""}{test.board ? ` · ${test.board}` : ""}</Badge>
                               </div>
                               <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                                 <span className="flex items-center gap-1">
