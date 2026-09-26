@@ -1007,3 +1007,335 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
                   placeholder="Start typing..."
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
+                  disabled={isChatLoading}
+                  className="rounded-xl text-sm bg-muted/30 border-border/40 focus-visible:border-primary/50"
+                />
+                <Button type="submit" size="icon" className="rounded-xl shrink-0 h-10 w-10" disabled={isChatLoading || !chatInput.trim()}>
+                  <Send className="w-4 h-4" />
+                </Button>
+              </form>
+            </motion.div>
+          )}
+
+          {/* ─── Notebook (Sources) with Audio Summary ─── */}
+          {activeTab === "notebook" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
+              {!sourceUploaded ? (
+                <div className="space-y-3">
+                  <div className="text-center py-4">
+                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                      <Upload className="w-7 h-7 text-primary/40" />
+                    </div>
+                    <h3 className="font-bold text-sm">Add your sources</h3>
+                    <p className="text-[10px] text-muted-foreground mt-1">PDF, images, text files — we'll extract the content</p>
+                  </div>
+                  <Textarea placeholder="Paste your study material here..." value={notebookSource} onChange={(e) => setNotebookSource(e.target.value)} className="min-h-[100px] text-sm bg-muted/30 border-border/40 rounded-xl" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <FileUploadButton onUpload={handleNotebookFileUpload} loading={isExtractingFile} accept=".txt,.md,.pdf,.csv,.doc,.docx" label={isExtractingFile ? "Extracting..." : "Upload PDF/Text"} />
+                    <label className="cursor-pointer">
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleNotebookFileUpload(f); e.target.value = ""; }} disabled={isExtractingFile} />
+                      <Button variant="outline" className="w-full rounded-xl pointer-events-none" disabled={isExtractingFile} asChild>
+                        <span><ImageIcon className="w-4 h-4 mr-1.5" /> Upload Image</span>
+                      </Button>
+                    </label>
+                  </div>
+                  {notebookSource.trim() && <Badge variant="secondary" className="text-[10px]"><FileText className="w-3 h-3 mr-1" /> {notebookSource.length} chars loaded</Badge>}
+                  <Button className="w-full rounded-xl" onClick={() => { if (notebookSource.trim()) { setSourceUploaded(true); toast({ title: "✅ Source added!" }); } }} disabled={!notebookSource.trim()}>
+                    <CheckCircle2 className="w-4 h-4 mr-1.5" /> Add Source & Start
+                  </Button>
+                  <Button variant="outline" className="w-full rounded-xl text-muted-foreground" onClick={() => window.open("https://notebooklm.google.com", "_blank")}>
+                    <ExternalLink className="w-4 h-4 mr-1.5" /> Open Google NotebookLM
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Badge variant="secondary" className="gap-1 rounded-lg"><FileText className="w-3 h-3" /> Source loaded ({notebookSource.length} chars)</Badge>
+                    <Button variant="ghost" size="sm" onClick={() => { setSourceUploaded(false); setNotebookSource(""); notebookPersistence.clearMessages(); }} className="h-7 text-xs">
+                      <X className="w-3.5 h-3.5 mr-1" /> Reset
+                    </Button>
+                  </div>
+
+                  {/* Audio Summary */}
+                  <AudioSummary sourceText={notebookSource} studentId={studentId} spend={spend} />
+
+                  <div className="h-[220px] overflow-y-auto rounded-xl p-3 space-y-3 bg-muted/20 border border-border/30">
+                    {notebookPersistence.messages.length === 0 && (
+                      <div className="h-full flex items-center justify-center text-muted-foreground">
+                        <p className="text-xs text-center">Ask questions about your uploaded material</p>
+                      </div>
+                    )}
+                    {notebookPersistence.messages.map((msg, i) => (
+                      <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl text-sm ${
+                          msg.role === "user" ? "bg-primary text-primary-foreground rounded-br-md" : "bg-card border border-border/50 shadow-sm rounded-bl-md"
+                        }`}>
+                          {msg.role === "assistant" ? (
+                            <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                              <ReactMarkdown>{msg.content}</ReactMarkdown>
+                            </div>
+                          ) : msg.content}
+                        </div>
+                      </motion.div>
+                    ))}
+                    {isNotebookLoading && notebookPersistence.messages[notebookPersistence.messages.length - 1]?.role !== "assistant" && (
+                      <div className="flex justify-start">
+                        <div className="bg-card border px-4 py-2.5 rounded-2xl rounded-bl-md flex items-center gap-1.5">
+                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                          <span className="text-xs text-muted-foreground">Analyzing...</span>
+                        </div>
+                      </div>
+                    )}
+                    <div ref={notebookEndRef} />
+                  </div>
+                  <form onSubmit={(e) => { e.preventDefault(); sendNotebook(); }} className="flex gap-2">
+                    <Input placeholder="Ask about your material..." value={notebookInput} onChange={(e) => setNotebookInput(e.target.value)} disabled={isNotebookLoading} className="rounded-xl text-sm bg-muted/30 border-border/40" />
+                    <Button type="submit" size="icon" className="rounded-xl shrink-0" disabled={isNotebookLoading || !notebookInput.trim()}>
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  </form>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ─── Quiz ─── */}
+          {activeTab === "quiz" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
+              {!quiz ? (
+                <div className="space-y-3">
+                  <div className="text-center py-4">
+                    <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-3">
+                      <Trophy className="w-7 h-7 text-accent-foreground/60" />
+                    </div>
+                    <h3 className="font-bold text-sm">Quiz Generator</h3>
+                    <p className="text-[10px] text-muted-foreground mt-1">Earn 2 RA points per correct answer</p>
+                  </div>
+                  <Input placeholder="Enter a topic (e.g., Photosynthesis, WW2)" value={quizTopic} onChange={(e) => setQuizTopic(e.target.value)} className="text-sm rounded-xl bg-muted/30 border-border/40" />
+                  <Button onClick={generateQuiz} disabled={isQuizLoading || !quizTopic.trim()} className="w-full rounded-xl">
+                    {isQuizLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</> : <><Brain className="w-4 h-4 mr-2" /> Generate Quiz</>}
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-sm">{quiz.title}</h3>
+                    <Button variant="ghost" size="sm" onClick={() => { setQuiz(null); setQuizAnswers({}); setQuizSubmitted(false); }} className="h-7 text-xs">
+                      <X className="w-3.5 h-3.5 mr-1" /> New
+                    </Button>
+                  </div>
+                  <div className="max-h-[360px] overflow-y-auto space-y-3 pr-1">
+                    {quiz.questions.map((q, qi) => (
+                      <motion.div key={qi} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: qi * 0.08 }} className="p-3 border border-border/40 rounded-xl bg-card">
+                        <p className="text-sm font-medium mb-2">{qi + 1}. {q.question}</p>
+                        <div className="space-y-1.5">
+                          {q.options.map((opt, oi) => {
+                            const isSelected = quizAnswers[qi] === oi;
+                            const isCorrect = quizSubmitted && oi === q.correct;
+                            const isWrong = quizSubmitted && isSelected && oi !== q.correct;
+                            return (
+                              <button
+                                key={oi}
+                                onClick={() => !quizSubmitted && setQuizAnswers({ ...quizAnswers, [qi]: oi })}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-sm border transition-all ${
+                                  isCorrect ? "border-primary bg-primary/10" :
+                                  isWrong ? "border-destructive bg-destructive/10" :
+                                  isSelected ? "border-primary bg-primary/5" :
+                                  "border-border/40 hover:border-primary/40"
+                                } ${quizSubmitted ? "cursor-default" : "cursor-pointer"}`}
+                              >
+                                <span className="flex items-center gap-2">
+                                  {isCorrect && <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />}
+                                  {isWrong && <XCircle className="w-4 h-4 text-destructive shrink-0" />}
+                                  {opt}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {quizSubmitted && (
+                          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs text-muted-foreground mt-2 p-2 bg-muted/30 rounded-lg">
+                            💡 {q.explanation}
+                          </motion.p>
+                        )}
+                      </motion.div>
+                    ))}
+                  </div>
+                  {!quizSubmitted ? (
+                    <Button onClick={submitQuiz} className="w-full rounded-xl" disabled={Object.keys(quizAnswers).length < quiz.questions.length}>
+                      <CheckCircle2 className="w-4 h-4 mr-2" /> Submit ({Object.keys(quizAnswers).length}/{quiz.questions.length})
+                    </Button>
+                  ) : (
+                    <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center py-3 bg-primary/5 rounded-xl border border-primary/20">
+                      <p className="font-bold text-lg">🎉 {quiz.questions.filter((q, i) => quizAnswers[i] === q.correct).length}/{quiz.questions.length}</p>
+                      <p className="text-xs text-muted-foreground">+{quiz.questions.filter((q, i) => quizAnswers[i] === q.correct).length * 2} RA Points</p>
+                    </motion.div>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ─── Interactive Mind Map ─── */}
+          {activeTab === "mindmap" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
+              <Textarea placeholder="Enter a topic or paste your notes to generate a mind map..." value={mindMapSource} onChange={(e) => setMindMapSource(e.target.value)} className="min-h-[60px] text-sm rounded-xl bg-muted/30 border-border/40" />
+              <div className="grid grid-cols-3 gap-2">
+                <FileUploadButton onUpload={handleMindMapFileUpload} loading={isMindMapExtractingFile} accept=".txt,.md,.pdf,.csv" label="PDF" />
+                <label className="cursor-pointer">
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleMindMapFileUpload(f); e.target.value = ""; }} disabled={isMindMapExtractingFile} />
+                  <Button variant="outline" className="w-full rounded-xl pointer-events-none text-xs" disabled={isMindMapExtractingFile} asChild>
+                    <span><ImageIcon className="w-3.5 h-3.5 mr-1" /> Image</span>
+                  </Button>
+                </label>
+                <Button onClick={generateMindMap} disabled={isMindMapLoading || isMindMapExtractingFile || !mindMapSource.trim()} className="rounded-xl text-xs">
+                  {isMindMapLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Network className="w-3.5 h-3.5 mr-1" /> Generate</>}
+                </Button>
+              </div>
+              {mindMapData && (
+                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+                  <InteractiveMindMap data={mindMapData} />
+                </motion.div>
+              )}
+              {!mindMapData && !isMindMapLoading && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <div className="w-14 h-14 rounded-2xl bg-muted/30 flex items-center justify-center mx-auto mb-3">
+                    <Network className="w-7 h-7 opacity-30" />
+                  </div>
+                  <p className="text-xs">Upload a file or enter a topic to generate</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Pan, zoom and click nodes to collapse</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ─── Notes ─── */}
+          {activeTab === "notes" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">{notes.length} note{notes.length !== 1 ? "s" : ""}</p>
+                <Button size="sm" onClick={createNote} variant="outline" className="h-8 text-xs rounded-lg">
+                  <Plus className="w-3.5 h-3.5 mr-1" /> New
+                </Button>
+              </div>
+              {activeNote ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setActiveNote(null); setNoteTitle(""); setNoteContent(""); setNoteSolution(""); }}>
+                      <X className="w-4 h-4" />
+                    </Button>
+                    <Input value={noteTitle} onChange={(e) => setNoteTitle(e.target.value)} placeholder="Title" className="font-semibold h-8 text-sm rounded-lg" />
+                    <Button size="sm" className="h-8 rounded-lg" onClick={saveNote}><Save className="w-3.5 h-3.5" /></Button>
+                  </div>
+                  <Textarea value={noteContent} onChange={(e) => setNoteContent(e.target.value)} placeholder="Write your notes, questions, or problems here..." className="min-h-[140px] text-sm rounded-xl bg-muted/30 border-border/40" />
+                  <Button variant="secondary" className="w-full h-9 text-xs rounded-xl" onClick={solveNote} disabled={isNoteSolving || !noteContent.trim()}>
+                    {isNoteSolving ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Solving...</> : <><Wand2 className="w-3.5 h-3.5 mr-1.5" /> AI Solve / Explain</>}
+                  </Button>
+                  {noteSolution && (
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="border border-border/30 rounded-xl p-3 bg-muted/20 max-h-[200px] overflow-y-auto">
+                      <p className="text-xs font-bold text-primary mb-1.5 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" /> AI Solution</p>
+                      <div className="prose prose-sm max-w-none dark:prose-invert text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                        <ReactMarkdown>{noteSolution}</ReactMarkdown>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-1.5 max-h-[380px] overflow-y-auto">
+                  {notes.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <div className="w-14 h-14 rounded-2xl bg-muted/30 flex items-center justify-center mx-auto mb-3">
+                        <StickyNote className="w-7 h-7 opacity-30" />
+                      </div>
+                      <p className="text-xs">No notes yet. Create one!</p>
+                    </div>
+                  ) : (
+                    notes.map(note => (
+                      <motion.div key={note.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                        className="flex items-center gap-2 p-2.5 rounded-xl border border-border/30 bg-card hover:bg-muted/30 transition-colors cursor-pointer group"
+                        onClick={() => { setActiveNote(note); setNoteTitle(note.title); setNoteContent(note.content); setNoteSolution(""); }}
+                      >
+                        <FileText className="w-4 h-4 text-primary shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-xs truncate">{note.title}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{note.content || "Empty"}</p>
+                        </div>
+                        <Button size="icon" variant="ghost" className="opacity-0 group-hover:opacity-100 shrink-0 h-6 w-6" onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }}>
+                          <Trash2 className="w-3 h-3 text-destructive" />
+                        </Button>
+                      </motion.div>
+                    ))
+                  )}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ─── Online Tests ─── */}
+          {activeTab === "tests" && studentClass && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3">
+              <StudentOnlineTest studentId={studentId} studentClass={studentClass} />
+            </motion.div>
+          )}
+
+          {/* ─── Leaderboard (DB-backed) ─── */}
+          {activeTab === "leaderboard" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
+              <div className="text-center py-3">
+                <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-2">
+                  <Award className="w-7 h-7 text-primary" />
+                </div>
+                <h3 className="font-bold text-sm">RA Points Leaderboard</h3>
+                <p className="text-[10px] text-muted-foreground">Top students by points earned</p>
+              </div>
+              <div className="space-y-2">
+                {leaderboard.map((entry, i) => {
+                  const isMe = entry.student_id === studentId;
+                  const rankIcon = i === 0 ? <Crown className="w-4 h-4 text-primary" /> :
+                                   i === 1 ? <Medal className="w-4 h-4 text-muted-foreground" /> :
+                                   i === 2 ? <Medal className="w-4 h-4 text-accent-foreground" /> : null;
+                  return (
+                    <motion.div
+                      key={entry.student_id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.06 }}
+                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                        isMe ? "border-primary/40 bg-primary/5 shadow-sm" : "border-border/30 bg-card"
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
+                        i === 0 ? "bg-primary/20 text-primary" :
+                        i === 1 ? "bg-muted text-muted-foreground" :
+                        i === 2 ? "bg-accent/20 text-accent-foreground" :
+                        "bg-muted text-muted-foreground"
+                      }`}>
+                        {rankIcon || `#${i + 1}`}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium truncate ${isMe ? "text-primary" : ""}`}>
+                          {entry.name} {isMe && <span className="text-[10px] text-muted-foreground">(You)</span>}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Star className="w-3.5 h-3.5 text-primary fill-primary" />
+                        <span className="font-bold text-sm">{entry.points}</span>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+              {leaderboard.length === 0 && (
+                <div className="text-center py-6 text-muted-foreground">
+                  <p className="text-xs">No leaderboard data yet</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+};
+
+export default StudyAssistant;
