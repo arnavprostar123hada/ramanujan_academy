@@ -148,27 +148,39 @@ async function writeCache(admin: ReturnType<typeof createClient> | null, cacheKe
   });
 }
 
-async function callGateway(apiKey: string, systemPrompt: string, messages: Msg[], wantJson: boolean) {
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+async function callProvider(baseUrl: string, apiKey: string, model: string, systemPrompt: string, messages: Msg[], wantJson: boolean) {
+  const response = await fetch(baseUrl, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
+      model,
       messages: [{ role: "system", content: systemPrompt }, ...messages],
       temperature: 0.2,
-      max_tokens: wantJson ? 1400 : 900,
+      max_tokens: wantJson ? 1100 : 700,
+      stream: false,
     }),
   });
-
-  if (!response.ok) {
-    const status = response.status;
-    const detail = await response.text().catch(() => "");
-    console.error("AI gateway error", status, detail.slice(0, 500));
-    throw new Error(`gateway:${status}`);
-  }
-
+  if (!response.ok) throw new Error(`provider:${response.status}`);
   const data = await response.json();
   return data.choices?.[0]?.message?.content?.trim() || "";
+}
+
+async function callAI(systemPrompt: string, messages: Msg[], wantJson: boolean) {
+  const providers = [
+    { key: Deno.env.get("NVIDIA_API_KEY"), url: "https://integrate.api.nvidia.com/v1/chat/completions", model: Deno.env.get("NVIDIA_MODEL") || "qwen/qwen3-next-80b-a3b-instruct" },
+    { key: Deno.env.get("MISTRAL_API_KEY"), url: "https://api.mistral.ai/v1/chat/completions", model: Deno.env.get("MISTRAL_MODEL") || "mistral-small-latest" },
+    { key: Deno.env.get("HF_TOKEN"), url: "https://router.huggingface.co/v1/chat/completions", model: Deno.env.get("HF_MODEL") || "Qwen/Qwen3.8-Flash-Next:cheapest" },
+  ];
+  for (const provider of providers) {
+    if (!provider.key) continue;
+    try {
+      const content = await callProvider(provider.url, provider.key, provider.model, systemPrompt, messages, wantJson);
+      if (content) return content;
+    } catch (error) {
+      console.error("AI provider failed", provider.model, error);
+    }
+  }
+  return "";
 }
 
 Deno.serve(async (req) => {
@@ -201,15 +213,15 @@ Deno.serve(async (req) => {
       return mode === "quiz" || mode === "mindmap" ? json({ content: local, fallback: true }) : sse(local);
     }
 
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
     let content = "";
-
-    if (apiKey) {
-      try {
-        content = await callGateway(apiKey, buildSystemPrompt(mode, sourceText, actorRole), messages, mode === "quiz" || mode === "mindmap");
-      } catch (e) {
-        console.error("Primary AI failed, using fallback", e);
-      }
+    try {
+      content = await callAI(
+        buildSystemPrompt(mode, sourceText, actorRole),
+        messages,
+        mode === "quiz" || mode === "mindmap",
+      );
+    } catch (e) {
+      console.error("All AI providers failed, using fallback", e);
     }
 
     if (!content) {
