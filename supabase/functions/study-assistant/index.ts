@@ -432,6 +432,7 @@ Deno.serve(async (req) => {
         }, 402);
       }
       result.usage.credits = Number(charge.charged || result.usage.credits);
+      (result.usage as AIUsage & { studentPointsRemaining?: number }).studentPointsRemaining = Number(charge.balance || 0);
     }
 
     if (actorRole === "teacher" && result.usage.credits > 0) {
