@@ -26,7 +26,7 @@ interface Note { id: string; title: string; content: string; createdAt: string; 
 interface QuizQuestion { question: string; options: string[]; correct: number; explanation: string; }
 interface Quiz { title: string; questions: QuizQuestion[]; }
 
-// ─── RA Points (DB-backed) ───
+// ─── RA Points (DB-backed + refresh-safe) ───
 function useRAPoints(studentId: string, isOnline = false) {
   const monthlyAllowance = isOnline ? 20 : 100;
   const [points, setPoints] = useState(monthlyAllowance);
@@ -34,42 +34,118 @@ function useRAPoints(studentId: string, isOnline = false) {
 
   useEffect(() => {
     if (!studentId) return;
+    let cancelled = false;
+
     const load = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("ra_points")
-        .select("*")
+        .select("points, last_reset")
         .eq("student_id", studentId)
         .maybeSingle();
-      if (data) {
+
+      if (cancelled) return;
+
+      if (error) {
+        console.error("Failed to load RA Points:", error);
+        setLoaded(true);
+        return;
+      }
+
+      const now = new Date();
+
+      if (!data) {
+        const { data: created, error: createError } = await supabase
+          .from("ra_points")
+          .upsert(
+            {
+              student_id: studentId,
+              points: monthlyAllowance,
+              last_reset: now.toISOString(),
+              updated_at: now.toISOString(),
+            },
+            { onConflict: "student_id", ignoreDuplicates: false }
+          )
+          .select("points")
+          .single();
+
+        if (cancelled) return;
+
+        if (createError) {
+          console.error("Failed to create RA Points:", createError);
+        } else if (created) {
+          setPoints(created.points);
+        }
+      } else {
         const lastReset = new Date(data.last_reset);
-        const now = new Date();
-        if (now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear()) {
-          await supabase.from("ra_points").update({ points: monthlyAllowance, last_reset: now.toISOString(), updated_at: now.toISOString() }).eq("student_id", studentId);
-          setPoints(monthlyAllowance);
+        const monthChanged =
+          now.getMonth() !== lastReset.getMonth() ||
+          now.getFullYear() !== lastReset.getFullYear();
+
+        if (monthChanged) {
+          const { data: resetRow, error: resetError } = await supabase
+            .from("ra_points")
+            .update({
+              points: monthlyAllowance,
+              last_reset: now.toISOString(),
+              updated_at: now.toISOString(),
+            })
+            .eq("student_id", studentId)
+            .select("points")
+            .single();
+
+          if (cancelled) return;
+
+          if (resetError) {
+            console.error("Failed to reset monthly RA Points:", resetError);
+          } else if (resetRow) {
+            setPoints(resetRow.points);
+          }
         } else {
           setPoints(data.points);
         }
-      } else {
-        await supabase.from("ra_points").insert({ student_id: studentId, points: monthlyAllowance });
-        setPoints(monthlyAllowance);
       }
+
       setLoaded(true);
     };
+
     load();
-  }, [studentId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [studentId, monthlyAllowance]);
 
   const updateDB = async (newPoints: number) => {
+    const previousPoints = points;
     setPoints(newPoints);
-    await supabase.from("ra_points").update({ points: newPoints, updated_at: new Date().toISOString() }).eq("student_id", studentId);
+
+    const { data, error } = await supabase
+      .from("ra_points")
+      .update({
+        points: newPoints,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("student_id", studentId)
+      .select("points")
+      .single();
+
+    if (error || !data) {
+      console.error("Failed to save RA Points:", error);
+      setPoints(previousPoints);
+      return false;
+    }
+
+    setPoints(data.points);
+    return true;
   };
 
   const spend = async (n: number) => {
-    if (points < n) return false;
-    await updateDB(points - n);
-    return true;
+    if (!loaded || points < n) return false;
+    return await updateDB(points - n);
   };
+
   const earn = async (n: number) => {
-    await updateDB(points + n);
+    if (!loaded) return false;
+    return await updateDB(points + n);
   };
 
   return { points, spend, earn, loaded };
@@ -221,7 +297,7 @@ async function streamChat({ messages, mode, sourceText, onDelta, onDone }: {
 async function fetchAI(messages: Msg[], mode: string, sourceText?: string) {
   const resp = await fetch(CHAT_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+    headers: await getFunctionHeaders(),
     body: JSON.stringify({ messages, mode, sourceText, actorRole: "student" }),
   });
   if (!resp.ok) throw new Error("AI request failed");
@@ -998,159 +1074,3 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
               <div className="grid grid-cols-3 gap-2">
                 <FileUploadButton onUpload={handleMindMapFileUpload} loading={isMindMapExtractingFile} accept=".txt,.md,.pdf,.csv" label="PDF" />
                 <label className="cursor-pointer">
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleMindMapFileUpload(f); e.target.value = ""; }} disabled={isMindMapExtractingFile} />
-                  <Button variant="outline" className="w-full rounded-xl pointer-events-none text-xs" disabled={isMindMapExtractingFile} asChild>
-                    <span><ImageIcon className="w-3.5 h-3.5 mr-1" /> Image</span>
-                  </Button>
-                </label>
-                <Button onClick={generateMindMap} disabled={isMindMapLoading || isMindMapExtractingFile || !mindMapSource.trim()} className="rounded-xl text-xs">
-                  {isMindMapLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Network className="w-3.5 h-3.5 mr-1" /> Generate</>}
-                </Button>
-              </div>
-              {mindMapData && (
-                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
-                  <InteractiveMindMap data={mindMapData} />
-                </motion.div>
-              )}
-              {!mindMapData && !isMindMapLoading && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <div className="w-14 h-14 rounded-2xl bg-muted/30 flex items-center justify-center mx-auto mb-3">
-                    <Network className="w-7 h-7 opacity-30" />
-                  </div>
-                  <p className="text-xs">Upload a file or enter a topic to generate</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">Pan, zoom and click nodes to collapse</p>
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {/* ─── Notes ─── */}
-          {activeTab === "notes" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">{notes.length} note{notes.length !== 1 ? "s" : ""}</p>
-                <Button size="sm" onClick={createNote} variant="outline" className="h-8 text-xs rounded-lg">
-                  <Plus className="w-3.5 h-3.5 mr-1" /> New
-                </Button>
-              </div>
-              {activeNote ? (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setActiveNote(null); setNoteTitle(""); setNoteContent(""); setNoteSolution(""); }}>
-                      <X className="w-4 h-4" />
-                    </Button>
-                    <Input value={noteTitle} onChange={(e) => setNoteTitle(e.target.value)} placeholder="Title" className="font-semibold h-8 text-sm rounded-lg" />
-                    <Button size="sm" className="h-8 rounded-lg" onClick={saveNote}><Save className="w-3.5 h-3.5" /></Button>
-                  </div>
-                  <Textarea value={noteContent} onChange={(e) => setNoteContent(e.target.value)} placeholder="Write your notes, questions, or problems here..." className="min-h-[140px] text-sm rounded-xl bg-muted/30 border-border/40" />
-                  <Button variant="secondary" className="w-full h-9 text-xs rounded-xl" onClick={solveNote} disabled={isNoteSolving || !noteContent.trim()}>
-                    {isNoteSolving ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Solving...</> : <><Wand2 className="w-3.5 h-3.5 mr-1.5" /> AI Solve / Explain</>}
-                  </Button>
-                  {noteSolution && (
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="border border-border/30 rounded-xl p-3 bg-muted/20 max-h-[200px] overflow-y-auto">
-                      <p className="text-xs font-bold text-primary mb-1.5 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" /> AI Solution</p>
-                      <div className="prose prose-sm max-w-none dark:prose-invert text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                        <ReactMarkdown>{noteSolution}</ReactMarkdown>
-                      </div>
-                    </motion.div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-1.5 max-h-[380px] overflow-y-auto">
-                  {notes.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <div className="w-14 h-14 rounded-2xl bg-muted/30 flex items-center justify-center mx-auto mb-3">
-                        <StickyNote className="w-7 h-7 opacity-30" />
-                      </div>
-                      <p className="text-xs">No notes yet. Create one!</p>
-                    </div>
-                  ) : (
-                    notes.map(note => (
-                      <motion.div key={note.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                        className="flex items-center gap-2 p-2.5 rounded-xl border border-border/30 bg-card hover:bg-muted/30 transition-colors cursor-pointer group"
-                        onClick={() => { setActiveNote(note); setNoteTitle(note.title); setNoteContent(note.content); setNoteSolution(""); }}
-                      >
-                        <FileText className="w-4 h-4 text-primary shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-xs truncate">{note.title}</p>
-                          <p className="text-[10px] text-muted-foreground truncate">{note.content || "Empty"}</p>
-                        </div>
-                        <Button size="icon" variant="ghost" className="opacity-0 group-hover:opacity-100 shrink-0 h-6 w-6" onClick={(e) => { e.stopPropagation(); deleteNote(note.id); }}>
-                          <Trash2 className="w-3 h-3 text-destructive" />
-                        </Button>
-                      </motion.div>
-                    ))
-                  )}
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {/* ─── Online Tests ─── */}
-          {activeTab === "tests" && studentClass && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3">
-              <StudentOnlineTest studentId={studentId} studentClass={studentClass} />
-            </motion.div>
-          )}
-
-          {/* ─── Leaderboard (DB-backed) ─── */}
-          {activeTab === "leaderboard" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
-              <div className="text-center py-3">
-                <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-2">
-                  <Award className="w-7 h-7 text-primary" />
-                </div>
-                <h3 className="font-bold text-sm">RA Points Leaderboard</h3>
-                <p className="text-[10px] text-muted-foreground">Top students by points earned</p>
-              </div>
-              <div className="space-y-2">
-                {leaderboard.map((entry, i) => {
-                  const isMe = entry.student_id === studentId;
-                  const rankIcon = i === 0 ? <Crown className="w-4 h-4 text-primary" /> :
-                                   i === 1 ? <Medal className="w-4 h-4 text-muted-foreground" /> :
-                                   i === 2 ? <Medal className="w-4 h-4 text-accent-foreground" /> : null;
-                  return (
-                    <motion.div
-                      key={entry.student_id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.06 }}
-                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                        isMe ? "border-primary/40 bg-primary/5 shadow-sm" : "border-border/30 bg-card"
-                      }`}
-                    >
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
-                        i === 0 ? "bg-primary/20 text-primary" :
-                        i === 1 ? "bg-muted text-muted-foreground" :
-                        i === 2 ? "bg-accent/20 text-accent-foreground" :
-                        "bg-muted text-muted-foreground"
-                      }`}>
-                        {rankIcon || `#${i + 1}`}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium truncate ${isMe ? "text-primary" : ""}`}>
-                          {entry.name} {isMe && <span className="text-[10px] text-muted-foreground">(You)</span>}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Star className="w-3.5 h-3.5 text-primary fill-primary" />
-                        <span className="font-bold text-sm">{entry.points}</span>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-              {leaderboard.length === 0 && (
-                <div className="text-center py-6 text-muted-foreground">
-                  <p className="text-xs">No leaderboard data yet</p>
-                </div>
-              )}
-            </motion.div>
-          )}
-        </CardContent>
-      </Card>
-    </motion.div>
-  );
-};
-
-export default StudyAssistant;
