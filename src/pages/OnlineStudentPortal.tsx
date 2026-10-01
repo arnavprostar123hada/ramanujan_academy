@@ -606,7 +606,7 @@ const OnlineStudentPortal = () => {
 
           {/* Audio Summary Tab */}
           <TabsContent value="audio" className="space-y-4">
-            {student && <AudioSummary studentId={student.id} />}
+            {student && <AudioSummary studentId={student.student_id} />}
           </TabsContent>
 
           {/* AI Tab */}
