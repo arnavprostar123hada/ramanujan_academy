@@ -172,7 +172,16 @@ For lesson plans include objective, explanation flow, activity, practice and qui
 For worksheets/tests include clear questions and an answer key when appropriate.
 For parent messages use respectful, concise WhatsApp-ready language.
 For student interventions focus on observable academic behaviours and actionable support.
-Use Indian school context and CBSE/ICSE/SSC terminology when supplied.`;
+Use Indian school context and CBSE/ICSE/SSC terminology when supplied.
+
+OUTPUT FORMAT RULES:
+- Return clean classroom-ready text only.
+- Do NOT use Markdown syntax such as #, *, **, _, >, backticks, horizontal rules, or bullet characters.
+- Do NOT use LaTeX, dollar signs for equations, or escaped line-break backslashes.
+- Write equations in normal readable text using Unicode where useful, for example x² − 4x + 3 = 0, √2, ½, ≤, ≥.
+- Use simple headings such as PRACTICE WORKSHEET, Section A, ANSWER KEY.
+- Use numbered questions (1., 2., 3.) and plain paragraphs.
+- Never include meta-comments such as “if you need this for another class” unless the teacher explicitly asks for them.`;
   }
 
   if (mode === "mindmap") {
