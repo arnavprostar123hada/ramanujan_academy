@@ -25,6 +25,8 @@ interface Props {
   expectedCheckOut?: string | null;
   /** "teacher" (default) or "admin" staff */
   kind?: "teacher" | "admin";
+  /** Keep GPS attendance tracking active without rendering the attendance card. */
+  trackingOnly?: boolean;
 }
 
 interface Fence {
@@ -51,7 +53,7 @@ interface Record {
 const today = () => format(new Date(), "yyyy-MM-dd");
 const nowTime = () => format(new Date(), "HH:mm:ss");
 
-export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expectedCheckOut, kind = "teacher" }: Props) {
+export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expectedCheckOut, kind = "teacher", trackingOnly = false }: Props) {
   const table = (kind === "admin" ? "admin_attendance" : "teacher_attendance") as "teacher_attendance";
   const idCol = (kind === "admin" ? "admin_staff_id" : "teacher_id") as "teacher_id";
   const { toast } = useToast();
@@ -215,6 +217,8 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
   // Auto check-in after 10s continuously inside; auto check-out after 3 min continuously outside
   useEffect(() => {
     if (!fence || distance === null || loading) return;
+    // Do not auto-mark when GPS accuracy is too poor; this avoids false attendance.
+    if (accuracy !== null && accuracy > Math.max(100, fence.radius_meters)) return;
     const now = Date.now();
     if (inside) {
       outsideSince.current = null;
@@ -244,7 +248,31 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
         });
       }
     }
-  }, [inside, distance, fence, record, loading, doCheckIn, doCheckOut]);
+  }, [inside, distance, fence, record, loading, accuracy, doCheckIn, doCheckOut]);
+
+  // Re-check location when the staff member returns to the app or the device wakes.
+  useEffect(() => {
+    const refreshLocation = () => {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setGeoError(null);
+          setAccuracy(pos.coords.accuracy);
+          setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        },
+        (err) => setGeoError(err.message),
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    };
+    window.addEventListener("focus", refreshLocation);
+    document.addEventListener("visibilitychange", refreshLocation);
+    return () => {
+      window.removeEventListener("focus", refreshLocation);
+      document.removeEventListener("visibilitychange", refreshLocation);
+    };
+  }, []);
+
+  if (trackingOnly) return null;
 
   if (loading) {
     return (
