@@ -326,7 +326,6 @@ async function callAI(systemPrompt: string, messages: Msg[], wantJson: boolean, 
   ];
 
   for (const provider of providers) {
-    if (mode === "mindmap" && provider.name !== "gemini") continue;
     if (!provider.key) continue;
     try {
       const result = await callProvider(provider.url, provider.key, provider.model, systemPrompt, messages, wantJson);
