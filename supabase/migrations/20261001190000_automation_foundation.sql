@@ -34,6 +34,14 @@ create table if not exists public.automation_events (
 create index if not exists idx_automation_events_pending
   on public.automation_events(processed,created_at);
 
+alter table public.automation_events enable row level security;
+drop policy if exists "automation events insert authenticated" on public.automation_events;
+create policy "automation events insert authenticated"
+  on public.automation_events for insert to authenticated with check (true);
+revoke select, update, delete on public.automation_events from anon, authenticated;
+grant insert on public.automation_events to authenticated;
+grant all on public.automation_events to service_role;
+
 create or replace function public.enqueue_automation_event(
   p_event_key text,
   p_entity_type text default null,
@@ -42,7 +50,8 @@ create or replace function public.enqueue_automation_event(
   p_payload jsonb default '{}'::jsonb
 ) returns uuid
 language plpgsql
-as $$
+set search_path = public, pg_catalog
+as $
 declare v_id uuid;
 begin
   insert into public.automation_events(event_key,entity_type,entity_id,student_id,payload)
@@ -55,7 +64,8 @@ $$;
 create or replace function public.queue_student_absence_whatsapp()
 returns trigger
 language plpgsql
-as $$
+set search_path = public, pg_catalog
+as $
 declare
   v_phone text; v_name text; v_parent_id uuid; v_key text;
 begin
@@ -143,7 +153,8 @@ for each row execute function public.queue_test_result_whatsapp();
 create or replace function public.queue_due_automations()
 returns void
 language plpgsql
-as $$
+set search_path = public, pg_catalog
+as $
 declare
   r record; v_phone text; v_name text; v_parent_id uuid; v_key text; v_days integer;
 begin
