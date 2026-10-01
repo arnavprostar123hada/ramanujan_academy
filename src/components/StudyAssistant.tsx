@@ -812,42 +812,37 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent,
   const generateMindMap = async () => {
     if (!mindMapSource.trim() || isMindMapLoading) return;
 
-    const MIND_MAP_COST = 10;
-    if (!(await spend(MIND_MAP_COST))) {
-      toast({
-        title: "Not enough RA Points",
-        description: "A Mind Map costs 10 RA Points.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsMindMapLoading(true);
     setMindMapData(null);
-    let raw = "";
-    let received = false;
 
     try {
-      await streamChat({
-        messages: [{ role: "user", content: mindMapSource.trim() }],
-        mode: "mindmap", studentId, parentAccessCode,
-        onDelta: (chunk) => { raw += chunk; },
-        onDone: async () => {
-          const parsed = extractJson<MindMapNode>(raw);
-          if (parsed) {
-            received = true;
-            setMindMapData(parsed);
-          } else {
-            await earn(MIND_MAP_COST);
-            toast({ title: "Failed to parse mind map. Your 10 RA Points were refunded.", variant: "destructive" });
-          }
-          setIsMindMapLoading(false);
-        },
+      // Mind-map is a non-streaming JSON endpoint. The backend is the single
+      // source of truth for token-based RA Point charging, so do not pre-charge
+      // or refund here.
+      const data = await fetchAI(
+        [{ role: "user", content: mindMapSource.trim() }],
+        "mindmap",
+        undefined,
+        studentId,
+        parentAccessCode,
+      );
+
+      const parsed = extractJson<MindMapNode>(data.content);
+      if (!parsed?.title || !Array.isArray(parsed.children)) {
+        throw new Error("The AI returned an invalid mind map.");
+      }
+
+      setMindMapData(parsed);
+      await settleAIUsage(data.usage);
+    } catch (error) {
+      toast({
+        title: "Failed to generate mind map",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
       });
-    } catch {
-      if (!received) await earn(MIND_MAP_COST);
-      toast({ title: "Failed to generate mind map. Your 10 RA Points were refunded.", variant: "destructive" });
+    } finally {
       setIsMindMapLoading(false);
+      await refreshPoints();
     }
   };
 
