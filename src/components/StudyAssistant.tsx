@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot, Send, Sparkles, Network, StickyNote, Plus, Trash2, Save,
   BookOpen, Loader2, ChevronRight, X, FileText,
-  Trophy, Brain, Wand2, CheckCircle2, XCircle, Upload, Star,
+  Brain, Wand2, CheckCircle2, XCircle, Upload, Star,
   ExternalLink, Award, Medal, Crown, Image as ImageIcon,
   Volume2, VolumeX, ZoomIn, ZoomOut, Move
 } from "lucide-react";
@@ -176,22 +176,6 @@ function useRAPoints(studentId: string, isOnline = false) {
   };
 
   return { points, spend, earn, refresh, loaded };
-}
-
-// ─── Leaderboard (DB-backed) ───
-function useLeaderboard() {
-  const [leaderboard, setLeaderboard] = useState<{ name: string; points: number; student_id: string }[]>([]);
-  const load = async () => {
-    const { data: raData } = await supabase.from("ra_points").select("student_id, points").order("points", { ascending: false }).limit(20);
-    if (!raData?.length) return;
-    const studentIds = raData.map(r => r.student_id);
-    const { data: students } = await supabase.from("students").select("id, name").in("id", studentIds);
-    if (!students) return;
-    const nameMap = new Map(students.map(s => [s.id, s.name]));
-    setLeaderboard(raData.filter(r => nameMap.has(r.student_id)).map(r => ({ name: nameMap.get(r.student_id)!, points: r.points, student_id: r.student_id })));
-  };
-  useEffect(() => { load(); }, []);
-  return { leaderboard, refresh: load };
 }
 
 // ─── Chat persistence ───
@@ -671,7 +655,6 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent,
   }, [spend, toast]);
 
 
-  const { leaderboard, refresh: refreshLeaderboard } = useLeaderboard();
   const [activeTab, setActiveTab] = useState("chat");
 
   // Chat with persistence
@@ -865,9 +848,7 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent,
     if (!quiz) return;
     setQuizSubmitted(true);
     const correct = quiz.questions.filter((q, i) => quizAnswers[i] === q.correct).length;
-    await earn(correct * 2, "quiz_reward");
-    refreshLeaderboard();
-    toast({ title: `🎉 Score: ${correct}/${quiz.questions.length}`, description: `+${correct * 2} RA Points!` });
+    toast({ title: `🎉 Score: ${correct}/${quiz.questions.length}`, description: "Quiz completed successfully." });
   };
 
   // ─── Notes ───
@@ -908,7 +889,6 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent,
     { id: "quiz", icon: Brain, label: "Quiz" },
     { id: "mindmap", icon: Network, label: "Mind Map" },
     { id: "notes", icon: StickyNote, label: "Notes" },
-    { id: "leaderboard", icon: Trophy, label: "Ranks" },
   ];
 
   return (
@@ -1289,60 +1269,6 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent,
             </motion.div>
           )}
 
-          {/* ─── Leaderboard (DB-backed) ─── */}
-          {activeTab === "leaderboard" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
-              <div className="text-center py-3">
-                <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-2">
-                  <Award className="w-7 h-7 text-primary" />
-                </div>
-                <h3 className="font-bold text-sm">RA Points Leaderboard</h3>
-                <p className="text-[10px] text-muted-foreground">Top students by points earned</p>
-              </div>
-              <div className="space-y-2">
-                {leaderboard.map((entry, i) => {
-                  const isMe = entry.student_id === studentId;
-                  const rankIcon = i === 0 ? <Crown className="w-4 h-4 text-primary" /> :
-                                   i === 1 ? <Medal className="w-4 h-4 text-muted-foreground" /> :
-                                   i === 2 ? <Medal className="w-4 h-4 text-accent-foreground" /> : null;
-                  return (
-                    <motion.div
-                      key={entry.student_id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.06 }}
-                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                        isMe ? "border-primary/40 bg-primary/5 shadow-sm" : "border-border/30 bg-card"
-                      }`}
-                    >
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${
-                        i === 0 ? "bg-primary/20 text-primary" :
-                        i === 1 ? "bg-muted text-muted-foreground" :
-                        i === 2 ? "bg-accent/20 text-accent-foreground" :
-                        "bg-muted text-muted-foreground"
-                      }`}>
-                        {rankIcon || `#${i + 1}`}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium truncate ${isMe ? "text-primary" : ""}`}>
-                          {entry.name} {isMe && <span className="text-[10px] text-muted-foreground">(You)</span>}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Star className="w-3.5 h-3.5 text-primary fill-primary" />
-                        <span className="font-bold text-sm">{entry.points}</span>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-              {leaderboard.length === 0 && (
-                <div className="text-center py-6 text-muted-foreground">
-                  <p className="text-xs">No leaderboard data yet</p>
-                </div>
-              )}
-            </motion.div>
-          )}
         </CardContent>
       </Card>
     </motion.div>
