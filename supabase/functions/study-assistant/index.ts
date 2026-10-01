@@ -377,11 +377,13 @@ Deno.serve(async (req) => {
       }
 
       if (authenticatedUserId) {
+        // Accept either the canonical students.id or the online_students.id.
+        // Both are resolved only through the authenticated user's own mapping.
         const { data: onlineStudent } = await admin
           .from("online_students")
-          .select("student_id")
+          .select("id, student_id")
           .eq("user_id", authenticatedUserId)
-          .eq("student_id", studentId)
+          .or(`student_id.eq.${studentId},id.eq.${studentId}`)
           .maybeSingle();
         resolvedStudentId = onlineStudent?.student_id || "";
         if (!resolvedStudentId) return json({ error: "Student identity is not authorized." }, 403);
