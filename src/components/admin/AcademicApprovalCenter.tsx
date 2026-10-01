@@ -7,7 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, XCircle, RefreshCw, BookOpen, ClipboardList, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-type Intervention = { id: string; student_id: string; student_name?: string; subject?: string; reason: string; current_level?: string; action_plan?: string; status: string; next_review_date?: string; };\n\ntype Item = {
+type Intervention = { id: string; student_id: string; student_name?: string; subject?: string; reason: string; current_level?: string; action_plan?: string; status: string; next_review_date?: string; };
+
+type Item = {
   id: string;
   kind: "log" | "test" | "result";
   teacher_name?: string;
@@ -33,7 +35,8 @@ export function AcademicApprovalCenter() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
-  const [reviewNote, setReviewNote] = useState<Record<string, string>>({});\n  const [interventions, setInterventions] = useState<Intervention[]>([]);
+  const [reviewNote, setReviewNote] = useState<Record<string, string>>({});
+  const [interventions, setInterventions] = useState<Intervention[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -127,7 +130,8 @@ export function AcademicApprovalCenter() {
       <div><h2 className="text-xl font-bold">Academic Approval Center</h2><p className="text-sm text-muted-foreground">Teacher submissions stay private until Admin/Owner approves them.</p></div>
       <Button variant="outline" onClick={load}><RefreshCw className="w-4 h-4 mr-2"/>Refresh</Button>
     </div>
-    <Card><CardHeader className="pb-3"><CardTitle className="text-base">Automatic Academic Interventions</CardTitle><p className="text-sm text-muted-foreground">Students below 60% in an approved test are automatically flagged for teacher intervention.</p></CardHeader><CardContent>{interventions.length === 0 ? <p className="text-sm text-muted-foreground">No open interventions.</p> : <div className="space-y-2">{interventions.map(i => <div key={i.id} className="rounded-lg border p-3 flex flex-wrap items-center justify-between gap-3"><div><div className="font-medium">{i.student_name || "Student"}{i.subject ? " · " + i.subject : ""}</div><div className="text-sm text-muted-foreground">{i.reason}</div>{i.action_plan && <div className="text-xs mt-1">{i.action_plan}</div>}</div><Badge variant="secondary">Review {i.next_review_date || "—"}</Badge></div>)}</div>}</CardContent></Card>\n    {items.length===0 ? <Card><CardContent className="py-12 text-center text-muted-foreground"><CheckCircle2 className="w-10 h-10 mx-auto mb-2"/><p>No pending academic submissions.</p></CardContent></Card> :
+    <Card><CardHeader className="pb-3"><CardTitle className="text-base">Automatic Academic Interventions</CardTitle><p className="text-sm text-muted-foreground">Students below 60% in an approved test are automatically flagged for teacher intervention.</p></CardHeader><CardContent>{interventions.length === 0 ? <p className="text-sm text-muted-foreground">No open interventions.</p> : <div className="space-y-2">{interventions.map(i => <div key={i.id} className="rounded-lg border p-3 flex flex-wrap items-center justify-between gap-3"><div><div className="font-medium">{i.student_name || "Student"}{i.subject ? " · " + i.subject : ""}</div><div className="text-sm text-muted-foreground">{i.reason}</div>{i.action_plan && <div className="text-xs mt-1">{i.action_plan}</div>}</div><Badge variant="secondary">Review {i.next_review_date || "—"}</Badge></div>)}</div>}</CardContent></Card>
+    {items.length===0 ? <Card><CardContent className="py-12 text-center text-muted-foreground"><CheckCircle2 className="w-10 h-10 mx-auto mb-2"/><p>No pending academic submissions.</p></CardContent></Card> :
       items.map(item=><Card key={item.kind+item.id}>
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
