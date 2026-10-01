@@ -9,6 +9,26 @@ import { useToast } from "@/hooks/use-toast";
 
 type Message = { role: "user" | "assistant"; content: string };
 
+function cleanTeacherOutput(value: string) {
+  return value
+    .replace(/\\(?=\r?\n)/g, "")
+    .replace(/\\r?\n/g, "\n")
+    .replace(/\\text\{([^}]*)\}/g, "$1")
+    .replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, "($1)/($2)")
+    .replace(/\\sqrt\{([^}]*)\}/g, "√($1)")
+    .replace(/\\left|\\right/g, "")
+    .replace(/\$\$/g, "")
+    .replace(/\$/g, "")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*+]\s+/gm, "• ")
+    .replace(/^\s*---+\s*$/gm, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/\`/g, "")
+    .trim();
+}
+
 const QUICK_PROMPTS = [
   { label: "Lesson Plan", icon: BookOpenCheck, text: "Create a 40-minute lesson plan for Class 10 on [topic]. Include objective, explanation flow, activity, practice and a 5-question exit ticket." },
   { label: "Worksheet", icon: ClipboardList, text: "Create a 10-question practice worksheet for Class [class] [board] on [topic], with 3 easy, 4 standard, 2 HOTS and 1 challenge question. Add an answer key." },
@@ -63,12 +83,12 @@ async function callTeacherAI(messages: Message[], teacherId: string, onUsage?: (
         } catch {}
       }
     }
-    return result || "I could not generate a response. Please try again.";
+    return cleanTeacherOutput(result || "I could not generate a response. Please try again.");
   }
 
   const data = await response.json();
   if (data?.usage) onUsage?.(data.usage);
-  return data?.content || data?.error || "I could not generate a response.";
+  return cleanTeacherOutput(data?.content || data?.error || "I could not generate a response.");
 }
 
 export default function TeacherAIAssistant({ teacherName, teacherId }: { teacherName?: string; teacherId?: string }) {
