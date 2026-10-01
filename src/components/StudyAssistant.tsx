@@ -299,15 +299,15 @@ function creditsFromTokens(inputTokens: number, outputTokens: number) {
   return Math.max(0.01, Math.ceil(((inputTokens + outputTokens) / 1000) * 100) / 100);
 }
 
-async function streamChat({ messages, mode, sourceText, studentId, onDelta, onDone, onUsage }: {
-  messages: Msg[]; mode: string; sourceText?: string; studentId?: string;
+async function streamChat({ messages, mode, sourceText, studentId, parentAccessCode, onDelta, onDone, onUsage }: {
+  messages: Msg[]; mode: string; sourceText?: string; studentId?: string; parentAccessCode?: string;
   onDelta: (t: string) => void; onDone: () => void;
   onUsage?: (usage: AIUsage) => void;
 }) {
   const resp = await fetch(CHAT_URL, {
     method: "POST",
     headers: await getFunctionHeaders(),
-    body: JSON.stringify({ messages, mode, sourceText, actorRole: "student", studentId }),
+    body: JSON.stringify({ messages, mode, sourceText, actorRole: "student", studentId, parentAccessCode }),
   });
   if (!resp.ok || !resp.body) {
     if (resp.status === 429) throw new Error("Rate limit exceeded. Please wait a moment.");
@@ -372,11 +372,11 @@ async function streamChat({ messages, mode, sourceText, studentId, onDelta, onDo
 }
 
 // ─── Non-streaming fetch ───
-async function fetchAI(messages: Msg[], mode: string, sourceText?: string, studentId?: string): Promise<{ content: string; usage?: AIUsage }> {
+async function fetchAI(messages: Msg[], mode: string, sourceText?: string, studentId?: string, parentAccessCode?: string): Promise<{ content: string; usage?: AIUsage }> {
   const resp = await fetch(CHAT_URL, {
     method: "POST",
     headers: await getFunctionHeaders(),
-    body: JSON.stringify({ messages, mode, sourceText, actorRole: "student", studentId }),
+    body: JSON.stringify({ messages, mode, sourceText, actorRole: "student", studentId, parentAccessCode }),
   });
   if (!resp.ok) {
     let detail = "AI request failed";
@@ -602,6 +602,7 @@ const AudioSummary = ({ sourceText, settleAIUsage }: { sourceText: string; settl
     let text = "";
     try {
       await streamChat({
+        parentAccessCode,
         messages: [{ role: "user", content: `Create a concise audio-friendly summary (no markdown, no special formatting, plain text only) of this material for a student to listen to. Make it engaging and educational:\n\n${sourceText.slice(0, 3000)}` }],
         mode: "chat",
         onDelta: (c) => { text += c; setSummary(text); },
@@ -647,7 +648,7 @@ const AudioSummary = ({ sourceText, settleAIUsage }: { sourceText: string; settl
 };
 
 // ─── Main Component ───
-const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent }: { studentName: string; studentId: string; studentClass?: string; isOnlineStudent?: boolean }) => {
+const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent, parentAccessCode }: { studentName: string; studentId: string; studentClass?: string; isOnlineStudent?: boolean; parentAccessCode?: string }) => {
   const { toast } = useToast();
   const { points, spend, earn, refresh: refreshPoints } = useRAPoints(studentId, isOnlineStudent);
   const settleAIUsage = useCallback(async (usage?: AIUsage) => {
@@ -856,7 +857,7 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
     setIsQuizLoading(true);
     setQuiz(null); setQuizAnswers({}); setQuizSubmitted(false);
     try {
-      const data = await fetchAI([{ role: "user", content: `Generate a quiz about: ${quizTopic.trim()}` }], "quiz", undefined, studentId);
+      const data = await fetchAI([{ role: "user", content: `Generate a quiz about: ${quizTopic.trim()}` }], "quiz", undefined, studentId, parentAccessCode);
       if (!(await settleAIUsage(data.usage))) return;
       const parsed = extractJson<Quiz>(data.content);
       if (parsed?.questions?.length) setQuiz(parsed);
