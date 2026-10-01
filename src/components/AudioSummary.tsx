@@ -62,73 +62,91 @@ async function getSessionHeaders() {
 }
 
 async function createAudioSummary(sourceText: string, studentId: string) {
-  const response = await fetch(CHAT_URL, {
-    method: "POST",
-    headers: await getSessionHeaders(),
-    body: JSON.stringify({
-      actorRole: "student",
-      mode: "audio_summary",
-      sourceText: sourceText.slice(0, 6000),
-      studentId,
-      messages: [{
-        role: "user",
-        content: "Create a concise audio-friendly study summary. Plain text only, no markdown or special formatting. Make it engaging, clear and educational for a school student. Keep it under about 700 words.",
-      }],
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 45000);
 
-  if (!response.ok) {
-    let detail = "Failed to create the summary.";
-    try {
-      const errorBody = await response.json();
-      if (typeof errorBody?.error === "string") detail = errorBody.error;
-    } catch {}
-    throw new Error(detail); 
-  }
+  try {
+    const response = await fetch(CHAT_URL, {
+      method: "POST",
+      headers: await getSessionHeaders(),
+      signal: controller.signal,
+      body: JSON.stringify({
+        actorRole: "student",
+        mode: "audio_summary",
+        sourceText: sourceText.slice(0, 6000),
+        studentId,
+        messages: [{
+          role: "user",
+          content: "Create a concise audio-friendly study summary. Plain text only, no markdown or special formatting. Make it engaging, clear and educational for a school student. Keep it under about 700 words.",
+        }],
+      }),
+    });
 
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error("No summary stream received.");
+    if (!response.ok) {
+      let detail = "Failed to create the summary.";
+      try {
+        const errorBody = await response.json();
+        if (typeof errorBody?.error === "string") detail = errorBody.error;
+      } catch {}
+      throw new Error(detail);
+    }
 
-  const decoder = new TextDecoder("utf-8", { fatal: false });
-  let buffer = "";
-  let summary = "";
+    const contentType = response.headers.get("content-type") || "";
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+    // Be tolerant of either the streaming SSE response or a normal JSON response.
+    // This prevents a protocol mismatch from turning a valid summary into an empty one.
+    if (contentType.includes("application/json")) {
+      const data = await response.json();
+      const summary = typeof data?.content === "string" ? data.content : "";
+      if (!summary.trim()) throw new Error("The AI returned an empty summary.");
+      return summary.trim();
+    }
 
-    let newline = -1;
-    while ((newline = buffer.indexOf("\n")) !== -1) {
-      let line = buffer.slice(0, newline);
-      buffer = buffer.slice(newline + 1);
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error("No summary response received.");
+
+    const decoder = new TextDecoder("utf-8", { fatal: false });
+    let buffer = "";
+    let summary = "";
+
+    const consumeLine = (line: string) => {
       if (line.endsWith("\r")) line = line.slice(0, -1);
-      if (!line.startsWith("data: ")) continue;
-
+      if (!line.startsWith("data: ")) return;
       const payload = line.slice(6).trim();
-      if (payload === "[DONE]") continue;
-
+      if (!payload || payload === "[DONE]") return;
       try {
         const parsed = JSON.parse(payload);
         const delta = parsed.choices?.[0]?.delta?.content;
         if (typeof delta === "string") summary += delta;
       } catch {
-        // Keep waiting for a complete SSE line.
+        // Ignore incomplete/non-SSE lines.
+      }
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let newline = -1;
+      while ((newline = buffer.indexOf("\n")) !== -1) {
+        consumeLine(buffer.slice(0, newline));
+        buffer = buffer.slice(newline + 1);
       }
     }
-  }
 
-  buffer += decoder.decode();
-  if (buffer.trim().startsWith("data: ")) {
-    try {
-      const parsed = JSON.parse(buffer.trim().slice(6));
-      const delta = parsed.choices?.[0]?.delta?.content;
-      if (typeof delta === "string") summary += delta;
-    } catch {}
-  }
+    buffer += decoder.decode();
+    if (buffer.trim()) consumeLine(buffer.trim());
 
-  if (!summary.trim()) throw new Error("The AI returned an empty summary.");
-  return summary.trim();
+    if (!summary.trim()) throw new Error("The AI returned an empty summary.");
+    return summary.trim();
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Audio summary timed out. Please try again.");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 async function spendPoints(studentId: string) {
@@ -195,7 +213,12 @@ const AudioSummary = ({ sourceText = "", studentId }: { sourceText?: string; stu
 
       let engineUsed: "kokoro" | "browser" = "browser";
       try {
-        const kokoro = await loadKokoro();
+        const kokoro = await Promise.race([
+          loadKokoro(),
+          new Promise<never>((_, reject) =>
+            window.setTimeout(() => reject(new Error("Kokoro loading timed out")), 12000)
+          ),
+        ]);
         const audio = await kokoro.generate(text, {
           voice: "af_heart",
           speed: 0.95,
