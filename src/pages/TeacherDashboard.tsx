@@ -543,6 +543,18 @@ const TeacherDashboard = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
+        {teacher && (
+          <div className="hidden" aria-hidden="true">
+            <GeoAttendance
+              teacherId={teacher.id}
+              teacherName={teacher.name}
+              expectedCheckIn={teacher.expected_check_in}
+              expectedCheckOut={teacher.expected_check_out}
+              trackingOnly
+            />
+          </div>
+        )}
+
         <Tabs defaultValue="attendance" className="space-y-6">
           <TabsList className="grid w-full max-w-4xl grid-cols-5">
             <TabsTrigger value="attendance" className="flex items-center gap-2">
@@ -571,6 +583,7 @@ const TeacherDashboard = () => {
                 teacherName={teacher.name}
                 expectedCheckIn={teacher.expected_check_in}
                 expectedCheckOut={teacher.expected_check_out}
+                trackingOnly={false}
               />
             )}
           </TabsContent>
