@@ -66,16 +66,22 @@ async function createAudioSummary(sourceText: string) {
     headers: await getSessionHeaders(),
     body: JSON.stringify({
       actorRole: "student",
-      mode: "chat",
+      mode: "audio_summary",
+      sourceText: sourceText.slice(0, 6000),
       messages: [{
         role: "user",
-        content: `Create a concise audio-friendly study summary from this material. Plain text only, no markdown or special formatting. Make it engaging, clear and educational for a school student. Keep it under about 700 words.\\n\\n${sourceText.slice(0, 6000)}`,
+        content: "Create a concise audio-friendly study summary. Plain text only, no markdown or special formatting. Make it engaging, clear and educational for a school student. Keep it under about 700 words.",
       }],
     }),
   });
 
   if (!response.ok) {
-    throw new Error("Failed to create the summary.");
+    let detail = "Failed to create the summary.";
+    try {
+      const errorBody = await response.json();
+      if (typeof errorBody?.error === "string") detail = errorBody.error;
+    } catch {}
+    throw new Error(detail); 
   }
 
   const reader = response.body?.getReader();
