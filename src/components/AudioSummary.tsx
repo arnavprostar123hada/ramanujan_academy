@@ -60,7 +60,7 @@ async function getSessionHeaders() {
   return headers;
 }
 
-async function createAudioSummary(sourceText: string) {
+async function createAudioSummary(sourceText: string, studentId: string) {
   const response = await fetch(CHAT_URL, {
     method: "POST",
     headers: await getSessionHeaders(),
@@ -68,6 +68,7 @@ async function createAudioSummary(sourceText: string) {
       actorRole: "student",
       mode: "audio_summary",
       sourceText: sourceText.slice(0, 6000),
+      studentId,
       messages: [{
         role: "user",
         content: "Create a concise audio-friendly study summary. Plain text only, no markdown or special formatting. Make it engaging, clear and educational for a school student. Keep it under about 700 words.",
@@ -187,7 +188,7 @@ const AudioSummary = ({ sourceText, studentId }: { sourceText: string; studentId
     stopAudio();
 
     try {
-      const text = await createAudioSummary(material);
+      const text = await createAudioSummary(material, studentId);
       setSummary(text);
 
       let engineUsed: "kokoro" | "browser" = "browser";
