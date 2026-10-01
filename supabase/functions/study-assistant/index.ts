@@ -168,6 +168,17 @@ Use 3-5 branches and 2-3 details each. Titles max 8 words.`;
 Use a mix of easy, medium and hard questions.`;
   }
 
+  if (mode === "audio_summary") {
+    return `Create a concise, audio-friendly study summary using ONLY the supplied source material.
+Return plain text only. No markdown, bullets, headings, tables, or special formatting.
+Make it engaging, clear and educational for a school student.
+Keep it below 700 words. Preserve important definitions, formulas, examples and key facts from the source.
+SOURCE:
+---
+${sourceText || "No source material supplied."}
+---`;
+  }
+
   if (mode === "notebook") {
     return `Answer ONLY from the supplied source material. If the answer is not supported by the source, say so. Be concise and cite the relevant source wording by referring to its section or phrase.
 SOURCE:
@@ -388,7 +399,7 @@ Deno.serve(async (req) => {
       const cachedUsage: AIUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0, credits: 0, cached: true };
       return mode === "quiz" || mode === "mindmap"
         ? json({ content: cached, cached: true, usage: cachedUsage })
-        : sse(cached, cachedUsage);
+        : sse(cached);
     }
 
     // Cheap local responses avoid spending gateway credits on greetings/simple requests.
@@ -420,7 +431,7 @@ Deno.serve(async (req) => {
 
     const cleanResult = sanitizeText(result.content);
 
-    if (actorRole === "student" && result.usage.credits > 0) {
+    if (actorRole === "student" && mode !== "audio_summary" && result.usage.credits > 0) {
       const { data: chargeRows, error: chargeError } = await admin.rpc("consume_student_ra_points_admin", {
         p_student_id: resolvedStudentId,
         p_points: result.usage.credits,
