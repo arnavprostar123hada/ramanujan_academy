@@ -146,7 +146,7 @@ function fallback(messages: Msg[], mode: string, sourceText = "", actorRole = "s
 }
 
 function parseMindMapContent(content: string): { title: string; children: unknown[] } | null {
-  let cleaned = content.replace(/\`\`\`json\\s*/gi, "").replace(/\`\`\`\\s*/g, "").trim();
+  let cleaned = content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
   if (start >= 0 && end > start) cleaned = cleaned.slice(start, end + 1);
