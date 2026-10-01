@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { Loader2, UserPlus, Trash2, KeyRound, ShieldCheck, ShieldOff, Clock, MapPin } from "lucide-react";
+import { AdminStaffPayroll } from "@/components/admin/AdminStaffPayroll";
 
 interface Staff {
   id: string;
@@ -15,6 +16,7 @@ interface Staff {
   email: string;
   phone: string | null;
   is_active: boolean;
+  monthly_salary: number;
   expected_check_in: string | null;
   expected_check_out: string | null;
 }
@@ -120,6 +122,7 @@ export function AdminStaffManagement() {
                   <Badge variant={s.is_active ? "default" : "secondary"}>{s.is_active ? "Active" : "Blocked"}</Badge>
                 </div>
                 <div className="text-xs text-muted-foreground">{s.email}{s.phone ? ` · ${s.phone}` : ""}</div>
+                <div className="text-xs text-muted-foreground mt-1">Salary: ₹{Number(s.monthly_salary || 0).toLocaleString("en-IN")}</div>
               </div>
               <div className="flex items-center gap-1 text-xs">
                 <Clock className="w-3 h-3" />
@@ -190,6 +193,8 @@ export function AdminStaffManagement() {
           </div>
         </CardContent>
       </Card>
+
+      <AdminStaffPayroll />
     </div>
   );
 }
