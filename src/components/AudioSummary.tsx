@@ -4,6 +4,7 @@ import { Loader2, Volume2, VolumeX, Sparkles, Play, RotateCcw } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -150,12 +151,13 @@ async function refundPoints(studentId: string) {
   });
 }
 
-const AudioSummary = ({ sourceText, studentId }: { sourceText: string; studentId: string }) => {
+const AudioSummary = ({ sourceText = "", studentId }: { sourceText?: string; studentId: string }) => {
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
   const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
 
+  const [material, setMaterial] = useState(sourceText);
   const [summary, setSummary] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -169,8 +171,8 @@ const AudioSummary = ({ sourceText, studentId }: { sourceText: string; studentId
   };
 
   const generate = async () => {
-    const material = sourceText.trim();
-    if (!material || isGenerating) return;
+    const inputMaterial = material.trim();
+    if (!inputMaterial || isGenerating) return;
 
     const charged = await spendPoints(studentId);
     if (!charged) {
@@ -188,7 +190,7 @@ const AudioSummary = ({ sourceText, studentId }: { sourceText: string; studentId
     stopAudio();
 
     try {
-      const text = await createAudioSummary(material, studentId);
+      const text = await createAudioSummary(inputMaterial, studentId);
       setSummary(text);
 
       let engineUsed: "kokoro" | "browser" = "browser";
@@ -277,14 +279,19 @@ const AudioSummary = ({ sourceText, studentId }: { sourceText: string; studentId
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="rounded-xl border bg-muted/20 p-3 max-h-[150px] overflow-y-auto">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Source material</p>
-            <p className="text-sm leading-6 whitespace-pre-wrap">{sourceText.trim() || "No source material loaded."}</p>
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Study material</p>
+            <Textarea
+              value={material}
+              onChange={(e) => setMaterial(e.target.value)}
+              placeholder="Paste your chapter notes, textbook text, or study material here..."
+              className="min-h-[140px] rounded-xl text-sm leading-6"
+            />
           </div>
 
           <Button
             onClick={generate}
-            disabled={isGenerating || !sourceText.trim()}
+            disabled={isGenerating || !material.trim()}
             className="w-full rounded-xl"
           >
             {isGenerating ? (
