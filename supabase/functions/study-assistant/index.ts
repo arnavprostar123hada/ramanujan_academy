@@ -145,6 +145,25 @@ function fallback(messages: Msg[], mode: string, sourceText = "", actorRole = "s
   return "AI service is temporarily busy, so I switched to low-cost fallback mode. Your request was not charged to the AI gateway. Please retry shortly for the full AI response.";
 }
 
+function parseMindMapContent(content: string): { title: string; children: unknown[] } | null {
+  let cleaned = content.replace(/\`\`\`json\\s*/gi, "").replace(/\`\`\`\\s*/g, "").trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start >= 0 && end > start) cleaned = cleaned.slice(start, end + 1);
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (
+      parsed &&
+      typeof parsed.title === "string" &&
+      parsed.title.trim() &&
+      Array.isArray(parsed.children)
+    ) {
+      return parsed;
+    }
+  } catch {}
+  return null;
+}
+
 function buildSystemPrompt(mode: string, sourceText: string, actorRole: string) {
   if (actorRole === "teacher" || mode.startsWith("teacher_")) {
     return `You are Ramanujan Academy Teacher AI. Help teachers save time while improving teaching quality.
@@ -448,6 +467,12 @@ Deno.serve(async (req) => {
     }
 
     const cleanResult = sanitizeText(result.content);
+
+    // Never charge a student for a malformed structured mind-map response.
+    // The frontend expects a JSON object, so validate it before billing.
+    if (mode === "mindmap" && !parseMindMapContent(cleanResult)) {
+      return json({ error: "The AI returned an invalid mind map. No RA Points were charged." }, 502);
+    }
 
     if (actorRole === "student" && mode !== "audio_summary" && result.usage.credits > 0) {
       const { data: chargeRows, error: chargeError } = await admin.rpc("consume_student_ra_points_admin", {
