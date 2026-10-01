@@ -143,13 +143,12 @@ async function refundPoints(studentId: string) {
   });
 }
 
-const AudioSummary = ({ studentId }: { studentId: string }) => {
+const AudioSummary = ({ sourceText, studentId }: { sourceText: string; studentId: string }) => {
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
   const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  const [sourceText, setSourceText] = useState("");
   const [summary, setSummary] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -163,7 +162,8 @@ const AudioSummary = ({ studentId }: { studentId: string }) => {
   };
 
   const generate = async () => {
-    if (!sourceText.trim() || isGenerating) return;
+    const material = sourceText.trim();
+    if (!material || isGenerating) return;
 
     const charged = await spendPoints(studentId);
     if (!charged) {
@@ -181,7 +181,7 @@ const AudioSummary = ({ studentId }: { studentId: string }) => {
     stopAudio();
 
     try {
-      const text = await createAudioSummary(sourceText);
+      const text = await createAudioSummary(material);
       setSummary(text);
 
       let engineUsed: "kokoro" | "browser" = "browser";
@@ -243,6 +243,10 @@ const AudioSummary = ({ studentId }: { studentId: string }) => {
     utterance.rate = 0.9;
     utterance.onend = () => setIsSpeaking(false);
     speechRef.current = utterance;
+    if (!("speechSynthesis" in window)) {
+      toast({ title: "Audio playback unavailable", description: "This browser does not support speech playback.", variant: "destructive" });
+      return;
+    }
     window.speechSynthesis.speak(utterance);
     setIsSpeaking(true);
   };
@@ -266,13 +270,10 @@ const AudioSummary = ({ studentId }: { studentId: string }) => {
           </p>
         </CardHeader>
         <CardContent className="space-y-3">
-          <textarea
-            value={sourceText}
-            onChange={(e) => setSourceText(e.target.value)}
-            placeholder="Paste your chapter notes, textbook text, or study material here..."
-            className="min-h-[180px] w-full rounded-xl border bg-background px-3 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-            maxLength={6000}
-          />
+          <div className="rounded-xl border bg-muted/20 p-3 max-h-[150px] overflow-y-auto">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Source material</p>
+            <p className="text-sm leading-6 whitespace-pre-wrap">{sourceText.trim() || "No source material loaded."}</p>
+          </div>
 
           <Button
             onClick={generate}
