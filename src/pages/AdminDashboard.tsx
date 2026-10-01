@@ -3172,6 +3172,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                   teacherName={myStaff.name}
                   expectedCheckIn={myStaff.expected_check_in}
                   expectedCheckOut={myStaff.expected_check_out}
+                  trackingOnly={false}
                 />
               ) : (
                 <Card><CardContent className="p-6 text-muted-foreground">Your account is not registered as admin staff. Ask the owner to add you.</CardContent></Card>
