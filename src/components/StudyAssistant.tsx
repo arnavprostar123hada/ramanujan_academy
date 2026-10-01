@@ -1057,7 +1057,7 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
                   </div>
 
                   {/* Audio Summary */}
-                  <AudioSummary sourceText={notebookSource} studentId={studentId} spend={spend} />
+                  <AudioSummary sourceText={notebookSource} studentId={studentId} />
 
                   <div className="h-[220px] overflow-y-auto rounded-xl p-3 space-y-3 bg-muted/20 border border-border/30">
                     {notebookPersistence.messages.length === 0 && (
