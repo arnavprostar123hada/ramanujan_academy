@@ -350,6 +350,7 @@ Deno.serve(async (req) => {
     const actorRole = body.actorRole === "teacher" ? "teacher" : "student";
     const teacherId = typeof body.teacherId === "string" ? body.teacherId : "";
     const studentId = typeof body.studentId === "string" ? body.studentId : "";
+    const parentAccessCode = typeof body.parentAccessCode === "string" ? body.parentAccessCode.trim().toUpperCase() : "";
     const messages = cleanMessages(body.messages);
     const rawSource = typeof body.sourceText === "string" ? body.sourceText : "";
     const sourceText = sanitizeText(rawSource.slice(0, MAX_SOURCE_CHARS));
@@ -371,17 +372,33 @@ Deno.serve(async (req) => {
 
     let resolvedStudentId = "";
     if (actorRole === "student") {
-      if (!authenticatedUserId || !studentId || !admin) {
+      if (!studentId || !admin) {
         return json({ error: "Student identity is required." }, 401);
       }
-      const { data: onlineStudent } = await admin
-        .from("online_students")
-        .select("student_id")
-        .eq("user_id", authenticatedUserId)
-        .eq("student_id", studentId)
-        .maybeSingle();
-      resolvedStudentId = onlineStudent?.student_id || "";
-      if (!resolvedStudentId) return json({ error: "Student identity is not authorized." }, 403);
+
+      if (authenticatedUserId) {
+        const { data: onlineStudent } = await admin
+          .from("online_students")
+          .select("student_id")
+          .eq("user_id", authenticatedUserId)
+          .eq("student_id", studentId)
+          .maybeSingle();
+        resolvedStudentId = onlineStudent?.student_id || "";
+        if (!resolvedStudentId) return json({ error: "Student identity is not authorized." }, 403);
+      } else if (parentAccessCode) {
+        // Parent Portal uses an access code rather than Supabase Auth.
+        // Require BOTH the exact student id and matching access code.
+        const { data: parentStudent } = await admin
+          .from("students")
+          .select("id")
+          .eq("id", studentId)
+          .eq("access_code", parentAccessCode)
+          .maybeSingle();
+        resolvedStudentId = parentStudent?.id || "";
+        if (!resolvedStudentId) return json({ error: "Parent access is not authorized." }, 403);
+      } else {
+        return json({ error: "Student login session is required." }, 401);
+      }
     }
 
     const normalized = JSON.stringify({
