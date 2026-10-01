@@ -312,7 +312,15 @@ async function streamChat({ messages, mode, sourceText, studentId, onDelta, onDo
   if (!resp.ok || !resp.body) {
     if (resp.status === 429) throw new Error("Rate limit exceeded. Please wait a moment.");
     if (resp.status === 402) throw new Error("AI credits exhausted.");
-    throw new Error("Failed to get AI response");
+    let detail = "Failed to get AI response";
+    try {
+      const errorBody = await resp.json();
+      if (typeof errorBody?.error === "string") detail = errorBody.error;
+      if (errorBody?.required != null && errorBody?.balance != null) {
+        detail = `${detail} Required: ${Number(errorBody.required).toFixed(2)} · Balance: ${Number(errorBody.balance).toFixed(2)}`;
+      }
+    } catch {}
+    throw new Error(detail);
   }
 
   const reader = resp.body.getReader();
@@ -753,7 +761,7 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
       });
     };
     try {
-      await streamChat({ messages: [...chatPersistence.messages, userMsg], mode: "chat", onDelta: upsert, onUsage: settleAIUsage, onDone: () => {
+      await streamChat({ messages: [...chatPersistence.messages, userMsg], mode: "chat", studentId, onDelta: upsert, onUsage: settleAIUsage, onDone: () => {
         setIsChatLoading(false);
         chatPersistence.saveMessage({ role: "assistant", content: assistant });
       }});
