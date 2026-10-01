@@ -81,9 +81,9 @@ function json(data: unknown, status = 200) {
   });
 }
 
-function sse(text: string) {
+function sse(text: string, usage?: AIUsage) {
   const chunks = text.match(/.{1,80}/gs) || [text];
-  const body = chunks.map((c) => `data: ${JSON.stringify({ choices: [{ delta: { content: c } }] })}\n\n`).join("") + "data: [DONE]\n\n";
+  const body = chunks.map((c, i) => `data: ${JSON.stringify({ choices: [{ delta: { content: c } }], ...(i === chunks.length - 1 && usage ? { usage } : {}) })}\n\n`).join("") + "data: [DONE]\n\n";
   return new Response(body, {
     headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
   });
