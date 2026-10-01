@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot, Send, Sparkles, Network, StickyNote, Plus, Trash2, Save,
   BookOpen, Loader2, ChevronRight, X, FileText,
-  Brain, Wand2, CheckCircle2, XCircle, Upload, Star,
-  ExternalLink, Award, Medal, Crown, Image as ImageIcon,
+  Brain, Wand2, CheckCircle2, XCircle, Upload,
+  ExternalLink, Image as ImageIcon,
   Volume2, VolumeX, ZoomIn, ZoomOut, Move
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -634,7 +634,7 @@ const AudioSummary = ({ sourceText, settleAIUsage }: { sourceText: string; settl
 // ─── Main Component ───
 const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent, parentAccessCode }: { studentName: string; studentId: string; studentClass?: string; isOnlineStudent?: boolean; parentAccessCode?: string }) => {
   const { toast } = useToast();
-  const { points, spend, earn, refresh: refreshPoints } = useRAPoints(studentId, isOnlineStudent);
+  const { points, spend, refresh: refreshPoints } = useRAPoints(studentId, isOnlineStudent);
   const settleAIUsage = useCallback(async (usage?: AIUsage) => {
     if (!usage || usage.cached) return true;
     if (typeof usage.studentPointsRemaining === "number") {
