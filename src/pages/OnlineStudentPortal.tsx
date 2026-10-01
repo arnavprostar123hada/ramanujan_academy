@@ -614,7 +614,7 @@ const OnlineStudentPortal = () => {
             {student && (
               <StudyAssistant
                 studentName={student.name}
-                studentId={student.id}
+                studentId={student.student_id}
                 studentClass={student.class}
                 isOnlineStudent={true}
               />
