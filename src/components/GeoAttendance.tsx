@@ -66,6 +66,7 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
   const [history, setHistory] = useState<Record[]>([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [clockTick, setClockTick] = useState(0);
   const watchId = useRef<number | null>(null);
   const autoRef = useRef({ checkingIn: false, checkingOut: false });
   const insideSince = useRef<number | null>(null);
@@ -214,6 +215,12 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
     [record, coords, fence, toast, load]
   );
 
+  // Keep the auto-attendance decision loop alive even when the GPS provider is not emitting a new position.
+  useEffect(() => {
+    const id = window.setInterval(() => setClockTick((v) => v + 1), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
   // Auto check-in after 10s continuously inside; auto check-out after 3 min continuously outside
   useEffect(() => {
     if (!fence || distance === null || loading) return;
@@ -248,7 +255,7 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
         });
       }
     }
-  }, [inside, distance, fence, record, loading, accuracy, doCheckIn, doCheckOut]);
+  }, [inside, distance, fence, record, loading, accuracy, doCheckIn, doCheckOut, clockTick]);
 
   // Re-check location when the staff member returns to the app or the device wakes.
   useEffect(() => {
