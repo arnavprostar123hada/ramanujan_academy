@@ -769,7 +769,7 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent,
       });
     };
     try {
-      await streamChat({ messages: [...chatPersistence.messages, userMsg], mode: "chat", studentId, onDelta: upsert, onUsage: settleAIUsage, onDone: () => {
+      await streamChat({ parentAccessCode, messages: [...chatPersistence.messages, userMsg], mode: "chat", studentId, onDelta: upsert, onUsage: settleAIUsage, onDone: () => {
         setIsChatLoading(false);
         chatPersistence.saveMessage({ role: "assistant", content: assistant });
       }});
@@ -798,7 +798,7 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent,
       });
     };
     try {
-      await streamChat({ messages: [...notebookPersistence.messages, userMsg], mode: "notebook", sourceText: notebookSource, studentId, onDelta: upsert, onUsage: settleAIUsage, onDone: () => {
+      await streamChat({ parentAccessCode, messages: [...notebookPersistence.messages, userMsg], mode: "notebook", sourceText: notebookSource, studentId, onDelta: upsert, onUsage: settleAIUsage, onDone: () => {
         setIsNotebookLoading(false);
         notebookPersistence.saveMessage({ role: "assistant", content: assistant });
       }});
@@ -830,7 +830,7 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent,
     try {
       await streamChat({
         messages: [{ role: "user", content: mindMapSource.trim() }],
-        mode: "mindmap", studentId,
+        mode: "mindmap", studentId, parentAccessCode,
         onDelta: (chunk) => { raw += chunk; },
         onDone: async () => {
           const parsed = extractJson<MindMapNode>(raw);
@@ -882,7 +882,7 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent,
     let sol = "";
     try {
       await streamChat({
-        messages: [{ role: "user", content: noteContent.trim() }], mode: "solve", studentId,
+        messages: [{ role: "user", content: noteContent.trim() }], mode: "solve", studentId, parentAccessCode,
         onDelta: (c) => { sol += c; setNoteSolution(sol); },
         onUsage: settleAIUsage,
         onDone: () => setIsNoteSolving(false),
