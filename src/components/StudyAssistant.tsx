@@ -372,13 +372,20 @@ async function streamChat({ messages, mode, sourceText, studentId, onDelta, onDo
 }
 
 // ─── Non-streaming fetch ───
-async function fetchAI(messages: Msg[], mode: string, sourceText?: string): Promise<{ content: string; usage?: AIUsage }> {
+async function fetchAI(messages: Msg[], mode: string, sourceText?: string, studentId?: string): Promise<{ content: string; usage?: AIUsage }> {
   const resp = await fetch(CHAT_URL, {
     method: "POST",
     headers: await getFunctionHeaders(),
-    body: JSON.stringify({ messages, mode, sourceText, actorRole: "student" }),
+    body: JSON.stringify({ messages, mode, sourceText, actorRole: "student", studentId }),
   });
-  if (!resp.ok) throw new Error("AI request failed");
+  if (!resp.ok) {
+    let detail = "AI request failed";
+    try {
+      const errorBody = await resp.json();
+      if (typeof errorBody?.error === "string") detail = errorBody.error;
+    } catch {}
+    throw new Error(detail);
+  }
   return resp.json();
 }
 
@@ -849,7 +856,7 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent 
     setIsQuizLoading(true);
     setQuiz(null); setQuizAnswers({}); setQuizSubmitted(false);
     try {
-      const data = await fetchAI([{ role: "user", content: `Generate a quiz about: ${quizTopic.trim()}` }], "quiz");
+      const data = await fetchAI([{ role: "user", content: `Generate a quiz about: ${quizTopic.trim()}` }], "quiz", undefined, studentId);
       if (!(await settleAIUsage(data.usage))) return;
       const parsed = extractJson<Quiz>(data.content);
       if (parsed?.questions?.length) setQuiz(parsed);
