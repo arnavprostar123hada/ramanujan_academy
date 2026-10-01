@@ -96,20 +96,34 @@ const OnlineTestManagement = ({ students }: { students: { id: string; name: stri
   };
 
   const createTest = async () => {
+    if (!newTest.title.trim() || !newTest.subject.trim()) {
+      toast({ title: "Title and subject are required", variant: "destructive" });
+      return;
+    }
+    if (newTest.duration_minutes <= 0 || newTest.max_marks <= 0) {
+      toast({ title: "Duration and max marks must be greater than zero", variant: "destructive" });
+      return;
+    }
+    if (newTest.starts_at && newTest.ends_at && new Date(newTest.ends_at) <= new Date(newTest.starts_at)) {
+      toast({ title: "End time must be after start time", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     const { error } = await supabase.from("online_tests").insert({
-      title: newTest.title,
-      description: newTest.description || null,
+      title: newTest.title.trim(),
+      description: newTest.description.trim() || null,
       class: newTest.class,
-      subject: newTest.subject,
+      subject: newTest.subject.trim(),
       test_type: newTest.test_type,
       duration_minutes: newTest.duration_minutes,
       max_marks: newTest.max_marks,
       starts_at: newTest.starts_at || null,
       ends_at: newTest.ends_at || null,
     });
-    if (error) toast({ title: "Failed to create test", variant: "destructive" });
-    else {
+    if (error) {
+      console.error("Online test creation failed:", error);
+      toast({ title: "Failed to create test", description: error.message, variant: "destructive" });
+    } else {
       toast({ title: "✅ Test created!" });
       setIsCreateOpen(false);
       setNewTest({ title: "", description: "", class: "10th", subject: "", test_type: "mcq", duration_minutes: 60, max_marks: 100, starts_at: "", ends_at: "" });
