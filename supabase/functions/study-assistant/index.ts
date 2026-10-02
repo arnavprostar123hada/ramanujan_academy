@@ -420,11 +420,19 @@ Deno.serve(async (req) => {
         return json({ error: "Student identity is required." }, 401);
       }
 
-      if (authenticatedUserId) {
-        // Accept either the canonical students.id or the online_students.id.
-        // Both are resolved only through the authenticated user's own mapping.
-        // Resolve the authenticated user's own online-student profile first.
-        // Do not trust the client-supplied student id by itself.
+      if (parentAccessCode) {
+        // Parent Portal is access-code based. An existing browser Auth session
+        // must not override the explicitly supplied parent access code.
+        const { data: parentStudent } = await admin
+          .from("students")
+          .select("id")
+          .eq("id", studentId)
+          .eq("access_code", parentAccessCode)
+          .maybeSingle();
+        resolvedStudentId = parentStudent?.id || "";
+        if (!resolvedStudentId) return json({ error: "Parent access is not authorized." }, 403);
+      } else if (authenticatedUserId) {
+        // Student Portal uses the authenticated user's online-student mapping.
         const { data: onlineStudent } = await admin
           .from("online_students")
           .select("id, student_id, email")
@@ -462,17 +470,6 @@ Deno.serve(async (req) => {
         if (!resolvedStudentId) {
           return json({ error: "Student identity is not authorized." }, 403);
         }
-      } else if (parentAccessCode) {
-        // Parent Portal uses an access code rather than Supabase Auth.
-        // Require BOTH the exact student id and matching access code.
-        const { data: parentStudent } = await admin
-          .from("students")
-          .select("id")
-          .eq("id", studentId)
-          .eq("access_code", parentAccessCode)
-          .maybeSingle();
-        resolvedStudentId = parentStudent?.id || "";
-        if (!resolvedStudentId) return json({ error: "Parent access is not authorized." }, 403);
       } else {
         return json({ error: "Student login session is required." }, 401);
       }
