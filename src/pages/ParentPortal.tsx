@@ -373,6 +373,18 @@ const ParentPortal = () => {
     });
   };
 
+  const attendancePresent = attendance.filter((record) => record.status.toLowerCase() === "present").length;
+  const attendanceRate = attendance.length ? Math.round((attendancePresent / attendance.length) * 100) : 0;
+  const averageScore = testResults.length
+    ? Math.round(
+        testResults.reduce((sum, result) => {
+          const test = tests.find((item) => item.id === result.test_id);
+          return sum + (test ? (result.marks_obtained / test.max_marks) * 100 : 0);
+        }, 0) / testResults.filter((result) => tests.some((item) => item.id === result.test_id)).length
+      )
+    : 0;
+  const upcomingTestCount = tests.filter((test) => new Date(test.test_date) >= new Date()).length;
+
   const handleQRScan = (code: string) => {
     setShowScanner(false);
     setAccessCode(code.toUpperCase());
@@ -582,9 +594,70 @@ const ParentPortal = () => {
           </Card>
         </motion.div>
 
+        {/* Parent command centre */}
+        <motion.section
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45 }}
+          className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary/90 to-accent text-primary-foreground shadow-xl"
+        >
+          <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
+          <div className="relative p-5 sm:p-7">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-sm text-primary-foreground/75">Parent Command Centre</p>
+                <h2 className="mt-1 text-2xl font-bold sm:text-3xl">Your child's learning at a glance</h2>
+                <p className="mt-2 text-sm text-primary-foreground/75">
+                  Attendance, tests, classroom updates and communication in one place.
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                {[
+                  { label: "Attendance", value: attendance.length ? `${attendanceRate}%` : "—", icon: CheckCircle2 },
+                  { label: "Avg. score", value: testResults.length ? `${averageScore}%` : "—", icon: TrendingUp },
+                  { label: "Upcoming tests", value: String(upcomingTestCount), icon: ClipboardList },
+                ].map((item) => (
+                  <div key={item.label} className="min-w-[90px] rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur">
+                    <item.icon className="mb-2 h-4 w-4 text-primary-foreground/80" />
+                    <p className="text-lg font-bold">{item.value}</p>
+                    <p className="text-[11px] text-primary-foreground/70">{item.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </motion.section>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            { label: "Academic updates", value: classLogs.length, icon: BookOpen, tab: "updates" },
+            { label: "New announcements", value: announcements.length, icon: Bell, tab: "announcements" },
+            { label: "Open concerns", value: concerns.filter((item) => !item.is_resolved).length, icon: AlertCircle, tab: "concerns" },
+          ].map((item) => (
+            <button
+              key={item.tab}
+              type="button"
+              onClick={() => document.querySelector<HTMLButtonElement>(`[data-state][value="${item.tab}"]`)?.click()}
+              className="group rounded-2xl border bg-card p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <item.icon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold">{item.label}</p>
+                  <p className="text-xs text-muted-foreground">{item.value} available</p>
+                </div>
+                <TrendingUp className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
+              </div>
+            </button>
+          ))}
+        </div>
+
         {/* Tabs */}
-        <Tabs defaultValue="tests" className="space-y-4">
+        <Tabs defaultValue="updates" className="space-y-4">
           <TabsList className="flex flex-wrap h-auto p-1 gap-1">
+            <TabsTrigger value="overview" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm"><Sparkles className="w-4 h-4" /><span>Overview</span></TabsTrigger>
             <TabsTrigger value="updates" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm"><BookOpen className="w-4 h-4" /><span>Updates</span></TabsTrigger>
             <TabsTrigger value="tests" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
               <ClipboardList className="w-4 h-4" />
@@ -617,6 +690,17 @@ const ParentPortal = () => {
               <span>Chat</span>
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="overview" className="space-y-4">
+            <Card className="shadow-md">
+              <CardHeader><CardTitle>Parent Overview</CardTitle></CardHeader>
+              <CardContent className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border p-4"><p className="text-sm text-muted-foreground">Attendance</p><p className="mt-1 text-2xl font-bold">{attendance.length ? `${attendanceRate}%` : "No data"}</p></div>
+                <div className="rounded-xl border p-4"><p className="text-sm text-muted-foreground">Average test score</p><p className="mt-1 text-2xl font-bold">{testResults.length ? `${averageScore}%` : "No results"}</p></div>
+                <div className="rounded-xl border p-4"><p className="text-sm text-muted-foreground">Class updates</p><p className="mt-1 text-2xl font-bold">{classLogs.length}</p></div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="updates" className="space-y-4">
             <Card><CardHeader><CardTitle>Approved Class Updates</CardTitle></CardHeader><CardContent className="space-y-3">{classLogs.length ? classLogs.map(log => <div key={log.id} className="border rounded-lg p-4"><div className="flex justify-between gap-3"><div><b>{log.subject || "Class Update"}</b>{log.topic && <div className="text-sm text-muted-foreground">{log.topic}</div>}</div><span className="text-xs text-muted-foreground">{new Date(log.log_date).toLocaleDateString("en-IN")}</span></div><p className="text-sm mt-2 whitespace-pre-wrap">{log.content}</p>{log.homework && <p className="text-sm mt-2"><b>Homework:</b> {log.homework}</p>}</div>) : <p className="text-muted-foreground text-sm">No approved class updates yet.</p>}</CardContent></Card>
