@@ -922,7 +922,7 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent,
                 animate={{ scale: 1 }}
                 className="flex items-center gap-1 bg-accent/15 px-2.5 py-1.5 rounded-lg"
               >
-                <Star className="w-3.5 h-3.5 text-primary fill-primary" />
+                <Sparkles className="w-3.5 h-3.5 text-primary fill-primary" />
                 <span className="font-bold text-xs">{Number(points).toFixed(2)}</span>
               </motion.div>
             </div>
