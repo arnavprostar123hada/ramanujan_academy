@@ -375,12 +375,13 @@ const ParentPortal = () => {
 
   const attendancePresent = attendance.filter((record) => record.status.toLowerCase() === "present").length;
   const attendanceRate = attendance.length ? Math.round((attendancePresent / attendance.length) * 100) : 0;
-  const averageScore = testResults.length
+  const validScoredResults = testResults.filter((result) => tests.some((item) => item.id === result.test_id));
+  const averageScore = validScoredResults.length
     ? Math.round(
-        testResults.reduce((sum, result) => {
+        validScoredResults.reduce((sum, result) => {
           const test = tests.find((item) => item.id === result.test_id);
           return sum + (test ? (result.marks_obtained / test.max_marks) * 100 : 0);
-        }, 0) / testResults.filter((result) => tests.some((item) => item.id === result.test_id)).length
+        }, 0) / validScoredResults.length
       )
     : 0;
   const upcomingTestCount = tests.filter((test) => new Date(test.test_date) >= new Date()).length;
