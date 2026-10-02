@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   GraduationCap,
+  LayoutDashboard,
   LogOut,
   Sparkles,
   Video,
@@ -397,7 +398,15 @@ const OnlineStudentPortal = () => {
         </div>
       </header>
 
-      <main className="portal-main container mx-auto px-4 py-5 space-y-5">
+      <aside className="student-desktop-sidebar fixed left-4 top-24 bottom-4 z-40 hidden w-56 flex-col rounded-3xl border bg-background/75 p-3 shadow-2xl backdrop-blur-xl md:flex">
+        <div className="mb-3 px-3 pt-2 text-[10px] font-black uppercase tracking-[.18em] text-muted-foreground">Learning OS</div>
+        <button key="overview" type="button" onClick={() => document.querySelector<HTMLButtonElement>('[data-state][value="overview"]')?.click()} className="student-sidebar-item group flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary"><LayoutDashboard className="h-4 w-4 transition-transform group-hover:scale-125" />Command Centre</button><button key="timetable" type="button" onClick={() => document.querySelector<HTMLButtonElement>('[data-state][value="timetable"]')?.click()} className="student-sidebar-item group flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary"><Clock className="h-4 w-4 transition-transform group-hover:scale-125" />Interactive Timetable</button><button key="classes" type="button" onClick={() => document.querySelector<HTMLButtonElement>('[data-state][value="classes"]')?.click()} className="student-sidebar-item group flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary"><Video className="h-4 w-4 transition-transform group-hover:scale-125" />Live Classes</button><button key="tests" type="button" onClick={() => document.querySelector<HTMLButtonElement>('[data-state][value="tests"]')?.click()} className="student-sidebar-item group flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary"><FileText className="h-4 w-4 transition-transform group-hover:scale-125" />Tests & Progress</button><button key="ai" type="button" onClick={() => document.querySelector<HTMLButtonElement>('[data-state][value="ai"]')?.click()} className="student-sidebar-item group flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary"><Sparkles className="h-4 w-4 transition-transform group-hover:scale-125" />AI Study Hub</button>
+        <div className="mt-auto rounded-2xl border bg-gradient-to-br from-violet-500/10 to-cyan-500/10 p-3">
+          <div className="flex items-center gap-2 text-xs font-bold"><Sparkles className="h-4 w-4 text-violet-500" /> Keep going!</div>
+          <p className="mt-1 text-[11px] text-muted-foreground">Every class adds momentum.</p>
+        </div>
+      </aside>
+      <main className="portal-main container mx-auto px-4 py-5 space-y-5 md:pl-64">
         {/* Student Info */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
