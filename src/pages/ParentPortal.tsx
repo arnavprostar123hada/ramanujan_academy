@@ -255,7 +255,7 @@ const ParentPortal = () => {
   };
 
   const handleLogin = async (code?: string) => {
-    const codeToUse = code || accessCode.trim().toUpperCase();
+    const codeToUse = (code || accessCode).trim().toUpperCase().replace(/\s+/g, "");
     if (!codeToUse) {
       toast({ title: "Please enter access code", variant: "destructive" });
       return;
@@ -266,11 +266,26 @@ const ParentPortal = () => {
       const { data: studentData, error } = await supabase
         .from("students")
         .select("id, name, class, batch, parent_name, access_code, student_type")
-        .eq("access_code", codeToUse)
-        .single();
+        .ilike("access_code", codeToUse)
+        .maybeSingle();
 
-      if (error || !studentData) {
-        toast({ title: "Invalid access code", description: "Please check your code and try again", variant: "destructive" });
+      if (error) {
+        console.error("Parent access-code lookup failed:", error);
+        toast({
+          title: "Login error",
+          description: error.message || "Unable to verify the access code. Please try again.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      if (!studentData) {
+        toast({
+          title: "Invalid access code",
+          description: "The code was not found. Please enter the code exactly as shown on the student's card.",
+          variant: "destructive",
+        });
         localStorage.removeItem("parent_access_code");
         setIsLoading(false);
         return;
