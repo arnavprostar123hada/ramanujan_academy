@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot, Send, Sparkles, Network, StickyNote, Plus, Trash2, Save,
   BookOpen, Loader2, ChevronRight, X, FileText, Trophy,
-  Brain, Wand2, CheckCircle2, XCircle, Upload, Star,
+  Brain, Wand2, CheckCircle2, XCircle, Upload,
   ExternalLink, Image as ImageIcon,
   Volume2, VolumeX, ZoomIn, ZoomOut, Move
 } from "lucide-react";
