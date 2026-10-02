@@ -17,6 +17,7 @@ import {
   ScanLine,
   Users,
   Sparkles,
+  Zap,
   KeyRound,
   Phone
 } from "lucide-react";
@@ -600,17 +601,25 @@ const ParentPortal = () => {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45 }}
-          className="premium-hero relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary/90 to-accent text-primary-foreground shadow-xl"
+          className="premium-hero command-colourful command-colourful-parent teacher-command-glow animated-border relative overflow-hidden rounded-3xl text-white shadow-2xl"
         >
-          <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
-          <div className="relative p-5 sm:p-7">
+          <div className="command-orb command-orb-one" />
+          <div className="command-orb command-orb-two" />
+          <div className="command-orb command-orb-three" />
+          <div className="relative z-10 p-5 sm:p-7">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="text-sm text-primary-foreground/75">Parent Command Centre</p>
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold backdrop-blur">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-300" />
+                  PARENT COMMAND CENTRE
+                </div>
                 <h2 className="mt-1 text-2xl font-bold sm:text-3xl">Your child's learning at a glance</h2>
-                <p className="mt-2 text-sm text-primary-foreground/75">
-                  Attendance, tests, classroom updates and communication in one place.
+                <p className="mt-2 max-w-2xl text-sm text-white/70">
+                  Attendance, tests, classroom updates and communication in one premium workspace.
                 </p>
+              </div>
+              <div className="premium-icon hidden h-16 w-16 items-center justify-center rounded-2xl border border-white/15 bg-white/10 shadow-2xl backdrop-blur sm:flex">
+                <Zap className="h-7 w-7 text-cyan-300" />
               </div>
               <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 {[
@@ -618,10 +627,10 @@ const ParentPortal = () => {
                   { label: "Avg. score", value: testResults.length ? `${averageScore}%` : "—", icon: TrendingUp },
                   { label: "Upcoming tests", value: String(upcomingTestCount), icon: ClipboardList },
                 ].map((item) => (
-                  <div key={item.label} className="min-w-[90px] rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur">
-                    <item.icon className="mb-2 h-4 w-4 text-primary-foreground/80" />
+                  <div key={item.label} className="premium-stat min-w-[90px] rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur">
+                    <item.icon className="mb-2 h-4 w-4 text-white/80" />
                     <p className="text-lg font-bold">{item.value}</p>
-                    <p className="text-[11px] text-primary-foreground/70">{item.label}</p>
+                    <p className="text-[11px] text-white/70">{item.label}</p>
                   </div>
                 ))}
               </div>
