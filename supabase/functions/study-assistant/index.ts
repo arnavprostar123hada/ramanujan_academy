@@ -224,16 +224,33 @@ ${sourceText || "No source material supplied."}
 
 async function getAuthenticatedUserId(req: Request) {
   const url = Deno.env.get("SUPABASE_URL");
-  const key = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY");
   const authorization = req.headers.get("Authorization");
-  if (!url || !key || !authorization?.startsWith("Bearer ")) return null;
-  const client = createClient(url, key, {
-    auth: { persistSession: false },
-    global: { headers: { Authorization: authorization } },
+  if (!url || !authorization?.startsWith("Bearer ")) return null;
+
+  // Verify the bearer token server-side with the service-role client.
+  // This avoids depending on the publishable/anon key being exposed in the
+  // Edge Function environment and prevents valid student sessions from being
+  // mistaken for anonymous requests.
+  const token = authorization.slice("Bearer ".length).trim();
+  if (!token) return null;
+
+  const secretJson = Deno.env.get("SUPABASE_SECRET_KEYS");
+  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  let serviceKey = legacy || "";
+  if (secretJson) {
+    try { serviceKey = JSON.parse(secretJson)?.default || serviceKey; } catch {}
+  }
+  if (!serviceKey) return null;
+
+  const client = createClient(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { data, error } = await client.auth.getUser();
-  if (error) return null;
-  return data.user?.id || null;
+  const { data, error } = await client.auth.getUser(token);
+  if (error || !data.user?.id) {
+    console.error("study-assistant auth verification failed:", error?.message || "no user");
+    return null;
+  }
+  return data.user.id;
 }
 
 async function getAdminClient() {
