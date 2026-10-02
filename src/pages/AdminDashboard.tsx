@@ -618,8 +618,13 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
       setIsAddStudentOpen(false);
       setNewlyAddedStudent(addedStudent);
     } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : (error as { message?: string } | null)?.message || "Unable to save the student.";
+      console.error("Student creation failed:", error);
       toast({
         title: "Error adding student",
+        description: message,
         variant: "destructive",
       });
     }
