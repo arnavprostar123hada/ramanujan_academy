@@ -36,6 +36,7 @@ import StudyAssistant from "@/components/StudyAssistant";
 import StudentOnlineTest from "@/components/StudentOnlineTest";
 import AudioSummary from "@/components/AudioSummary";
 import StudentCommandCentre from "@/components/StudentCommandCentre";
+import { StudentAttendanceQR } from "@/components/StudentAttendanceScanner";
 
 const CLASSES = ["1st","2nd","3rd","4th","5th","6th","7th","8th","9th","10th","11th","12th"];
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -436,6 +437,10 @@ const OnlineStudentPortal = () => {
             </CardContent>
           </Card>
         </motion.div>
+
+        {student && (
+          <StudentAttendanceQR studentId={student.student_id} studentName={student.name} />
+        )}
 
         <StudentCommandCentre
           studentName={student?.name || "Student"}
