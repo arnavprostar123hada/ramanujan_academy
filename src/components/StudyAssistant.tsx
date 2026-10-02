@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot, Send, Sparkles, Network, StickyNote, Plus, Trash2, Save,
-  BookOpen, Loader2, ChevronRight, X, FileText,
+  BookOpen, Loader2, ChevronRight, X, FileText, Trophy,
   Brain, Wand2, CheckCircle2, XCircle, Upload, Star,
   ExternalLink, Image as ImageIcon,
   Volume2, VolumeX, ZoomIn, ZoomOut, Move
@@ -1100,7 +1100,7 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent,
                       <Trophy className="w-7 h-7 text-accent-foreground/60" />
                     </div>
                     <h3 className="font-bold text-sm">Quiz Generator</h3>
-                    <p className="text-[10px] text-muted-foreground mt-1">Earn 2 RA points per correct answer</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">Practice, learn and improve with every quiz</p>
                   </div>
                   <Input placeholder="Enter a topic (e.g., Photosynthesis, WW2)" value={quizTopic} onChange={(e) => setQuizTopic(e.target.value)} className="text-sm rounded-xl bg-muted/30 border-border/40" />
                   <Button onClick={generateQuiz} disabled={isQuizLoading || !quizTopic.trim()} className="w-full rounded-xl">
