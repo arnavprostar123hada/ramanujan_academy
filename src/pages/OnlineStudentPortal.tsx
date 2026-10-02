@@ -34,6 +34,7 @@ import { supabase } from "@/integrations/supabase/client";
 import StudyAssistant from "@/components/StudyAssistant";
 import StudentOnlineTest from "@/components/StudentOnlineTest";
 import AudioSummary from "@/components/AudioSummary";
+import StudentCommandCentre from "@/components/StudentCommandCentre";
 
 const CLASSES = ["1st","2nd","3rd","4th","5th","6th","7th","8th","9th","10th","11th","12th"];
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -70,6 +71,7 @@ const OnlineStudentPortal = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [student, setStudent] = useState<OnlineStudent | null>(null);
   const [zoomLinks, setZoomLinks] = useState<ZoomLink[]>([]);
+  const [attendanceDays, setAttendanceDays] = useState(0);
 
   // Auth form
   const [email, setEmail] = useState("");
@@ -99,7 +101,18 @@ const OnlineStudentPortal = () => {
       setStudent(data as OnlineStudent);
       setIsLoggedIn(true);
       await fetchZoomLinks(data.class, data.batch);
+      await fetchAttendanceDays(data.student_id);
     }
+  };
+
+  const fetchAttendanceDays = async (studentId: string) => {
+    const { data } = await supabase
+      .from("student_attendance")
+      .select("attendance_date,status")
+      .eq("student_id", studentId)
+      .eq("status", "present")
+      .order("attendance_date", { ascending: false });
+    if (data) setAttendanceDays(new Set(data.map((row) => row.attendance_date)).size);
   };
 
   const fetchZoomLinks = async (studentClass: string, studentBatch?: string | null) => {
@@ -415,78 +428,15 @@ const OnlineStudentPortal = () => {
           </Card>
         </motion.div>
 
-        {/* Student command centre */}
-        <motion.section
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.08, duration: 0.45 }}
-          className="premium-hero relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary/90 to-accent text-primary-foreground shadow-xl"
-        >
-          <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
-          <div className="absolute -bottom-20 left-1/3 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
-          <div className="relative p-5 sm:p-7">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <div className="mb-2 flex items-center gap-2 text-sm text-primary-foreground/80">
-                  <Sparkles className="h-4 w-4" />
-                  Ramanujan Academy Student Hub
-                </div>
-                <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                  {greeting}, {student?.name?.split(" ")[0] || "Student"} 👋
-                </h2>
-                <p className="mt-2 max-w-xl text-sm text-primary-foreground/80 sm:text-base">
-                  Your learning day, classes and study tools are all in one place.
-                </p>
-              </div>
-              <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                {[
-                  { label: "Today", value: String(todayLinks.length), icon: Calendar },
-                  { label: "This week", value: String(weekClassCount), icon: BookOpen },
-                  { label: "AI Hub", value: "Open", icon: Sparkle },
-                ].map((item) => (
-                  <div key={item.label} className="min-w-[82px] rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur">
-                    <item.icon className="mb-2 h-4 w-4 text-primary-foreground/80" />
-                    <p className="text-lg font-bold">{item.value}</p>
-                    <p className="text-[11px] text-primary-foreground/70">{item.label}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </motion.section>
-
-        {/* Quick actions */}
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.16, duration: 0.4 }}
-          className="premium-grid grid grid-cols-2 gap-3 md:grid-cols-4"
-        >
-          {[
-            { label: "Join next class", icon: Video, tab: "classes", accent: "text-blue-600 bg-blue-500/10" },
-            { label: "Take a test", icon: Target, tab: "tests", accent: "text-emerald-600 bg-emerald-500/10" },
-            { label: "Study with AI", icon: Sparkles, tab: "ai", accent: "text-violet-600 bg-violet-500/10" },
-            { label: "View timetable", icon: Calendar, tab: "timetable", accent: "text-orange-600 bg-orange-500/10" },
-          ].map((action) => (
-            <button
-              key={action.tab}
-              type="button"
-              onClick={() => {
-                const trigger = document.querySelector<HTMLButtonElement>(`[data-state][value="${action.tab}"]`);
-                trigger?.click();
-              }}
-              className="premium-card group rounded-2xl border bg-card p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg"
-            >
-              <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${action.accent}`}>
-                <action.icon className="h-5 w-5" />
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold">{action.label}</span>
-                <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
-              </div>
-            </button>
-          ))}
-        </motion.div>
+        <StudentCommandCentre
+          studentName={student?.name || "Student"}
+          studentClass={student?.class || ""}
+          batch={student?.batch}
+          todayClasses={todayLinks.length}
+          weekClasses={weekClassCount}
+          attendanceDays={attendanceDays}
+          onNavigate={(tab) => document.querySelector<HTMLButtonElement>(`[data-state][value="${tab}"]`)?.click()}
+        />
 
         {/* Next class */}
         {upcomingLink && (
@@ -529,32 +479,7 @@ const OnlineStudentPortal = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 h-auto gap-1 p-1 sm:grid-cols-3 lg:grid-cols-6">
-            <TabsTrigger value="overview" className="flex items-center gap-1.5 py-2.5">
-              <Sparkles className="w-4 h-4" />
-              <span>Overview</span>
-            </TabsTrigger>
-            <TabsTrigger value="timetable" className="flex items-center gap-1.5 py-2.5">
-              <Clock className="w-4 h-4" />
-              <span>Timetable</span>
-            </TabsTrigger>
-            <TabsTrigger value="classes" className="flex items-center gap-1.5 py-2.5">
-              <Video className="w-4 h-4" />
-              <span>Classes</span>
-            </TabsTrigger>
-            <TabsTrigger value="tests" className="flex items-center gap-1.5 py-2.5">
-              <FileText className="w-4 h-4" />
-              <span>Online Test</span>
-            </TabsTrigger>
-            <TabsTrigger value="audio" className="flex items-center gap-1.5 py-2.5">
-              <Sparkles className="w-4 h-4" />
-              <span>Audio Summary</span>
-            </TabsTrigger>
-            <TabsTrigger value="ai" className="flex items-center gap-1.5 py-2.5">
-              <Sparkles className="w-4 h-4" />
-              <span>AI Hub</span>
-            </TabsTrigger>
-          </TabsList>
+          <TabsList className="sr-only" aria-hidden="true">          </TabsList>
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-4">
@@ -807,6 +732,9 @@ const OnlineStudentPortal = () => {
             )}
           </TabsContent>
         </Tabs>
+        <nav className="student-mobile-nav fixed bottom-3 left-3 right-3 z-50 grid grid-cols-5 gap-1 rounded-2xl border bg-background/85 p-1.5 shadow-2xl backdrop-blur-xl md:hidden">
+          <button type="button" data-student-tab="overview" onClick={() => document.querySelector<HTMLButtonElement>(`[data-state][value="overview"]`)?.click()} className="rounded-xl px-2 py-2 text-[10px] font-semibold text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary">Home</button><button type="button" data-student-tab="timetable" onClick={() => document.querySelector<HTMLButtonElement>(`[data-state][value="timetable"]`)?.click()} className="rounded-xl px-2 py-2 text-[10px] font-semibold text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary">Plan</button><button type="button" data-student-tab="classes" onClick={() => document.querySelector<HTMLButtonElement>(`[data-state][value="classes"]`)?.click()} className="rounded-xl px-2 py-2 text-[10px] font-semibold text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary">Class</button><button type="button" data-student-tab="tests" onClick={() => document.querySelector<HTMLButtonElement>(`[data-state][value="tests"]`)?.click()} className="rounded-xl px-2 py-2 text-[10px] font-semibold text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary">Tests</button><button type="button" data-student-tab="ai" onClick={() => document.querySelector<HTMLButtonElement>(`[data-state][value="ai"]`)?.click()} className="rounded-xl px-2 py-2 text-[10px] font-semibold text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary">AI</button>
+        </nav>
       </main>
     </div>
   );
