@@ -15,6 +15,12 @@ import {
   Coins,
   Clock,
   FileText,
+  ArrowRight,
+  BookOpen,
+  Target,
+  Bell,
+  ChevronRight,
+  Sparkle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -180,6 +186,12 @@ const OnlineStudentPortal = () => {
     if (b.schedule_day === today && a.schedule_day !== today) return 1;
     return getDayIndex(a.schedule_day) - getDayIndex(b.schedule_day);
   });
+
+  const todayLinks = sortedLinks.filter((link) => link.schedule_day === today);
+  const upcomingLink = todayLinks[0] ?? sortedLinks[0] ?? null;
+  const weekClassCount = zoomLinks.length;
+  const greetingHour = new Date().getHours();
+  const greeting = greetingHour < 12 ? "Good morning" : greetingHour < 17 ? "Good afternoon" : "Good evening";
 
   if (!isLoggedIn) {
     return (
@@ -403,9 +415,121 @@ const OnlineStudentPortal = () => {
           </Card>
         </motion.div>
 
+        {/* Student command centre */}
+        <motion.section
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08, duration: 0.45 }}
+          className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary/90 to-accent text-primary-foreground shadow-xl"
+        >
+          <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
+          <div className="absolute -bottom-20 left-1/3 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
+          <div className="relative p-5 sm:p-7">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="mb-2 flex items-center gap-2 text-sm text-primary-foreground/80">
+                  <Sparkles className="h-4 w-4" />
+                  Ramanujan Academy Student Hub
+                </div>
+                <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                  {greeting}, {student?.name?.split(" ")[0] || "Student"} 👋
+                </h2>
+                <p className="mt-2 max-w-xl text-sm text-primary-foreground/80 sm:text-base">
+                  Your learning day, classes and study tools are all in one place.
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                {[
+                  { label: "Today", value: String(todayLinks.length), icon: Calendar },
+                  { label: "This week", value: String(weekClassCount), icon: BookOpen },
+                  { label: "AI Hub", value: "Open", icon: Sparkle },
+                ].map((item) => (
+                  <div key={item.label} className="min-w-[82px] rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur">
+                    <item.icon className="mb-2 h-4 w-4 text-primary-foreground/80" />
+                    <p className="text-lg font-bold">{item.value}</p>
+                    <p className="text-[11px] text-primary-foreground/70">{item.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </motion.section>
+
+        {/* Quick actions */}
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.16, duration: 0.4 }}
+          className="grid grid-cols-2 gap-3 md:grid-cols-4"
+        >
+          {[
+            { label: "Join next class", icon: Video, tab: "classes", accent: "text-blue-600 bg-blue-500/10" },
+            { label: "Take a test", icon: Target, tab: "tests", accent: "text-emerald-600 bg-emerald-500/10" },
+            { label: "Study with AI", icon: Sparkles, tab: "ai", accent: "text-violet-600 bg-violet-500/10" },
+            { label: "View timetable", icon: Calendar, tab: "timetable", accent: "text-orange-600 bg-orange-500/10" },
+          ].map((action) => (
+            <button
+              key={action.tab}
+              type="button"
+              onClick={() => {
+                const trigger = document.querySelector<HTMLButtonElement>(`[data-state][value="${action.tab}"]`);
+                trigger?.click();
+              }}
+              className="group rounded-2xl border bg-card p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg"
+            >
+              <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${action.accent}`}>
+                <action.icon className="h-5 w-5" />
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold">{action.label}</span>
+                <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
+              </div>
+            </button>
+          ))}
+        </motion.div>
+
+        {/* Next class */}
+        {upcomingLink && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.22, duration: 0.4 }}
+          >
+            <Card className="overflow-hidden border-primary/15 shadow-md">
+              <CardContent className="p-0">
+                <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                      <Clock className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <div className="mb-1 flex items-center gap-2">
+                        <Badge variant="secondary">Next class</Badge>
+                        {upcomingLink.schedule_day === today && <Badge>Today</Badge>}
+                      </div>
+                      <h3 className="font-bold">{upcomingLink.subject}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {upcomingLink.schedule_day} · {upcomingLink.schedule_time}
+                        {upcomingLink.teacher_name ? ` · ${upcomingLink.teacher_name}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    className="shrink-0"
+                    onClick={() => window.open(upcomingLink.zoom_url, "_blank")}
+                  >
+                    Join Class
+                    <ExternalLink className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
         {/* Tabs */}
         <Tabs defaultValue="timetable" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5 h-auto p-1">
+          <TabsList className="grid w-full grid-cols-2 h-auto gap-1 p-1 sm:grid-cols-5">
             <TabsTrigger value="timetable" className="flex items-center gap-1.5 py-2.5">
               <Clock className="w-4 h-4" />
               <span>Timetable</span>
@@ -427,6 +551,64 @@ const OnlineStudentPortal = () => {
               <span>AI Hub</span>
             </TabsTrigger>
           </TabsList>
+
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card className="border-primary/10 shadow-sm">
+                <CardContent className="p-5">
+                  <Bell className="mb-3 h-5 w-5 text-primary" />
+                  <p className="text-sm text-muted-foreground">Today's classes</p>
+                  <p className="mt-1 text-3xl font-bold">{todayLinks.length}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {todayLinks.length ? "Stay ready for your next session." : "No class scheduled today."}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="border-primary/10 shadow-sm">
+                <CardContent className="p-5">
+                  <Target className="mb-3 h-5 w-5 text-emerald-600" />
+                  <p className="text-sm text-muted-foreground">Learning focus</p>
+                  <p className="mt-1 text-xl font-bold">Practice + Test</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Use Online Test to check your progress.</p>
+                </CardContent>
+              </Card>
+              <Card className="border-primary/10 shadow-sm">
+                <CardContent className="p-5">
+                  <Sparkles className="mb-3 h-5 w-5 text-violet-600" />
+                  <p className="text-sm text-muted-foreground">Study support</p>
+                  <p className="mt-1 text-xl font-bold">AI Hub</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Ask, practise and revise with your study assistant.</p>
+                </CardContent>
+              </Card>
+            </div>
+            <Card className="shadow-md">
+              <CardHeader>
+                <CardTitle>Continue your learning</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-3 sm:grid-cols-3">
+                {[
+                  { title: "Check timetable", desc: "See your weekly schedule.", tab: "timetable", icon: Calendar },
+                  { title: "Attempt a test", desc: "Measure your preparation.", tab: "tests", icon: FileText },
+                  { title: "Open AI Hub", desc: "Get help with your studies.", tab: "ai", icon: Sparkles },
+                ].map((item) => (
+                  <button
+                    key={item.tab}
+                    type="button"
+                    onClick={() => document.querySelector<HTMLButtonElement>(`[data-state][value="${item.tab}"]`)?.click()}
+                    className="group flex items-center gap-3 rounded-xl border p-4 text-left transition-all hover:border-primary/30 hover:bg-primary/5"
+                  >
+                    <item.icon className="h-5 w-5 text-primary" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold">{item.title}</span>
+                      <span className="block text-xs text-muted-foreground">{item.desc}</span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Weekly Timetable Tab */}
           <TabsContent value="timetable" className="space-y-4">
