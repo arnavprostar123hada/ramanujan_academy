@@ -360,7 +360,7 @@ const OnlineStudentPortal = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       {/* Header */}
-      <header className="bg-background/80 backdrop-blur-lg border-b sticky top-0 z-50">
+      <header className="portal-header bg-background/80 backdrop-blur-lg border-b sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <motion.div
@@ -384,7 +384,7 @@ const OnlineStudentPortal = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-5 space-y-5">
+      <main className="portal-main container mx-auto px-4 py-5 space-y-5">
         {/* Student Info */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -420,7 +420,7 @@ const OnlineStudentPortal = () => {
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.08, duration: 0.45 }}
-          className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary/90 to-accent text-primary-foreground shadow-xl"
+          className="premium-hero relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary/90 to-accent text-primary-foreground shadow-xl"
         >
           <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
           <div className="absolute -bottom-20 left-1/3 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
@@ -460,7 +460,7 @@ const OnlineStudentPortal = () => {
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.16, duration: 0.4 }}
-          className="grid grid-cols-2 gap-3 md:grid-cols-4"
+          className="premium-grid grid grid-cols-2 gap-3 md:grid-cols-4"
         >
           {[
             { label: "Join next class", icon: Video, tab: "classes", accent: "text-blue-600 bg-blue-500/10" },
@@ -475,7 +475,7 @@ const OnlineStudentPortal = () => {
                 const trigger = document.querySelector<HTMLButtonElement>(`[data-state][value="${action.tab}"]`);
                 trigger?.click();
               }}
-              className="group rounded-2xl border bg-card p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg"
+              className="premium-card group rounded-2xl border bg-card p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg"
             >
               <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${action.accent}`}>
                 <action.icon className="h-5 w-5" />
