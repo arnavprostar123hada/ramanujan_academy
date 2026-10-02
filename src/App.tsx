@@ -22,6 +22,9 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <div className="app-shell">
+          <div className="app-orb app-orb-one" aria-hidden="true" />
+          <div className="app-orb app-orb-two" aria-hidden="true" />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/admin" element={<AdminLogin />} />
@@ -35,6 +38,7 @@ const App = () => (
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </div>
         </BrowserRouter>
       </TooltipProvider>
     </AppErrorBoundary>
