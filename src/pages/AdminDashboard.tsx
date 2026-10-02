@@ -1200,7 +1200,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
   return (
     <div className="min-h-screen bg-muted/30">
       {/* Header */}
-      <header className="bg-background border-b sticky top-0 z-10">
+      <header className="portal-header bg-background border-b sticky top-0 z-10">
         <div className="container-custom py-4 px-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src={logo} alt="Ramanujan Academy" className="w-10 h-10" />
@@ -1222,7 +1222,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
         </div>
       </header>
 
-      <main className="container-custom py-8 px-4">
+      <main className="portal-main container-custom py-8 px-4">
         {/* Always-on automatic attendance tracking for admin staff.
             Staff are checked in from the geofence without opening My Attendance. */}
         {!isOwner && myStaff && (
@@ -1241,7 +1241,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45 }}
-          className="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary/90 to-accent text-primary-foreground shadow-xl"
+          className="premium-hero relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary/90 to-accent text-primary-foreground shadow-xl"
         >
           <div className="absolute -right-20 -top-20 h-52 w-52 rounded-full bg-white/10 blur-3xl" />
           <div className="absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
@@ -1276,7 +1276,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
           </div>
         </motion.section>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="premium-grid grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
