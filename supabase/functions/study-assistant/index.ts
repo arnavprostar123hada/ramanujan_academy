@@ -435,15 +435,13 @@ Deno.serve(async (req) => {
           return json({ error: "Student identity is not authorized." }, 403);
         }
 
-        // Normal case: the portal sends the canonical students.id.
-        if (
-          (onlineStudent.student_id && studentId === onlineStudent.student_id) ||
-          studentId === onlineStudent.id
-        ) {
-          resolvedStudentId = onlineStudent.student_id || "";
-        }
+        // For an authenticated student, the server-side user mapping is the
+        // source of truth. Never reject a valid session because the UI has an
+        // old/stale studentId or because it sends online_students.id instead
+        // of students.id.
+        resolvedStudentId = onlineStudent.student_id || "";
 
-        // Repair older online profiles created before student_id was linked.
+        // Repair older online profiles where student_id was not linked yet.
         if (!resolvedStudentId && onlineStudent.email) {
           const { data: linkedStudent } = await admin
             .from("students")
