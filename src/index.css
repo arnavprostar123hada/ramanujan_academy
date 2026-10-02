@@ -824,3 +824,123 @@ select:focus-visible {
     animation: none !important;
   }
 }
+
+
+/* ─── Unified Admin + Owner SaaS Experience ─── */
+.saas-admin-shell {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 4% 8%, hsl(190 100% 62% / .10), transparent 24%),
+    radial-gradient(circle at 96% 12%, hsl(275 100% 68% / .10), transparent 26%),
+    radial-gradient(circle at 48% 100%, hsl(45 100% 60% / .08), transparent 28%),
+    linear-gradient(180deg, hsl(220 35% 98%), hsl(240 30% 97%));
+}
+.saas-admin-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent 0 49.5%, hsl(220 50% 80% / .07) 50%, transparent 50.5%),
+    linear-gradient(0deg, transparent 0 49.5%, hsl(220 50% 80% / .05) 50%, transparent 50.5%);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(to bottom, black, transparent 80%);
+}
+.saas-admin-main {
+  animation: saas-main-enter 700ms cubic-bezier(.2,.8,.2,1) both;
+}
+.saas-admin-main > .premium-grid > * {
+  animation: saas-card-enter 650ms cubic-bezier(.2,.8,.2,1) both;
+}
+.saas-admin-main > .premium-grid > *:nth-child(2) { animation-delay: 60ms; }
+.saas-admin-main > .premium-grid > *:nth-child(3) { animation-delay: 120ms; }
+.saas-admin-main > .premium-grid > *:nth-child(4) { animation-delay: 180ms; }
+
+.saas-admin-shell .saas-surface-card {
+  border: 1px solid hsl(220 35% 88% / .82);
+  background: linear-gradient(145deg, hsl(0 0% 100% / .94), hsl(220 100% 99% / .80));
+  box-shadow: 0 12px 34px hsl(220 35% 35% / .07);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
+  transition: transform .32s cubic-bezier(.2,.8,.2,1), box-shadow .32s ease, border-color .32s ease;
+}
+.saas-admin-shell .saas-surface-card:hover {
+  transform: translateY(-5px);
+  border-color: hsl(250 80% 70% / .35);
+  box-shadow: 0 22px 55px hsl(220 45% 35% / .12), 0 0 0 1px hsl(190 90% 60% / .06);
+}
+.saas-admin-shell .saas-surface-card .text-3xl {
+  background: linear-gradient(135deg, hsl(220 75% 28%), hsl(255 75% 52%));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.saas-admin-shell .portal-header {
+  background: hsl(0 0% 100% / .76) !important;
+  border-bottom: 1px solid hsl(220 35% 86% / .75) !important;
+  box-shadow: 0 10px 35px hsl(220 35% 30% / .07);
+}
+.saas-admin-shell .portal-header img {
+  box-shadow: 0 8px 22px hsl(250 80% 60% / .18);
+  border-radius: 12px;
+}
+.saas-admin-shell .portal-header button {
+  border-radius: 12px;
+}
+.saas-admin-shell .premium-hero {
+  box-shadow:
+    0 28px 80px hsl(250 70% 55% / .16),
+    0 0 55px hsl(190 90% 60% / .10);
+}
+.saas-admin-shell .card-elevated,
+.saas-admin-shell .glass-panel {
+  border-radius: 20px;
+}
+.saas-admin-shell [role="tablist"] {
+  border: 1px solid hsl(220 35% 87% / .8);
+  background: hsl(0 0% 100% / .72);
+  box-shadow: 0 10px 30px hsl(220 35% 30% / .06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.saas-admin-shell [role="tab"] {
+  border-radius: 12px;
+  transition: transform .25s ease, background .25s ease, box-shadow .25s ease, color .25s ease;
+}
+.saas-admin-shell [role="tab"]:hover {
+  transform: translateY(-2px);
+  background: hsl(250 90% 97%);
+}
+.saas-admin-shell [role="tab"][data-state="active"] {
+  background: linear-gradient(135deg, hsl(190 95% 94%), hsl(270 95% 96%));
+  color: hsl(245 55% 35%);
+  box-shadow: 0 8px 22px hsl(250 70% 55% / .12);
+}
+.saas-admin-shell .btn,
+.saas-admin-shell button {
+  border-radius: 11px;
+}
+.saas-admin-shell .premium-stat {
+  border: 1px solid hsl(0 0% 100% / .78);
+  box-shadow: 0 10px 28px hsl(220 40% 30% / .08);
+}
+.saas-admin-shell .premium-stat:nth-child(1) { box-shadow: 0 10px 30px hsl(190 90% 55% / .12); }
+.saas-admin-shell .premium-stat:nth-child(2) { box-shadow: 0 10px 30px hsl(275 90% 60% / .12); }
+.saas-admin-shell .premium-stat:nth-child(3) { box-shadow: 0 10px 30px hsl(45 100% 55% / .13); }
+
+@keyframes saas-main-enter {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes saas-card-enter {
+  from { opacity: 0; transform: translateY(18px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .saas-admin-main,
+  .saas-admin-main > .premium-grid > * {
+    animation: none !important;
+  }
+}
