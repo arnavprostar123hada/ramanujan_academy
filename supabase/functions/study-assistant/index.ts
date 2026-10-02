@@ -406,14 +406,47 @@ Deno.serve(async (req) => {
       if (authenticatedUserId) {
         // Accept either the canonical students.id or the online_students.id.
         // Both are resolved only through the authenticated user's own mapping.
+        // Resolve the authenticated user's own online-student profile first.
+        // Do not trust the client-supplied student id by itself.
         const { data: onlineStudent } = await admin
           .from("online_students")
-          .select("id, student_id")
+          .select("id, student_id, email")
           .eq("user_id", authenticatedUserId)
-          .or(`student_id.eq.${studentId},id.eq.${studentId}`)
           .maybeSingle();
-        resolvedStudentId = onlineStudent?.student_id || "";
-        if (!resolvedStudentId) return json({ error: "Student identity is not authorized." }, 403);
+
+        if (!onlineStudent) {
+          return json({ error: "Student identity is not authorized." }, 403);
+        }
+
+        // Normal case: the portal sends the canonical students.id.
+        if (
+          (onlineStudent.student_id && studentId === onlineStudent.student_id) ||
+          studentId === onlineStudent.id
+        ) {
+          resolvedStudentId = onlineStudent.student_id || "";
+        }
+
+        // Repair older online profiles created before student_id was linked.
+        if (!resolvedStudentId && onlineStudent.email) {
+          const { data: linkedStudent } = await admin
+            .from("students")
+            .select("id")
+            .eq("email", onlineStudent.email)
+            .maybeSingle();
+
+          if (linkedStudent?.id) {
+            resolvedStudentId = linkedStudent.id;
+            await admin
+              .from("online_students")
+              .update({ student_id: linkedStudent.id })
+              .eq("id", onlineStudent.id)
+              .eq("user_id", authenticatedUserId);
+          }
+        }
+
+        if (!resolvedStudentId) {
+          return json({ error: "Student identity is not authorized." }, 403);
+        }
       } else if (parentAccessCode) {
         // Parent Portal uses an access code rather than Supabase Auth.
         // Require BOTH the exact student id and matching access code.
