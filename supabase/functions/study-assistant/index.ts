@@ -631,6 +631,12 @@ Deno.serve(async (req) => {
       return json({ error: "The AI returned an invalid mind map. No RA Points were charged." }, 502);
     }
 
+    // Mind maps use a fixed 5 RA Point charge for students, regardless of
+    // provider token count. This keeps the feature's pricing predictable.
+    if (mode === "mindmap" && actorRole === "student") {
+      result.usage.credits = 5;
+    }
+
     if (actorRole === "student" && mode !== "audio_summary" && result.usage.credits > 0) {
       const { data: chargeRows, error: chargeError } = await admin.rpc("consume_student_ra_points_admin", {
         p_student_id: resolvedStudentId,
