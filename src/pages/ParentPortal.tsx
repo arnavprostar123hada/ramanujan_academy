@@ -263,11 +263,10 @@ const ParentPortal = () => {
 
     setIsLoading(true);
     try {
-      const { data: studentData, error } = await supabase
-        .from("students")
-        .select("id, name, class, batch, parent_name, access_code, student_type")
-        .ilike("access_code", codeToUse)
-        .maybeSingle();
+      const { data: rpcData, error } = await supabase.rpc("parent_login_by_access_code", {
+        p_access_code: codeToUse,
+      });
+      const studentData = Array.isArray(rpcData) ? rpcData[0] : rpcData;
 
       if (error) {
         console.error("Parent access-code lookup failed:", error);
