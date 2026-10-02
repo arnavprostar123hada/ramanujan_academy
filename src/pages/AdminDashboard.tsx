@@ -1199,7 +1199,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-muted/30 saas-admin-shell">
       {/* Header */}
       <header className="portal-header bg-background border-b sticky top-0 z-10">
         <div className="container-custom py-4 px-4 flex items-center justify-between">
@@ -1223,7 +1223,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
         </div>
       </header>
 
-      <main className="portal-main container-custom py-8 px-4">
+      <main className="portal-main saas-admin-main container-custom py-8 px-4">
         {/* Always-on automatic attendance tracking for admin staff.
             Staff are checked in from the geofence without opening My Attendance. */}
         {!isOwner && myStaff && (
@@ -1287,7 +1287,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            <Card className="card-elevated">
+            <Card className="card-elevated saas-surface-card">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   Total Enquiries
