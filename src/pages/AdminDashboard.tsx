@@ -1242,7 +1242,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45 }}
-          className="premium-hero command-colourful command-colourful-admin teacher-command-glow animated-border relative mb-6 overflow-hidden rounded-3xl text-white shadow-2xl"
+          className="premium-hero command-colourful command-colourful-admin teacher-command-glow animated-border relative mb-6 overflow-hidden rounded-3xl text-slate-900 shadow-2xl"
         >
           <div className="command-orb command-orb-one" />
           <div className="command-orb command-orb-two" />
@@ -1250,19 +1250,19 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
           <div className="relative z-10 p-5 sm:p-7">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold backdrop-blur">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-amber-300" />
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/55 px-3 py-1.5 text-xs font-semibold backdrop-blur">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
                   {isOwner ? "OWNER COMMAND CENTRE" : "ADMIN COMMAND CENTRE"}
                 </div>
                 <h2 className="text-2xl font-bold sm:text-3xl">
                   {isOwner ? "Good morning, Owner" : "Good morning, Admin"} 👋
                 </h2>
-                <p className="mt-2 max-w-2xl text-sm text-white/70">
+                <p className="mt-2 max-w-2xl text-sm text-slate-700">
                   Admissions, students, academics, fees and communication — your daily operations at a glance.
                 </p>
               </div>
-              <div className="premium-icon hidden h-16 w-16 items-center justify-center rounded-2xl border border-white/15 bg-white/10 shadow-2xl backdrop-blur sm:flex">
-                <Zap className="h-7 w-7 text-amber-300" />
+              <div className="premium-icon hidden h-16 w-16 items-center justify-center rounded-2xl border border-white/70 bg-white/55 shadow-2xl backdrop-blur sm:flex">
+                <Zap className="h-7 w-7 text-amber-600" />
               </div>
               <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 {[
@@ -1270,10 +1270,10 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                   ["Follow-ups", leads.filter(l => l.next_follow_up_at && new Date(l.next_follow_up_at) <= new Date() && !["admission","lost"].includes(l.stage)).length, PhoneIcon],
                   ["Fee Due", studentsWithFeeDue.length, IndianRupee],
                 ].map(([label, value, Icon]) => (
-                  <div key={String(label)} className="premium-stat min-w-[90px] rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur">
-                    <Icon className="mb-2 h-4 w-4 text-white/80" />
+                  <div key={String(label)} className="premium-stat min-w-[90px] rounded-2xl border border-white/70 bg-white/55 p-3 backdrop-blur">
+                    <Icon className="mb-2 h-4 w-4 text-slate-700" />
                     <p className="text-lg font-bold">{String(value)}</p>
-                    <p className="text-[11px] text-white/70">{String(label)}</p>
+                    <p className="text-[11px] text-slate-700">{String(label)}</p>
                   </div>
                 ))}
               </div>
