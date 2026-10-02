@@ -1223,6 +1223,20 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
       </header>
 
       <main className="container-custom py-8 px-4">
+        {/* Always-on automatic attendance tracking for admin staff.
+            Staff are checked in from the geofence without opening My Attendance. */}
+        {!isOwner && myStaff && (
+          <div className="hidden" aria-hidden="true">
+            <GeoAttendance
+              kind="admin"
+              teacherId={myStaff.id}
+              teacherName={myStaff.name}
+              expectedCheckIn={myStaff.expected_check_in}
+              expectedCheckOut={myStaff.expected_check_out}
+              trackingOnly
+            />
+          </div>
+        )}
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
