@@ -528,8 +528,12 @@ const OnlineStudentPortal = () => {
         )}
 
         {/* Tabs */}
-        <Tabs defaultValue="timetable" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2 h-auto gap-1 p-1 sm:grid-cols-5">
+        <Tabs defaultValue="overview" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-2 h-auto gap-1 p-1 sm:grid-cols-3 lg:grid-cols-6">
+            <TabsTrigger value="overview" className="flex items-center gap-1.5 py-2.5">
+              <Sparkles className="w-4 h-4" />
+              <span>Overview</span>
+            </TabsTrigger>
             <TabsTrigger value="timetable" className="flex items-center gap-1.5 py-2.5">
               <Clock className="w-4 h-4" />
               <span>Timetable</span>
