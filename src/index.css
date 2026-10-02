@@ -944,3 +944,61 @@ select:focus-visible {
     animation: none !important;
   }
 }
+
+
+/* Bright Teacher Command Centre */
+.teacher-bright-shell {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 8% 8%, hsl(190 100% 60% / .25), transparent 25%),
+    radial-gradient(circle at 92% 10%, hsl(275 100% 68% / .22), transparent 28%),
+    radial-gradient(circle at 52% 105%, hsl(42 100% 58% / .20), transparent 30%),
+    linear-gradient(135deg, hsl(190 100% 97%), hsl(220 100% 98%) 40%, hsl(275 100% 98%) 72%, hsl(45 100% 97%));
+}
+.teacher-bright-shell::before,
+.teacher-bright-shell::after {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  width: 28rem;
+  height: 28rem;
+  border-radius: 999px;
+  filter: blur(70px);
+  opacity: .32;
+  pointer-events: none;
+  animation: teacher-orb-drift 12s ease-in-out infinite alternate;
+}
+.teacher-bright-shell::before { top: 8rem; left: -12rem; background: hsl(190 95% 65% / .45); }
+.teacher-bright-shell::after { right: -12rem; bottom: 2rem; background: hsl(275 95% 72% / .4); animation-delay: -5s; }
+.teacher-bright-header {
+  background: linear-gradient(90deg, hsl(0 0% 100% / .88), hsl(190 100% 98% / .88), hsl(275 100% 98% / .88));
+  box-shadow: 0 10px 35px hsl(220 40% 35% / .08);
+}
+.teacher-bright-card {
+  border: 1px solid hsl(220 30% 88%);
+  background: hsl(0 0% 100% / .82);
+  box-shadow: 0 16px 40px hsl(220 40% 35% / .08);
+  backdrop-filter: blur(16px);
+  transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+}
+.teacher-bright-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 22px 50px hsl(220 40% 35% / .13);
+  border-color: hsl(190 75% 65% / .55);
+}
+.teacher-bright-tabs {
+  background: hsl(0 0% 100% / .72);
+  border: 1px solid hsl(220 30% 88%);
+  box-shadow: 0 12px 30px hsl(220 40% 35% / .07);
+  backdrop-filter: blur(14px);
+}
+@keyframes teacher-orb-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(35px, -20px, 0) scale(1.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .teacher-bright-shell::before,
+  .teacher-bright-shell::after { animation: none; }
+  .teacher-bright-card { transition: none; }
+}
