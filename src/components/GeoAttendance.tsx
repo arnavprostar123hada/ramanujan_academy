@@ -221,7 +221,7 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
     return () => window.clearInterval(id);
   }, []);
 
-  // Auto check-in after 10s continuously inside; auto check-out after 3 min continuously outside
+  // Check-in is explicit/manual; auto check-out remains enabled after 3 min continuously outside.
   useEffect(() => {
     if (!fence || distance === null || loading) return;
     // Do not auto-mark when GPS accuracy is too poor; this avoids false attendance.
@@ -229,17 +229,7 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
     const now = Date.now();
     if (inside) {
       outsideSince.current = null;
-      if (insideSince.current === null) insideSince.current = now;
-      if (
-        !record?.check_in_time &&
-        !autoRef.current.checkingIn &&
-        now - insideSince.current > 10000
-      ) {
-        autoRef.current.checkingIn = true;
-        void doCheckIn("auto").finally(() => {
-          autoRef.current.checkingIn = false;
-        });
-      }
+      insideSince.current = now;
     } else {
       insideSince.current = null;
       if (outsideSince.current === null) outsideSince.current = now;
@@ -293,21 +283,21 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
 
   return (
     <div className="space-y-6">
-      <Card className="overflow-hidden">
+      <Card className="premium-card animated-border overflow-hidden">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Radar className="w-5 h-5" /> Location Attendance
+            <span className="premium-icon inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-white shadow-lg shadow-emerald-500/30"><Radar className="w-5 h-5" /></span><span>Location Attendance</span><Badge className="ml-auto bg-emerald-500/10 text-emerald-700 border-emerald-300">GPS Verified</Badge>
           </CardTitle>
           <CardDescription>
             {fence
-              ? "You are marked present automatically when you reach the academy."
+              ? "Inside the academy? Tap Check In. Your GPS location is verified before attendance is recorded."
               : "Your admin has not set the academy location yet."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           {/* Radar visual */}
           <div className="flex flex-col items-center gap-3 py-2">
-            <div className="relative w-36 h-36 flex items-center justify-center">
+            <div className="relative w-44 h-44 flex items-center justify-center premium-radar">
               <AnimatePresence>
                 {inside && (
                   <>
@@ -329,8 +319,8 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
               <motion.div
                 animate={{ scale: inside ? [1, 1.06, 1] : 1 }}
                 transition={{ duration: 1.8, repeat: Infinity }}
-                className={`relative z-10 w-24 h-24 rounded-full flex items-center justify-center shadow-lg ${
-                  inside ? "bg-green-500" : "bg-muted"
+                className={`relative z-10 w-28 h-28 rounded-full flex items-center justify-center shadow-2xl ${
+                  inside ? "bg-gradient-to-br from-emerald-400 via-green-500 to-cyan-500 shadow-emerald-500/40" : "bg-gradient-to-br from-slate-300 to-slate-500 shadow-slate-400/30"
                 }`}
               >
                 <MapPin
@@ -364,7 +354,7 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
           </div>
 
           {/* Today's status */}
-          <div className="rounded-lg border p-4 space-y-2 bg-muted/30">
+          <div className="premium-card rounded-2xl border p-5 space-y-3 bg-white/60 dark:bg-slate-950/30">
             <p className="text-sm font-semibold flex items-center gap-2">
               <Clock className="w-4 h-4" /> Today · {format(new Date(), "dd MMM yyyy")}
             </p>
@@ -401,10 +391,12 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
             )}
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col sm:flex-row gap-3">
             <Button
-              onClick={() => doCheckIn("manual")}
+              onClick={() => doCheckIn("manual")
+              }
               disabled={busy || !inside || !!record?.check_in_time || !fence}
+              className="premium-cta min-h-12 flex-1 text-base font-bold shadow-xl"
             >
               {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <LogIn className="w-4 h-4 mr-2" />}
               Check In
@@ -413,21 +405,21 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
               variant="outline"
               onClick={() => doCheckOut("manual")}
               disabled={busy || !record?.check_in_time || !!record?.check_out_time}
+              className="min-h-12 sm:flex-1"
             >
               <LogOut className="w-4 h-4 mr-2" /> Check Out
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Keep this page open while at the academy — check-in happens on its own once you are inside
-            the boundary, and check-out happens shortly after you leave.
+            Once you see Inside academy boundary, tap Check In. Your attendance is not recorded until you confirm the check-in.
           </p>
         </CardContent>
       </Card>
 
       {/* Recent days */}
-      <Card>
+      <Card className="premium-card">
         <CardHeader>
-          <CardTitle className="text-base">Recent Attendance</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2"><Clock className="w-4 h-4 text-cyan-600" /> Recent Attendance</CardTitle>
         </CardHeader>
         <CardContent>
           {history.length === 0 ? (
