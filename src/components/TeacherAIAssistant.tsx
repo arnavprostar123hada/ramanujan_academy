@@ -10,22 +10,35 @@ import { useToast } from "@/hooks/use-toast";
 type Message = { role: "user" | "assistant"; content: string };
 
 function cleanTeacherOutput(value: string) {
-  return value
-    .replace(/\\(?=\r?\n)/g, "")
-    .replace(/\\r?\n/g, "\n")
-    .replace(/\\text\{([^}]*)\}/g, "$1")
-    .replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, "($1)/($2)")
-    .replace(/\\sqrt\{([^}]*)\}/g, "√($1)")
-    .replace(/\\left|\\right/g, "")
-    .replace(/\$\$/g, "")
-    .replace(/\$/g, "")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/^\s*[-*+]\s+/gm, "• ")
-    .replace(/^\s*---+\s*$/gm, "")
-    .replace(/\*\*([^*]+)\*\*/g, "$1")
-    .replace(/\*([^*]+)\*/g, "$1")
+  let text = value
+    .replace(/\\\\r\\\\n/g, "\n")
+    .replace(/\\\\n/g, "\n")
+    .replace(/\\\\t/g, "  ")
+    .replace(/\\\\text\\{([^{}]*)\\}/g, "$1")
+    .replace(/\\\\frac\\{([^{}]+)\\}\\{([^{}]+)\\}/g, "($1)/($2)")
+    .replace(/\\\\sqrt\\{([^{}]+)\\}/g, "√($1)")
+    .replace(/\\\\times/g, " × ")
+    .replace(/\\\\cdot/g, " · ")
+    .replace(/\\\\pm/g, " ± ")
+    .replace(/\\\\leq/g, " ≤ ")
+    .replace(/\\\\geq/g, " ≥ ")
+    .replace(/\\\\neq/g, " ≠ ")
+    .replace(/\\\\quad/g, "  ")
+    .replace(/\\\\qquad/g, "    ")
+    .replace(/\\\\left|\\\\right/g, "")
+    .replace(/\\\\[a-zA-Z]+/g, "")
+    .replace(/\\$/gm, "")
+    .replace(/\\$/g, "")
+    .replace(/\\\\`/g, "")
+    .replace(/[ ]{3,}/g, "  ");
+  return text
+    .replace(/^#{1,6}\\s+/gm, "")
+    .replace(/^\\s*[-*+]\\s+/gm, "• ")
+    .replace(/^\\s*---+\\s*$/gm, "")
+    .replace(/\\*\\*([^*]+)\\*\\*/g, "$1")
+    .replace(/\\*([^*]+)\\*/g, "$1")
     .replace(/__([^_]+)__/g, "$1")
-    .replace(/\`/g, "")
+    .replace(/\\n{3,}/g, "\n\n")
     .trim();
 }
 
