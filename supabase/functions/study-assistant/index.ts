@@ -74,6 +74,86 @@ function sanitizeText(value: string) {
     .replace(/\uFFFD/g, "");
 }
 
+function replaceLatexBraced(text: string, command: string, transform: (value: string) => string) {
+  const token = "\\" + command + "{";
+  let out = "";
+  let i = 0;
+
+  while (i < text.length) {
+    const start = text.indexOf(token, i);
+    if (start < 0) {
+      out += text.slice(i);
+      break;
+    }
+
+    out += text.slice(i, start);
+    let j = start + token.length;
+    let depth = 1;
+    let end = j;
+
+    while (end < text.length && depth > 0) {
+      if (text[end] === "{") depth++;
+      else if (text[end] === "}") depth--;
+      end++;
+    }
+
+    if (depth !== 0) {
+      out += text.slice(start);
+      break;
+    }
+
+    out += transform(text.slice(j, end - 1));
+    i = end;
+  }
+
+  return out;
+}
+
+function cleanGeneratedText(value: string) {
+  let text = sanitizeText(value)
+    .replace(/\\r\\n/g, "\n")
+    .replace(/\\n/g, "\n")
+    .replace(/\\t/g, "  ")
+    .replace(/\\\\/g, "\n")
+    .replace(/\\\[/g, "")
+    .replace(/\\\]/g, "")
+    .replace(/\\\(/g, "")
+    .replace(/\\\)/g, "")
+    .replace(/\$\$/g, "")
+    .replace(/\$/g, "");
+
+  text = replaceLatexBraced(text, "text", (v) => v);
+  text = replaceLatexBraced(text, "sqrt", (v) => "√(" + v + ")");
+  text = replaceLatexBraced(text, "frac", (v) => v);
+
+  // Convert the common fraction structure left by \frac{numerator}{denominator}.
+  // A second pass handles the simple denominator case after the first balanced parse.
+  text = text.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, "($1)/($2)");
+
+  text = text
+    .replace(/\\times/g, " × ")
+    .replace(/\\cdot/g, " · ")
+    .replace(/\\pm/g, " ± ")
+    .replace(/\\mp/g, " ∓ ")
+    .replace(/\\leq/g, " ≤ ")
+    .replace(/\\geq/g, " ≥ ")
+    .replace(/\\neq/g, " ≠ ")
+    .replace(/\\approx/g, " ≈ ")
+    .replace(/\\infty/g, "∞")
+    .replace(/\\div/g, " ÷ ")
+    .replace(/\\left|\\right/g, "")
+    .replace(/\\,|\\;|\\!|\\quad|\\qquad/g, " ")
+    .replace(/\\[a-zA-Z]+/g, "")
+    .replace(/\^([0-9])/g, (_, n) => ({ "0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵","6":"⁶","7":"⁷","8":"⁸","9":"⁹" }[n] || "^" + n))
+    .replace(/_([0-9])/g, (_, n) => ({ "0":"₀","1":"₁","2":"₂","3":"₃","4":"₄","5":"₅","6":"₆","7":"₇","8":"₈","9":"₉" }[n] || "_" + n))
+    .replace(/\$/g, "")
+    .replace(/[ \t]{3,}/g, "  ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return text;
+}
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -520,7 +600,7 @@ Deno.serve(async (req) => {
         : sse(content, fallbackUsage);
     }
 
-    const cleanResult = sanitizeText(result.content);
+    const cleanResult = mode === "quiz" || mode === "mindmap" ? sanitizeText(result.content) : cleanGeneratedText(result.content);
 
     // Never charge a student for a malformed structured mind-map response.
     // The frontend expects a JSON object, so validate it before billing.
