@@ -10,45 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/study-assistant`;
 const AUDIO_SUMMARY_COST = 5;
-const KOKORO_MODEL = "onnx-community/Kokoro-82M-v1.0-ONNX";
-
-type KokoroInstance = {
-  generate: (text: string, options: { voice: string; speed?: number }) => Promise<{ toBlob: () => Blob }>;
-};
-
-let kokoroPromise: Promise<KokoroInstance> | null = null;
-
-async function loadKokoro(): Promise<KokoroInstance> {
-  if (!kokoroPromise) {
-    kokoroPromise = (async () => {
-      const moduleName = "https://esm.sh/kokoro-js@1.2.1";
-      const mod = await import(/* @vite-ignore */ moduleName) as { KokoroTTS: {
-        from_pretrained: (
-          modelId: string,
-          options: { dtype: "q8"; device: "webgpu" | "wasm" }
-        ) => Promise<KokoroInstance>;
-      } };
-
-      try {
-        return await mod.KokoroTTS.from_pretrained(KOKORO_MODEL, {
-          dtype: "q8",
-          device: "webgpu",
-        });
-      } catch {
-        return await mod.KokoroTTS.from_pretrained(KOKORO_MODEL, {
-          dtype: "q8",
-          device: "wasm",
-        });
-      }
-    })().catch((error) => {
-      kokoroPromise = null;
-      throw error;
-    });
-  }
-
-  return kokoroPromise;
-}
-
 async function getSessionHeaders() {
   const { data } = await supabase.auth.getSession();
   const headers: Record<string, string> = {
@@ -171,20 +132,16 @@ async function refundPoints(studentId: string) {
 
 const AudioSummary = ({ sourceText = "", studentId }: { sourceText?: string; studentId: string }) => {
   const { toast } = useToast();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const objectUrlRef = useRef<string | null>(null);
   const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   const [material, setMaterial] = useState(sourceText);
   const [summary, setSummary] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [engine, setEngine] = useState<"kokoro" | "browser" | null>(null);
+  const [engine, setEngine] = useState<"browser" | null>(null);
 
   const stopAudio = () => {
-    audioRef.current?.pause();
-    if (audioRef.current) audioRef.current.currentTime = 0;
-    window.speechSynthesis.cancel();
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     setIsSpeaking(false);
   };
 
@@ -211,43 +168,8 @@ const AudioSummary = ({ sourceText = "", studentId }: { sourceText?: string; stu
       const text = await createAudioSummary(inputMaterial, studentId);
       setSummary(text);
 
-      let engineUsed: "kokoro" | "browser" = "browser";
-      try {
-        const kokoro = await Promise.race([
-          loadKokoro(),
-          new Promise<never>((_, reject) =>
-            window.setTimeout(() => reject(new Error("Kokoro loading timed out")), 12000)
-          ),
-        ]);
-        const audio = await kokoro.generate(text, {
-          voice: "af_heart",
-          speed: 0.95,
-        });
-        const blob = audio.toBlob();
-        const url = URL.createObjectURL(blob);
-
-        if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-        objectUrlRef.current = url;
-
-        if (!audioRef.current) audioRef.current = new Audio();
-        audioRef.current.src = url;
-        audioRef.current.onplay = () => setIsSpeaking(true);
-        audioRef.current.onended = () => setIsSpeaking(false);
-        engineUsed = "kokoro";
-        setEngine("kokoro");
-      } catch (kokoroError) {
-        console.warn("Kokoro TTS unavailable; using browser speech fallback.", kokoroError);
-        setEngine("browser");
-        toast({
-          title: "Kokoro unavailable on this device",
-          description: "Using the browser voice as a fallback.",
-        });
-      }
-
-      toast({
-        title: "Audio Summary ready",
-        description: `5 RA Points used · ${engineUsed === "kokoro" ? "Kokoro" : "browser voice fallback"}`,
-      });
+      // Reliable browser speech only. No Kokoro/WebGPU/WASM model is loaded.
+      setEngine("browser");
     } catch (error) {
       await refundPoints(studentId);
       setSummary("");
@@ -265,27 +187,40 @@ const AudioSummary = ({ sourceText = "", studentId }: { sourceText?: string; stu
   const play = async () => {
     if (!summary) return;
 
-    if (engine === "kokoro" && audioRef.current) {
-      await audioRef.current.play();
+    if (!("speechSynthesis" in window)) {
+      toast({
+        title: "Audio playback unavailable",
+        description: "This browser does not support speech playback.",
+        variant: "destructive",
+      });
       return;
     }
 
     stopAudio();
+
     const utterance = new SpeechSynthesisUtterance(summary);
+    utterance.lang = "en-US";
     utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+      toast({
+        title: "Audio playback failed",
+        description: "Please try the Listen button again.",
+        variant: "destructive",
+      });
+    };
+
     speechRef.current = utterance;
-    if (!("speechSynthesis" in window)) {
-      toast({ title: "Audio playback unavailable", description: "This browser does not support speech playback.", variant: "destructive" });
-      return;
-    }
     window.speechSynthesis.speak(utterance);
     setIsSpeaking(true);
   };
 
   useEffect(() => () => {
     stopAudio();
-    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
   }, []);
 
   return (
@@ -340,7 +275,7 @@ const AudioSummary = ({ sourceText = "", studentId }: { sourceText?: string; stu
               </div>
 
               <p className="text-[11px] text-muted-foreground text-center">
-                Voice engine: {engine === "kokoro" ? "Kokoro TTS · American Heart" : "Browser voice fallback"}
+                Voice engine: {engine === "browser" ? "Browser voice" : "Ready"}
               </p>
             </motion.div>
           )}
