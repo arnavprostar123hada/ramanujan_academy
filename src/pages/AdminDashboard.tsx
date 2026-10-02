@@ -89,6 +89,7 @@ import { GeofenceSettings } from "@/components/admin/GeofenceSettings";
 import { CommunicationCenter } from "@/components/admin/CommunicationCenter";
 import { GeoAttendance } from "@/components/GeoAttendance";
 import StudentAIHistory from "@/components/admin/StudentAIHistory";
+import { StudentAttendanceScanner } from "@/components/StudentAttendanceScanner";
 
 interface ContactSubmission {
   id: string;
@@ -2477,6 +2478,13 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
 
           {/* Student Attendance Tab */}
           <TabsContent value="student-attendance">
+            <div className="mb-5">
+              <StudentAttendanceScanner
+                students={students.map(s => ({ id: s.id, name: s.name, class: s.class, batch: s.batch }))}
+                attendanceDate={attendanceDate}
+                onMarked={() => attendanceClassFilter && fetchStudentAttendance(attendanceClassFilter, attendanceDate)}
+              />
+            </div>
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
               <Card className="shadow-md">
                 <CardHeader>
