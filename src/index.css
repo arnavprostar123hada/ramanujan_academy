@@ -681,3 +681,34 @@ select:focus-visible {
   .student-orbit,
   .student-avatar { animation: none !important; }
 }
+
+.student-desktop-sidebar {
+  animation: sidebar-in .65s cubic-bezier(.2,.9,.2,1) both;
+}
+.student-sidebar-item {
+  position: relative;
+}
+.student-sidebar-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, hsl(250 90% 65%), hsl(190 90% 55%));
+  opacity: 0;
+  transform: scaleY(.4);
+  transition: .25s ease;
+}
+.student-sidebar-item:hover::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+@keyframes sidebar-in {
+  from { opacity: 0; transform: translateX(-24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .student-desktop-sidebar { animation: none !important; }
+}
