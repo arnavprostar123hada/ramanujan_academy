@@ -542,7 +542,7 @@ const ParentPortal = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       {/* Header */}
-      <header className="bg-background/80 backdrop-blur-lg border-b sticky top-0 z-50">
+      <header className="portal-header bg-background/80 backdrop-blur-lg border-b sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -560,7 +560,7 @@ const ParentPortal = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-5 space-y-5">
+      <main className="portal-main container mx-auto px-4 py-5 space-y-5">
         {/* Student Info */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -600,7 +600,7 @@ const ParentPortal = () => {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45 }}
-          className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary/90 to-accent text-primary-foreground shadow-xl"
+          className="premium-hero relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary/90 to-accent text-primary-foreground shadow-xl"
         >
           <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
           <div className="relative p-5 sm:p-7">
@@ -629,7 +629,7 @@ const ParentPortal = () => {
           </div>
         </motion.section>
 
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="premium-grid grid gap-3 sm:grid-cols-3">
           {[
             { label: "Academic updates", value: classLogs.length, icon: BookOpen, tab: "updates" },
             { label: "New announcements", value: announcements.length, icon: Bell, tab: "announcements" },
@@ -639,7 +639,7 @@ const ParentPortal = () => {
               key={item.tab}
               type="button"
               onClick={() => document.querySelector<HTMLButtonElement>(`[data-state][value="${item.tab}"]`)?.click()}
-              className="group rounded-2xl border bg-card p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+              className="premium-card group rounded-2xl border bg-card p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
             >
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
