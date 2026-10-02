@@ -26,9 +26,6 @@ import {
   MapPin,
   Sparkles,
   Activity,
-  Clock3,
-  CheckCircle2,
-  Target,
   Zap
 
 } from "lucide-react";
