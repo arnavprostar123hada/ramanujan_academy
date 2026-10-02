@@ -479,7 +479,7 @@ const TeacherDashboard = () => {
             onClose={() => setShowScanner(false)}
           />
         )}
-        <Card className="w-full max-w-md">
+        <Card className="teacher-bright-card w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl text-green-800">Teacher Portal</CardTitle>
             <CardDescription>Enter your access code or scan QR to login</CardDescription>
@@ -529,9 +529,9 @@ const TeacherDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-cyan-100 app-shell">
+    <div className="min-h-screen teacher-bright-shell app-shell">
       {/* Header */}
-      <header className="portal-header sticky top-0 z-40 bg-white/70 shadow-sm border-b">
+      <header className="portal-header teacher-bright-header sticky top-0 z-40 border-b backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <div>
             <h1 className="text-xl font-bold text-green-800">Welcome, {teacher?.name}</h1>
@@ -557,21 +557,21 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        <section className="premium-hero teacher-command-glow animated-border mb-7 overflow-hidden rounded-3xl border border-emerald-400/20 bg-gradient-to-br from-slate-950 via-emerald-950 to-cyan-950 p-6 text-white shadow-2xl">
+        <section className="premium-hero teacher-command-glow animated-border mb-7 overflow-hidden rounded-3xl border border-cyan-300/50 bg-gradient-to-br from-cyan-100 via-violet-100 to-amber-100 p-6 text-slate-900 shadow-2xl">
           <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold backdrop-blur">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-slate-900/10 bg-white/70 px-3 py-1.5 text-xs font-semibold backdrop-blur">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
                 TEACHER COMMAND CENTRE
               </div>
               <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
                 Good to see you, {teacher?.name?.split(" ")[0]} 👋
               </h2>
-              <p className="mt-2 max-w-2xl text-sm text-white/70 sm:text-base">
+              <p className="mt-2 max-w-2xl text-sm text-slate-700/70 sm:text-base">
                 Check in, record today's class, manage tests and use Teacher AI from one premium workspace.
               </p>
             </div>
-            <div className="premium-icon hidden h-20 w-20 items-center justify-center rounded-3xl border border-white/15 bg-white/10 shadow-2xl backdrop-blur sm:flex">
+            <div className="premium-icon hidden h-20 w-20 items-center justify-center rounded-3xl border border-white/15 bg-white/70 shadow-2xl backdrop-blur sm:flex">
               <Zap className="h-9 w-9 text-yellow-300" />
             </div>
           </div>
@@ -592,7 +592,7 @@ const TeacherDashboard = () => {
         </section>
 
         <Tabs defaultValue="attendance" className="space-y-6">
-          <TabsList className="premium-tabs grid w-full max-w-5xl grid-cols-5 rounded-2xl border border-white/60 bg-white/75 p-1.5 shadow-xl backdrop-blur-xl">
+          <TabsList className="teacher-bright-tabs premium-tabs grid w-full max-w-5xl grid-cols-5 rounded-2xl border border-white/60 bg-white/75 p-1.5 shadow-xl backdrop-blur-xl">
             <TabsTrigger value="attendance" className="premium-tab flex items-center gap-2 rounded-xl py-3 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg">
               <MapPin className="w-4 h-4" /> Attendance
             </TabsTrigger>
@@ -627,7 +627,7 @@ const TeacherDashboard = () => {
 
           {/* Class Logs Tab */}
           <TabsContent value="logs" className="space-y-6">
-            <Card>
+            <Card className="teacher-bright-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BookOpen className="w-5 h-5" /> Add Class Log
