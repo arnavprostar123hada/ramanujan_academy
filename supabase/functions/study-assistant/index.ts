@@ -586,7 +586,10 @@ Deno.serve(async (req) => {
     const cacheKey = await sha256(normalized);
 
     const cached = await readCache(admin, cacheKey);
-    if (cached) {
+    // Student AI usage must always be metered. Do not serve cached student
+    // responses for free, otherwise repeated AI requests would not reduce RA
+    // Points and the balance would appear stuck.
+    if (cached && actorRole !== "student") {
       const cachedUsage: AIUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0, credits: 0, cached: true };
       return mode === "quiz" || mode === "mindmap"
         ? json({ content: cached, cached: true, usage: cachedUsage })
