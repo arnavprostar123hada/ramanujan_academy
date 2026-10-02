@@ -601,7 +601,7 @@ const ParentPortal = () => {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45 }}
-          className="premium-hero command-colourful command-colourful-parent teacher-command-glow animated-border relative overflow-hidden rounded-3xl text-white shadow-2xl"
+          className="premium-hero command-colourful command-colourful-parent teacher-command-glow animated-border relative overflow-hidden rounded-3xl text-slate-900 shadow-2xl"
         >
           <div className="command-orb command-orb-one" />
           <div className="command-orb command-orb-two" />
@@ -609,17 +609,17 @@ const ParentPortal = () => {
           <div className="relative z-10 p-5 sm:p-7">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold backdrop-blur">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-300" />
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/55 px-3 py-1.5 text-xs font-semibold backdrop-blur">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-500" />
                   PARENT COMMAND CENTRE
                 </div>
                 <h2 className="mt-1 text-2xl font-bold sm:text-3xl">Your child's learning at a glance</h2>
-                <p className="mt-2 max-w-2xl text-sm text-white/70">
+                <p className="mt-2 max-w-2xl text-sm text-slate-700">
                   Attendance, tests, classroom updates and communication in one premium workspace.
                 </p>
               </div>
-              <div className="premium-icon hidden h-16 w-16 items-center justify-center rounded-2xl border border-white/15 bg-white/10 shadow-2xl backdrop-blur sm:flex">
-                <Zap className="h-7 w-7 text-cyan-300" />
+              <div className="premium-icon hidden h-16 w-16 items-center justify-center rounded-2xl border border-white/70 bg-white/55 shadow-2xl backdrop-blur sm:flex">
+                <Zap className="h-7 w-7 text-cyan-600" />
               </div>
               <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 {[
@@ -627,10 +627,10 @@ const ParentPortal = () => {
                   { label: "Avg. score", value: testResults.length ? `${averageScore}%` : "—", icon: TrendingUp },
                   { label: "Upcoming tests", value: String(upcomingTestCount), icon: ClipboardList },
                 ].map((item) => (
-                  <div key={item.label} className="premium-stat min-w-[90px] rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur">
-                    <item.icon className="mb-2 h-4 w-4 text-white/80" />
+                  <div key={item.label} className="premium-stat min-w-[90px] rounded-2xl border border-white/70 bg-white/55 p-3 backdrop-blur">
+                    <item.icon className="mb-2 h-4 w-4 text-slate-700" />
                     <p className="text-lg font-bold">{item.value}</p>
-                    <p className="text-[11px] text-white/70">{item.label}</p>
+                    <p className="text-[11px] text-slate-700">{item.label}</p>
                   </div>
                 ))}
               </div>
