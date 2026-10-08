@@ -1116,9 +1116,6 @@ Keep each card concise and useful for exam revision.`
                   <Button className="w-full rounded-xl" onClick={() => { if (notebookSource.trim()) { setSourceUploaded(true); toast({ title: "✅ Source added!" }); } }} disabled={!notebookSource.trim()}>
                     <CheckCircle2 className="w-4 h-4 mr-1.5" /> Add Source & Start
                   </Button>
-                  <Button variant="outline" className="w-full rounded-xl text-muted-foreground" onClick={() => window.open("https://notebooklm.google.com", "_blank")}>
-                    <ExternalLink className="w-4 h-4 mr-1.5" /> Open Google NotebookLM
-                  </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
