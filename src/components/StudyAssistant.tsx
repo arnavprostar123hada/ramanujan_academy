@@ -998,16 +998,7 @@ Keep each card concise and useful for exam revision.`
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <a
-                href="https://notebooklm.google.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium bg-muted/60 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-              >
-                <ExternalLink className="w-3 h-3" />
-                NotebookLM
-              </a>
-              <motion.div
+<motion.div
                 key={points}
                 initial={{ scale: 1.3 }}
                 animate={{ scale: 1 }}
