@@ -5,7 +5,7 @@ import {
   BookOpen, Loader2, ChevronRight, X, FileText, Trophy,
   Brain, Wand2, CheckCircle2, XCircle, Upload,
   ExternalLink, Image as ImageIcon,
-  Volume2, VolumeX, ZoomIn, ZoomOut, Move
+  Volume2, VolumeX, ZoomIn, ZoomOut, Move, CalendarDays, Layers3, RotateCcw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,6 +24,8 @@ interface MindMapNode { title: string; children: MindMapNode[]; }
 interface Note { id: string; title: string; content: string; createdAt: string; updatedAt: string; }
 interface QuizQuestion { question: string; options: string[]; correct: number; explanation: string; }
 interface Quiz { title: string; questions: QuizQuestion[]; }
+interface Flashcard { front: string; back: string; }
+interface FlashcardDeck { title: string; cards: Flashcard[]; }
 
 // ─── RA Points (DB-backed + refresh-safe) ───
 function useRAPoints(studentId: string, isOnline = false) {
@@ -696,6 +698,82 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent,
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [isQuizLoading, setIsQuizLoading] = useState(false);
 
+  // Study Planner
+  const [planGoal, setPlanGoal] = useState("");
+  const [planHours, setPlanHours] = useState("2");
+  const [planDays, setPlanDays] = useState("7");
+  const [studyPlan, setStudyPlan] = useState("");
+  const [isPlanLoading, setIsPlanLoading] = useState(false);
+
+  // Flashcards
+  const [flashcardTopic, setFlashcardTopic] = useState("");
+  const [flashcardDeck, setFlashcardDeck] = useState<FlashcardDeck | null>(null);
+  const [flashcardIndex, setFlashcardIndex] = useState(0);
+  const [flashcardFlipped, setFlashcardFlipped] = useState(false);
+  const [isFlashcardLoading, setIsFlashcardLoading] = useState(false);
+
+  const generateStudyPlan = async () => {
+    if (!planGoal.trim() || isPlanLoading) return;
+    setIsPlanLoading(true);
+    try {
+      const result = await fetchAI(
+        [{ role: "user", content:
+          `Create a practical study plan for a Class ${studentClass || "student"} student.
+Goal: ${planGoal}
+Available study time: ${planHours} hours per day
+Plan duration: ${planDays} days
+Make it realistic, balanced and exam-focused. Include daily tasks, revision, practice questions and short breaks. Start with Day 1. Use clear headings and checkboxes. Do not overload the student.`
+        }],
+        "study_plan",
+        undefined,
+        studentId,
+        parentAccessCode
+      );
+      setStudyPlan(result.content || "");
+      localStorage.setItem(`student_study_plan_${studentId}`, result.content || "");
+      toast({ title: "📚 Your study plan is ready!" });
+    } catch (e) {
+      toast({ title: e instanceof Error ? e.message : "Failed to create study plan", variant: "destructive" });
+    } finally {
+      setIsPlanLoading(false);
+    }
+  };
+
+  const generateFlashcards = async () => {
+    if (!flashcardTopic.trim() || isFlashcardLoading) return;
+    setIsFlashcardLoading(true);
+    setFlashcardDeck(null);
+    setFlashcardIndex(0);
+    setFlashcardFlipped(false);
+    try {
+      const result = await fetchAI(
+        [{ role: "user", content:
+          `Create 10 high-quality study flashcards for Class ${studentClass || "student"} on: ${flashcardTopic}.
+Return ONLY valid JSON in this exact shape:
+{"title":"...","cards":[{"front":"question or term","back":"clear answer or explanation"}]}
+Keep each card concise and useful for exam revision.`
+        }],
+        "flashcards",
+        undefined,
+        studentId,
+        parentAccessCode
+      );
+      const parsed = extractJson<FlashcardDeck>(result.content);
+      if (!parsed?.cards?.length) throw new Error("The AI did not return valid flashcards.");
+      setFlashcardDeck(parsed);
+      toast({ title: "🧠 Flashcards generated!" });
+    } catch (e) {
+      toast({ title: e instanceof Error ? e.message : "Failed to generate flashcards", variant: "destructive" });
+    } finally {
+      setIsFlashcardLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const saved = localStorage.getItem(`student_study_plan_${studentId}`);
+    if (saved) setStudyPlan(saved);
+  }, [studentId]);
+
   // Notes
   const [notes, setNotes] = useState<Note[]>(() => {
     try { return JSON.parse(localStorage.getItem(`student_notes_${studentId}`) || "[]"); } catch { return []; }
@@ -900,6 +978,8 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent,
     { id: "quiz", icon: Brain, label: "Quiz" },
     { id: "mindmap", icon: Network, label: "Mind Map" },
     { id: "notes", icon: StickyNote, label: "Notes" },
+    { id: "plan", icon: CalendarDays, label: "Study Plan" },
+    { id: "flashcards", icon: Layers3, label: "Flashcards" },
   ];
 
   return (
@@ -1268,6 +1348,97 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent,
                       </motion.div>
                     ))
                   )}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ─── Study Planner ─── */}
+          {activeTab === "plan" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
+              <div className="rounded-2xl border bg-gradient-to-br from-primary/5 to-accent/5 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10">
+                    <CalendarDays className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold">AI Study Planner</h3>
+                    <p className="text-[11px] text-muted-foreground">Turn your goal into a realistic daily plan.</p>
+                  </div>
+                </div>
+              </div>
+              <Input placeholder="What do you want to achieve? e.g. Prepare for Science exam" value={planGoal} onChange={(e) => setPlanGoal(e.target.value)} className="rounded-xl bg-muted/30" />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold text-muted-foreground">Hours / day</p>
+                  <Input type="number" min="0.5" max="12" step="0.5" value={planHours} onChange={(e) => setPlanHours(e.target.value)} />
+                </div>
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold text-muted-foreground">Days</p>
+                  <Input type="number" min="1" max="30" value={planDays} onChange={(e) => setPlanDays(e.target.value)} />
+                </div>
+              </div>
+              <Button onClick={generateStudyPlan} disabled={isPlanLoading || !planGoal.trim()} className="w-full rounded-xl">
+                {isPlanLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Building your plan...</> : <><Target className="mr-2 h-4 w-4" /> Build My Study Plan</>}
+              </Button>
+              {studyPlan && (
+                <div className="rounded-2xl border bg-card p-4 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between">
+                    <Badge variant="secondary">Saved Plan</Badge>
+                    <Button size="sm" variant="ghost" onClick={() => { setStudyPlan(""); localStorage.removeItem(`student_study_plan_${studentId}`); }} className="h-7 text-xs">
+                      <RotateCcw className="mr-1 h-3.5 w-3.5" /> New Plan
+                    </Button>
+                  </div>
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <ReactMarkdown>{studyPlan}</ReactMarkdown>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ─── Flashcards ─── */}
+          {activeTab === "flashcards" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
+              {!flashcardDeck ? (
+                <>
+                  <div className="rounded-2xl border bg-gradient-to-br from-violet-500/5 to-cyan-500/5 p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-500/10">
+                        <Layers3 className="h-6 w-6 text-violet-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold">AI Flashcards</h3>
+                        <p className="text-[11px] text-muted-foreground">Fast active-recall revision for any topic.</p>
+                      </div>
+                    </div>
+                  </div>
+                  <Input placeholder="Topic: Trigonometry, Cell Biology, Mughal Empire..." value={flashcardTopic} onChange={(e) => setFlashcardTopic(e.target.value)} className="rounded-xl bg-muted/30" />
+                  <Button onClick={generateFlashcards} disabled={isFlashcardLoading || !flashcardTopic.trim()} className="w-full rounded-xl">
+                    {isFlashcardLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating cards...</> : <><Layers3 className="mr-2 h-4 w-4" /> Generate 10 Flashcards</>}
+                  </Button>
+                </>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-bold text-sm">{flashcardDeck.title}</p>
+                      <p className="text-[10px] text-muted-foreground">Card {flashcardIndex + 1} of {flashcardDeck.cards.length}</p>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => setFlashcardDeck(null)} className="h-7 text-xs">New Deck</Button>
+                  </div>
+                  <button type="button" onClick={() => setFlashcardFlipped(v => !v)} className="w-full min-h-[230px] rounded-3xl border-2 border-primary/15 bg-gradient-to-br from-background to-primary/5 p-6 text-left shadow-lg transition-transform hover:scale-[1.01]">
+                    <div className="flex min-h-[195px] flex-col items-center justify-center text-center">
+                      <Badge variant="secondary" className="mb-5">{flashcardFlipped ? "ANSWER" : "QUESTION"}</Badge>
+                      <p className="text-lg font-bold leading-relaxed">{flashcardFlipped ? flashcardDeck.cards[flashcardIndex].back : flashcardDeck.cards[flashcardIndex].front}</p>
+                      <p className="mt-5 text-[10px] text-muted-foreground">Tap to flip</p>
+                    </div>
+                  </button>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button variant="outline" disabled={flashcardIndex === 0} onClick={() => { setFlashcardIndex(i => Math.max(0, i - 1)); setFlashcardFlipped(false); }}>Previous</Button>
+                    <Button variant="secondary" onClick={() => setFlashcardFlipped(false)}>Again</Button>
+                    <Button disabled={flashcardIndex >= flashcardDeck.cards.length - 1} onClick={() => { setFlashcardIndex(i => Math.min(flashcardDeck.cards.length - 1, i + 1)); setFlashcardFlipped(false); }}>Next</Button>
+                  </div>
                 </div>
               )}
             </motion.div>
