@@ -155,6 +155,16 @@ const ParentPortal = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [zoomLinks, setZoomLinks] = useState<ZoomLink[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [homework, setHomework] = useState<Array<{
+    id: string;
+    subject: string;
+    title: string;
+    description: string | null;
+    assigned_date: string;
+    due_date: string;
+    status: string;
+    completion_required: boolean;
+  }>>([]);
 
   useEffect(() => {
     const storedCode = localStorage.getItem("parent_access_code");
@@ -257,6 +267,28 @@ const ParentPortal = () => {
       .eq("student_id", studentData.id)
       .order("attendance_date", { ascending: false });
     if (attendanceData) setAttendance(attendanceData as AttendanceRecord[]);
+
+    // Fetch published homework for the student's current batch.
+    if (studentData.batch) {
+      const { data: batchData } = await supabase
+        .from("class_batches")
+        .select("id")
+        .eq("name", studentData.batch)
+        .eq("class", studentData.class)
+        .limit(1)
+        .maybeSingle();
+
+      if (batchData?.id) {
+        const { data: homeworkData } = await supabase
+          .from("class_homework")
+          .select("id,subject,title,description,assigned_date,due_date,status,completion_required")
+          .eq("batch_id", batchData.id)
+          .order("due_date", { ascending: true })
+          .limit(30);
+
+        if (homeworkData) setHomework(homeworkData);
+      }
+    }
   };
 
   const handleLogin = async (code?: string) => {
@@ -405,6 +437,8 @@ const ParentPortal = () => {
       )
     : 0;
   const upcomingTestCount = tests.filter((test) => new Date(test.test_date) >= new Date()).length;
+  const pendingHomework = homework.filter((item) => item.completion_required && item.status !== "completed" && new Date(item.due_date) >= new Date()).length;
+  const overdueHomework = homework.filter((item) => item.completion_required && item.status !== "completed" && new Date(item.due_date) < new Date()).length;
 
   const scoredPercentages = validScoredResults
     .map((result) => {
@@ -449,6 +483,13 @@ const ParentPortal = () => {
       tone: "info",
       tab: "concerns",
       icon: CircleAlert
+    }] : []),
+    ...(overdueHomework > 0 ? [{
+      title: `${overdueHomework} overdue homework task${overdueHomework > 1 ? "s" : ""}`,
+      detail: "Review pending classwork and help complete the overdue work.",
+      tone: "warning",
+      tab: "homework",
+      icon: BookOpen
     }] : [])
   ];
   const positiveSignals = [
@@ -854,6 +895,10 @@ const ParentPortal = () => {
               <Sparkles className="w-4 h-4" />
               <span>AI</span>
             </TabsTrigger>
+            <TabsTrigger value="homework" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
+              <BookOpen className="w-4 h-4" />
+              <span>Homework</span>
+            </TabsTrigger>
             <TabsTrigger value="attendance" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
               <CheckCircle2 className="w-4 h-4" />
               <span>Attend.</span>
@@ -884,6 +929,7 @@ const ParentPortal = () => {
               <Card className="shadow-sm"><CardContent className="p-4"><TrendingUp className="mb-2 h-5 w-5 text-primary" /><p className="text-xs text-muted-foreground">Average score</p><p className="mt-1 text-2xl font-black">{testResults.length ? `${averageScore}%` : "—"}</p><p className="mt-1 text-[11px] text-muted-foreground">{scoreTrend > 0 ? `↑ ${scoreTrend} pts recently` : scoreTrend < 0 ? `↓ ${Math.abs(scoreTrend)} pts recently` : "Stable trend"}</p></CardContent></Card>
               <Card className="shadow-sm"><CardContent className="p-4"><ClipboardList className="mb-2 h-5 w-5 text-violet-600" /><p className="text-xs text-muted-foreground">Upcoming tests</p><p className="mt-1 text-2xl font-black">{upcomingTestCount}</p><p className="mt-1 text-[11px] text-muted-foreground">Prepare ahead</p></CardContent></Card>
               <Card className="shadow-sm"><CardContent className="p-4"><BookOpen className="mb-2 h-5 w-5 text-amber-600" /><p className="text-xs text-muted-foreground">Class updates</p><p className="mt-1 text-2xl font-black">{classLogs.length}</p><p className="mt-1 text-[11px] text-muted-foreground">{latestClassLog ? `Latest: ${latestClassLog.subject || "Academic update"}` : "No updates yet"}</p></CardContent></Card>
+              <Card className="shadow-sm"><CardContent className="p-4"><BookOpen className="mb-2 h-5 w-5 text-violet-600" /><p className="text-xs text-muted-foreground">Homework</p><p className="mt-1 text-2xl font-black">{pendingHomework}</p><p className="mt-1 text-[11px] text-muted-foreground">{overdueHomework ? `${overdueHomework} overdue` : "No overdue work"}</p></CardContent></Card>
             </div>
             <Card className="shadow-md">
               <CardHeader><CardTitle>What should I do as a parent?</CardTitle></CardHeader>
@@ -944,6 +990,30 @@ const ParentPortal = () => {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="homework" className="space-y-4">
+            <Card className="shadow-md">
+              <CardHeader><CardTitle className="flex items-center gap-2"><BookOpen className="w-5 h-5 text-primary" />Homework & Classwork</CardTitle></CardHeader>
+              <CardContent>
+                {homework.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">No homework has been published for this batch yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {homework.map((item) => {
+                      const overdue = item.completion_required && item.status !== "completed" && new Date(item.due_date) < new Date();
+                      return <div key={item.id} className={`rounded-xl border p-4 ${overdue ? "border-red-200 bg-red-50/40" : ""}`}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{item.title}</h3><Badge variant="secondary">{item.subject}</Badge></div>{item.description && <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">{item.description}</p>}</div>
+                          <Badge variant={overdue ? "destructive" : item.status === "completed" ? "default" : "outline"}>{overdue ? "Overdue" : item.status === "completed" ? "Completed" : "Pending"}</Badge>
+                        </div>
+                        <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground"><Calendar className="h-3.5 w-3.5" />Due {new Date(item.due_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</div>
+                      </div>;
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="updates" className="space-y-4">
