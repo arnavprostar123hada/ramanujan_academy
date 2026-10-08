@@ -386,156 +386,167 @@ const BRANCH_COLORS = [
 ];
 
 const InteractiveMindMap = ({ data }: { data: MindMapNode }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<string>("0");
+  const [outline, setOutline] = useState(false);
 
-  type NodeData = { node: MindMapNode; x: number; y: number; w: number; h: number; depth: number; color: string; parentX?: number; parentY?: number; id: string };
+  type NodeData = {
+    node: MindMapNode; x:number; y:number; w:number; h:number; depth:number;
+    color:string; parentX?:number; parentY?:number; id:string;
+  };
   const allNodes: NodeData[] = [];
 
-  const getNodeDim = (text: string, depth: number) => {
-    const charW = depth === 0 ? 9 : depth === 1 ? 7.5 : 6.5;
-    const displayLen = Math.min(text.length, depth === 0 ? 25 : 23);
-    const w = Math.max(depth === 0 ? 140 : 80, displayLen * charW + (depth === 0 ? 40 : 24));
-    const h = depth === 0 ? 44 : depth === 1 ? 34 : 28;
-    return { w, h };
+  const getNodeDim = (text:string, depth:number) => {
+    const max = depth === 0 ? 28 : 24;
+    const width = Math.min(max, text.length) * (depth === 0 ? 8.4 : 6.7) + (depth === 0 ? 48 : 28);
+    return {
+      w: Math.max(depth === 0 ? 155 : 92, width),
+      h: depth === 0 ? 50 : depth === 1 ? 38 : 32
+    };
   };
 
-  const layout = (node: MindMapNode, x: number, y: number, angle: number, depth: number, color: string, parentX?: number, parentY?: number, idPrefix = "0") => {
-    const { w, h } = getNodeDim(node.title, depth);
-    const id = idPrefix;
-    allNodes.push({ node, x, y, w, h, depth, color, parentX, parentY, id });
-    if (!node.children?.length || collapsed.has(id)) return;
-    const count = node.children.length;
-    const spread = depth === 0 ? Math.PI * 1.8 : Math.min(Math.PI * 0.8, count * 0.45);
-    const startAngle = depth === 0 ? -Math.PI * 0.9 : angle - spread / 2;
-    const radius = depth === 0 ? 200 : depth === 1 ? 160 : 120;
-
-    node.children.forEach((child, i) => {
-      const a = startAngle + (count > 1 ? (i / (count - 1)) * spread : spread / 2);
-      const cx = x + Math.cos(a) * radius;
-      const cy = y + Math.sin(a) * radius;
-      const childColor = depth === 0 ? BRANCH_COLORS[i % BRANCH_COLORS.length] : color;
-      layout(child, cx, cy, a, depth + 1, childColor, x, y, `${id}-${i}`);
+  const layout = (
+    node:MindMapNode, x:number, y:number, angle:number, depth:number,
+    color:string, parentX?:number, parentY?:number, idPrefix="0"
+  ) => {
+    const {w,h}=getNodeDim(node.title,depth);
+    const id=idPrefix;
+    allNodes.push({node,x,y,w,h,depth,color,parentX,parentY,id});
+    if(!node.children?.length || collapsed.has(id)) return;
+    const count=node.children.length;
+    const spread=depth===0 ? Math.PI*1.72 : Math.min(Math.PI*.82,count*.48);
+    const start=depth===0 ? -Math.PI*.86 : angle-spread/2;
+    const radius=depth===0 ? 215 : depth===1 ? 155 : 112;
+    node.children.forEach((child,i)=>{
+      const a=start+(count>1?(i/(count-1))*spread:spread/2);
+      layout(child,x+Math.cos(a)*radius,y+Math.sin(a)*radius,a,depth+1,
+        depth===0?BRANCH_COLORS[i%BRANCH_COLORS.length]:color,x,y,`${id}-${i}`);
     });
   };
 
-  layout(data, 450, 350, 0, 0, BRANCH_COLORS[0]);
+  layout(data,450,350,0,0,BRANCH_COLORS[0]);
 
-  // Compute viewBox
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  allNodes.forEach(n => {
-    minX = Math.min(minX, n.x - n.w / 2 - 30);
-    maxX = Math.max(maxX, n.x + n.w / 2 + 30);
-    minY = Math.min(minY, n.y - n.h / 2 - 30);
-    maxY = Math.max(maxY, n.y + n.h / 2 + 30);
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  allNodes.forEach(n=>{
+    minX=Math.min(minX,n.x-n.w/2-50); maxX=Math.max(maxX,n.x+n.w/2+50);
+    minY=Math.min(minY,n.y-n.h/2-50); maxY=Math.max(maxY,n.y+n.h/2+50);
   });
-  const vbW = maxX - minX + 60;
-  const vbH = maxY - minY + 60;
-  const viewBox = `${minX - 30 - pan.x / scale} ${minY - 30 - pan.y / scale} ${vbW / scale} ${vbH / scale}`;
+  const vbW=maxX-minX+100, vbH=maxY-minY+100;
+  const viewBox=`${minX-50-pan.x/scale} ${minY-50-pan.y/scale} ${vbW/scale} ${vbH/scale}`;
+  const selectedNode=allNodes.find(n=>n.id===selected);
 
-  const handleWheel = (e: React.WheelEvent) => {
+  const toggleCollapse=(id:string)=>{
+    setCollapsed(prev=>{const next=new Set(prev);next.has(id)?next.delete(id):next.add(id);return next;});
+  };
+  const handleWheel=(e:React.WheelEvent)=>{
     e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setScale(prev => Math.min(3, Math.max(0.3, prev * delta)));
+    setScale(prev=>Math.min(2.8,Math.max(.45,prev*(e.deltaY>0?.9:1.1))));
   };
+  const handleMouseDown=(e:React.MouseEvent)=>{
+    setIsPanning(true);setPanStart({x:e.clientX-pan.x,y:e.clientY-pan.y});
+  };
+  const handleMouseMove=(e:React.MouseEvent)=>{
+    if(isPanning)setPan({x:e.clientX-panStart.x,y:e.clientY-panStart.y});
+  };
+  const reset=()=>{setScale(1);setPan({x:0,y:0});setCollapsed(new Set());setSelected("0");};
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsPanning(true);
-    setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-  };
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isPanning) return;
-    setPan({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
-  };
-  const handleMouseUp = () => setIsPanning(false);
-
-  const toggleCollapse = (id: string) => {
-    setCollapsed(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
+  const renderOutline=(node:MindMapNode,id="0",depth=0):React.ReactNode=>(
+    <div key={id} className="space-y-1">
+      <button
+        onClick={()=>setSelected(id)}
+        className={`w-full text-left rounded-lg px-3 py-2 transition-all ${selected===id?"bg-primary/10 ring-1 ring-primary/30":"hover:bg-muted/60"}`}
+      >
+        <span className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{background:BRANCH_COLORS[Math.max(0,depth-1)%BRANCH_COLORS.length]}} />
+          <span className={depth===0?"font-bold":"font-medium"}>{node.title}</span>
+          {node.children?.length ? <Badge variant="secondary" className="ml-auto text-[10px]">{node.children.length}</Badge> : null}
+        </span>
+      </button>
+      {node.children?.length ? <div className="ml-4 pl-2 border-l border-border/60">{node.children.map((child,i)=>renderOutline(child,`${id}-${i}`,depth+1))}</div> : null}
+    </div>
+  );
 
   return (
-    <div className="relative">
-      <div className="absolute top-2 right-2 z-10 flex gap-1">
-        <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => setScale(prev => Math.min(3, prev * 1.2))}><ZoomIn className="w-3.5 h-3.5" /></Button>
-        <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => setScale(prev => Math.max(0.3, prev * 0.8))}><ZoomOut className="w-3.5 h-3.5" /></Button>
-        <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => { setScale(1); setPan({ x: 0, y: 0 }); }}><Move className="w-3.5 h-3.5" /></Button>
+    <div className="rounded-2xl border bg-gradient-to-br from-background via-background to-primary/[0.04] overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b bg-background/80">
+        <div>
+          <div className="flex items-center gap-2"><Brain className="h-5 w-5 text-primary"/><span className="font-semibold">{data.title}</span></div>
+          <p className="text-xs text-muted-foreground mt-0.5">Tap a node to explore • drag to move • scroll to zoom</p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button size="sm" variant={outline?"default":"outline"} onClick={()=>setOutline(v=>!v)}>{outline?"Map":"Outline"}</Button>
+          {!outline && <>
+            <Button size="icon" variant="outline" className="h-8 w-8" onClick={()=>setScale(v=>Math.min(2.8,v*1.2))}><ZoomIn className="w-3.5 h-3.5"/></Button>
+            <Button size="icon" variant="outline" className="h-8 w-8" onClick={()=>setScale(v=>Math.max(.45,v*.82))}><ZoomOut className="w-3.5 h-3.5"/></Button>
+          </>}
+          <Button size="sm" variant="ghost" onClick={reset}>Reset</Button>
+        </div>
       </div>
-      <div
-        ref={containerRef}
-        className="overflow-hidden rounded-xl border border-border/30 bg-muted/10 cursor-grab active:cursor-grabbing"
-        style={{ height: 420 }}
-        onWheel={handleWheel}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-      >
-        <svg viewBox={viewBox} className="w-full h-full" style={{ touchAction: "none" }}>
-          {/* Curved connection lines */}
-          {allNodes.filter(n => n.parentX !== undefined).map((n, i) => {
-            const mx = (n.parentX! + n.x) / 2;
-            const my = (n.parentY! + n.y) / 2;
-            return (
-              <path
-                key={`line-${i}`}
-                d={`M ${n.parentX} ${n.parentY} Q ${mx} ${n.parentY}, ${mx} ${my} T ${n.x} ${n.y}`}
-                fill="none"
-                stroke={n.color}
-                strokeWidth={n.depth === 1 ? 2.5 : 1.5}
-                strokeOpacity={0.5}
-              />
-            );
-          })}
-          {/* Nodes */}
-          {allNodes.map((n, i) => {
-            const rx = n.depth === 0 ? 22 : n.depth === 1 ? 16 : 12;
-            const fontSize = n.depth === 0 ? 14 : n.depth === 1 ? 11 : 9.5;
-            const fontWeight = n.depth <= 1 ? "600" : "500";
-            const hasChildren = n.node.children?.length > 0;
-            return (
-              <g key={`node-${i}`} onClick={() => hasChildren && toggleCollapse(n.id)} style={{ cursor: hasChildren ? "pointer" : "default" }}>
+
+      {selectedNode && (
+        <div className="px-4 py-3 bg-muted/20 border-b flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl flex items-center justify-center text-white font-bold shadow-sm" style={{background:selectedNode.color}}>
+            {selectedNode.depth===0?"★":selectedNode.depth}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold truncate">{selectedNode.node.title}</p>
+            <p className="text-xs text-muted-foreground">
+              {selectedNode.depth===0?"Main topic":selectedNode.depth===1?"Core concept":"Key detail"} · {selectedNode.node.children?.length||0} sub-topic{selectedNode.node.children?.length===1?"":"s"}
+            </p>
+          </div>
+          {selectedNode.node.children?.length ? <Button size="sm" variant="outline" className="ml-auto" onClick={()=>toggleCollapse(selectedNode.id)}>{collapsed.has(selectedNode.id)?"Expand":"Collapse"}</Button>:null}
+        </div>
+      )}
+
+      {outline ? (
+        <div className="p-4 max-h-[430px] overflow-auto">{renderOutline(data)}</div>
+      ) : (
+        <div
+          className="h-[430px] overflow-hidden cursor-grab active:cursor-grabbing bg-[radial-gradient(circle_at_center,hsl(var(--primary)/0.07),transparent_55%)]"
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={()=>setIsPanning(false)}
+          onMouseLeave={()=>setIsPanning(false)}
+        >
+          <svg viewBox={viewBox} className="w-full h-full" style={{touchAction:"none"}}>
+            <defs>
+              <filter id="mindmap-shadow"><feDropShadow dx="0" dy="3" stdDeviation="4" floodOpacity=".16"/></filter>
+            </defs>
+            {allNodes.filter(n=>n.parentX!==undefined).map((n,i)=>{
+              const mx=(n.parentX!+n.x)/2;
+              return <path key={`line-${i}`} d={`M ${n.parentX} ${n.parentY} Q ${mx} ${n.parentY}, ${n.x} ${n.y}`} fill="none" stroke={n.color} strokeWidth={n.depth===1?3:1.8} strokeOpacity=".42" />;
+            })}
+            {allNodes.map((n,i)=>{
+              const hasChildren=!!n.node.children?.length;
+              const active=n.id===selected;
+              const fontSize=n.depth===0?14:n.depth===1?11.5:9.8;
+              return <g key={`node-${i}`} onClick={(e)=>{e.stopPropagation();setSelected(n.id);if(hasChildren)toggleCollapse(n.id);}} style={{cursor:"pointer"}}>
                 <motion.rect
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: i * 0.02, type: "spring", stiffness: 200 }}
-                  x={n.x - n.w / 2}
-                  y={n.y - n.h / 2}
-                  width={n.w}
-                  height={n.h}
-                  rx={rx}
-                  fill={n.color}
-                  fillOpacity={n.depth === 0 ? 1 : 0.85}
-                  stroke={n.color}
-                  strokeWidth={n.depth === 0 ? 2 : 1}
-                  strokeOpacity={0.6}
+                  initial={{scale:.7,opacity:0}} animate={{scale:1,opacity:1}}
+                  transition={{delay:Math.min(i*.025,.35),type:"spring",stiffness:220}}
+                  x={n.x-n.w/2} y={n.y-n.h/2} width={n.w} height={n.h}
+                  rx={n.depth===0?18:n.depth===1?13:10}
+                  fill={n.depth===0?n.color:"hsl(var(--background))"}
+                  stroke={n.color} strokeWidth={active?3:1.7}
+                  filter={active?"url(#mindmap-shadow)":undefined}
                 />
-                <text
-                  x={n.x}
-                  y={n.y + fontSize * 0.35}
-                  textAnchor="middle"
-                  fill="white"
-                  fontSize={fontSize}
-                  fontWeight={fontWeight}
-                  fontFamily="system-ui, sans-serif"
-                >
-                  {n.node.title.length > 28 ? n.node.title.slice(0, 26) + "…" : n.node.title}
+                <text x={n.x} y={n.y+fontSize*.35} textAnchor="middle"
+                  fill={n.depth===0?"white":"hsl(var(--foreground))"} fontSize={fontSize}
+                  fontWeight={n.depth<=1?"650":"500"} fontFamily="system-ui,sans-serif">
+                  {n.node.title.length>28?n.node.title.slice(0,26)+"…":n.node.title}
                 </text>
-                {hasChildren && collapsed.has(n.id) && (
-                  <text x={n.x + n.w / 2 - 8} y={n.y + 4} fontSize={10} fill="white" fillOpacity={0.7}>+</text>
-                )}
-              </g>
-            );
-          })}
-        </svg>
-      </div>
+                {hasChildren && <circle cx={n.x+n.w/2-9} cy={n.y-n.h/2+9} r="7" fill={n.color}/>}
+                {hasChildren && <text x={n.x+n.w/2-9} y={n.y-n.h/2+12.5} textAnchor="middle" fontSize="9" fill="white">{collapsed.has(n.id)?"+":"−"}</text>}
+              </g>;
+            })}
+          </svg>
+        </div>
+      )}
     </div>
   );
 };
