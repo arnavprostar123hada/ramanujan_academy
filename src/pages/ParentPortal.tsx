@@ -773,10 +773,16 @@ const ParentPortal = () => {
                 <p className="text-xs text-muted-foreground">Ramanujan Academy</p>
               </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
-              <LogOut className="w-4 h-4 mr-1.5" />
-              Logout
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="sm" onClick={refreshParentData} disabled={isRefreshing} className="text-muted-foreground hover:text-foreground">
+                <TrendingUp className={isRefreshing ? "w-4 h-4 mr-1.5 animate-spin" : "w-4 h-4 mr-1.5"} />
+                Refresh
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
+                <LogOut className="w-4 h-4 mr-1.5" />
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -863,6 +869,7 @@ const ParentPortal = () => {
             { label: "Academic updates", value: classLogs.length, icon: BookOpen, tab: "updates" },
             { label: "New announcements", value: announcements.length, icon: Bell, tab: "announcements" },
             { label: "Open concerns", value: concerns.filter((item) => !item.is_resolved).length, icon: AlertCircle, tab: "concerns" },
+            { label: "Fee balance", value: feeSummary.has_account ? "₹" + feeOutstanding.toLocaleString("en-IN") : "—", icon: WalletCards, tab: "fees" },
           ].map((item) => (
             <button
               key={item.tab}
@@ -969,6 +976,14 @@ const ParentPortal = () => {
             <TabsTrigger value="homework" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
               <BookOpen className="w-4 h-4" />
               <span>Homework</span>
+            </TabsTrigger>
+            <TabsTrigger value="reviews" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
+              <Sparkles className="w-4 h-4" />
+              <span>Teacher Review</span>
+            </TabsTrigger>
+            <TabsTrigger value="fees" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
+              <WalletCards className="w-4 h-4" />
+              <span>Fees</span>
             </TabsTrigger>
             <TabsTrigger value="attendance" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm">
               <CheckCircle2 className="w-4 h-4" />
@@ -1082,6 +1097,91 @@ const ParentPortal = () => {
                       </div>;
                     })}
                   </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="reviews" className="space-y-4">
+            <Card className="shadow-md">
+              <CardHeader><CardTitle className="flex items-center gap-2"><Sparkles className="w-5 h-5 text-primary" />Teacher Progress Review</CardTitle></CardHeader>
+              <CardContent>
+                {progressReviews.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed p-6 text-center">
+                    <Sparkles className="mx-auto mb-3 h-9 w-9 text-muted-foreground/60" />
+                    <p className="font-medium">No formal teacher review published yet.</p>
+                    <p className="mt-1 text-sm text-muted-foreground">When the academy publishes a progress review, strengths, gaps and the action plan will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {progressReviews.map((review) => (
+                      <div key={review.id} className="rounded-2xl border p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="font-semibold">Progress review</p>
+                            <p className="text-xs text-muted-foreground">{new Date(review.review_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
+                          </div>
+                          {review.academic_level && <Badge variant="secondary">{review.academic_level}</Badge>}
+                        </div>
+                        <div className="mt-4 grid gap-3 md:grid-cols-3">
+                          <div className="rounded-xl bg-emerald-50 p-3"><p className="text-xs font-semibold text-emerald-800">Strengths</p><p className="mt-1 text-sm text-emerald-950 whitespace-pre-wrap">{review.strengths || "Not recorded"}</p></div>
+                          <div className="rounded-xl bg-amber-50 p-3"><p className="text-xs font-semibold text-amber-800">Gaps</p><p className="mt-1 text-sm text-amber-950 whitespace-pre-wrap">{review.gaps || "Not recorded"}</p></div>
+                          <div className="rounded-xl bg-primary/5 p-3"><p className="text-xs font-semibold text-primary">Action plan</p><p className="mt-1 text-sm whitespace-pre-wrap">{review.action_plan || "No action plan recorded"}</p></div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {review.attendance_pct !== null && <Badge variant="outline">Review attendance {Math.round(review.attendance_pct)}%</Badge>}
+                          {review.parent_contacted && <Badge variant="outline">Parent contacted</Badge>}
+                          {review.next_review_date && <Badge variant="outline">Next review {new Date(review.next_review_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</Badge>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="fees" className="space-y-4">
+            <Card className="shadow-md">
+              <CardHeader><CardTitle className="flex items-center gap-2"><WalletCards className="w-5 h-5 text-primary" />Fee Status</CardTitle></CardHeader>
+              <CardContent>
+                {!feeSummary.has_account ? (
+                  <div className="rounded-2xl border border-dashed p-6 text-center">
+                    <WalletCards className="mx-auto mb-3 h-9 w-9 text-muted-foreground/60" />
+                    <p className="font-medium">Fee account not available yet</p>
+                    <p className="mt-1 text-sm text-muted-foreground">The academy has not published a fee account for this student.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-2xl border p-4"><p className="text-xs text-muted-foreground">Net fee</p><p className="mt-1 text-xl font-bold">₹{Number(feeSummary.total_fee).toLocaleString("en-IN")}</p></div>
+                      <div className="rounded-2xl border p-4"><p className="text-xs text-muted-foreground">Paid</p><p className="mt-1 text-xl font-bold text-emerald-600">₹{Number(feeSummary.paid_amount).toLocaleString("en-IN")}</p></div>
+                      <div className="rounded-2xl border p-4"><p className="text-xs text-muted-foreground">Outstanding</p><p className={feeOutstanding > 0 ? "mt-1 text-xl font-bold text-amber-600" : "mt-1 text-xl font-bold text-emerald-600"}>₹{feeOutstanding.toLocaleString("en-IN")}</p></div>
+                    </div>
+                    <div className="mt-5">
+                      <h3 className="mb-3 font-semibold">Installment schedule</h3>
+                      {feeSummary.installments.length === 0 ? <p className="text-sm text-muted-foreground">No installment schedule has been published.</p> : (
+                        <div className="space-y-2">
+                          {feeSummary.installments.map((item) => {
+                            const balance = Math.max(0, Number(item.amount) - Number(item.paid_amount));
+                            const overdue = item.status !== "paid" && new Date(item.due_date) < new Date();
+                            return <div key={item.id} className={overdue ? "flex flex-col gap-2 rounded-xl border border-red-200 bg-red-50/40 p-3 sm:flex-row sm:items-center sm:justify-between" : "flex flex-col gap-2 rounded-xl border p-3 sm:flex-row sm:items-center sm:justify-between"}>
+                              <div><p className="text-sm font-semibold">Due {new Date(item.due_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p><p className="text-xs text-muted-foreground">₹{Number(item.amount).toLocaleString("en-IN")} scheduled · ₹{Number(item.paid_amount).toLocaleString("en-IN")} paid</p></div>
+                              <Badge variant={overdue ? "destructive" : balance === 0 ? "default" : "outline"}>{overdue ? "Overdue" : balance === 0 ? "Paid" : "₹" + balance.toLocaleString("en-IN") + " due"}</Badge>
+                            </div>;
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-5">
+                      <h3 className="mb-3 font-semibold">Recent payments</h3>
+                      {feeSummary.payments.length === 0 ? <p className="text-sm text-muted-foreground">No payments recorded yet.</p> : (
+                        <div className="space-y-2">
+                          {feeSummary.payments.slice(0, 8).map((payment) => <div key={payment.id} className="flex items-center justify-between rounded-xl border p-3"><div><p className="text-sm font-semibold">₹{Number(payment.amount).toLocaleString("en-IN")}</p><p className="text-xs text-muted-foreground">{new Date(payment.payment_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} · {payment.payment_mode || "Payment"}</p></div><span className="text-xs text-muted-foreground">{payment.receipt_number || ""}</span></div>)}
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>
