@@ -735,7 +735,7 @@ Deno.serve(async (req) => {
       result.usage.credits = 5;
     }
 
-    if (actorRole === "student" && mode !== "audio_summary" && result.usage.credits > 0) {
+    if (actorRole === "student" && result.usage.credits > 0) {
       // Student billing is intentionally stricter than provider-token billing.
       // This protects the academy from very small AI charges being effectively
       // free to students and makes expensive generation features predictable.
