@@ -502,6 +502,209 @@ export type Database = {
         }
         Relationships: []
       }
+      class_batches: {
+        Row: {
+          academic_year: string
+          board: string | null
+          branch_id: string | null
+          capacity: number | null
+          class_name: string
+          created_at: string
+          end_date: string | null
+          id: string
+          name: string
+          notes: string | null
+          primary_teacher_id: string | null
+          room: string | null
+          start_date: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          academic_year?: string
+          board?: string | null
+          branch_id?: string | null
+          capacity?: number | null
+          class_name: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          primary_teacher_id?: string | null
+          room?: string | null
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          academic_year?: string
+          board?: string | null
+          branch_id?: string | null
+          capacity?: number | null
+          class_name?: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          primary_teacher_id?: string | null
+          room?: string | null
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_batches_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_batches_primary_teacher_id_fkey"
+            columns: ["primary_teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_homework: {
+        Row: {
+          assigned_date: string
+          batch_id: string
+          completion_required: boolean
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          status: string
+          subject: string
+          teacher_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_date?: string
+          batch_id: string
+          completion_required?: boolean
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          status?: string
+          subject: string
+          teacher_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_date?: string
+          batch_id?: string
+          completion_required?: boolean
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          status?: string
+          subject?: string
+          teacher_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_homework_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "class_admin_dashboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_homework_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "class_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_homework_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_lesson_plans: {
+        Row: {
+          batch_id: string
+          completed_date: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          objectives: string | null
+          planned_date: string | null
+          status: string
+          subject: string
+          teacher_id: string | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          batch_id: string
+          completed_date?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          objectives?: string | null
+          planned_date?: string | null
+          status?: string
+          subject: string
+          teacher_id?: string | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          batch_id?: string
+          completed_date?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          objectives?: string | null
+          planned_date?: string | null
+          status?: string
+          subject?: string
+          teacher_id?: string | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_lesson_plans_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "class_admin_dashboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_lesson_plans_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "class_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_lesson_plans_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_logs: {
         Row: {
           approval_status: string
@@ -557,6 +760,146 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "class_logs_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_sessions: {
+        Row: {
+          attendance_marked: boolean
+          batch_id: string
+          classwork: string | null
+          created_at: string
+          end_time: string | null
+          homework: string | null
+          id: string
+          remarks: string | null
+          session_date: string
+          start_time: string | null
+          status: string
+          subject: string | null
+          teacher_id: string | null
+          topic: string | null
+          updated_at: string
+        }
+        Insert: {
+          attendance_marked?: boolean
+          batch_id: string
+          classwork?: string | null
+          created_at?: string
+          end_time?: string | null
+          homework?: string | null
+          id?: string
+          remarks?: string | null
+          session_date?: string
+          start_time?: string | null
+          status?: string
+          subject?: string | null
+          teacher_id?: string | null
+          topic?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attendance_marked?: boolean
+          batch_id?: string
+          classwork?: string | null
+          created_at?: string
+          end_time?: string | null
+          homework?: string | null
+          id?: string
+          remarks?: string | null
+          session_date?: string
+          start_time?: string | null
+          status?: string
+          subject?: string | null
+          teacher_id?: string | null
+          topic?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_sessions_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "class_admin_dashboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_sessions_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "class_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_sessions_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_timetable: {
+        Row: {
+          batch_id: string
+          created_at: string
+          day_of_week: number
+          end_time: string
+          id: string
+          is_active: boolean
+          mode: string
+          room: string | null
+          start_time: string
+          subject: string
+          teacher_id: string | null
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          day_of_week: number
+          end_time: string
+          id?: string
+          is_active?: boolean
+          mode?: string
+          room?: string | null
+          start_time: string
+          subject: string
+          teacher_id?: string | null
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          is_active?: boolean
+          mode?: string
+          room?: string | null
+          start_time?: string
+          subject?: string
+          teacher_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_timetable_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "class_admin_dashboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_timetable_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "class_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_timetable_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "teachers"
@@ -2929,6 +3272,43 @@ export type Database = {
       }
     }
     Views: {
+      class_admin_attendance_summary: {
+        Row: {
+          absent_count: number | null
+          class_name: string | null
+          late_count: number | null
+          marked_count: number | null
+          present_count: number | null
+        }
+        Relationships: []
+      }
+      class_admin_dashboard: {
+        Row: {
+          academic_year: string | null
+          active_homework: number | null
+          board: string | null
+          capacity: number | null
+          class_name: string | null
+          id: string | null
+          lessons_completed_30d: number | null
+          name: string | null
+          primary_teacher_id: string | null
+          room: string | null
+          sessions_last_30_days: number | null
+          status: string | null
+          student_count: number | null
+          teacher_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_batches_primary_teacher_id_fkey"
+            columns: ["primary_teacher_id"]
+            isOneToOne: false
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finance_dashboard: {
         Row: {
           active_students: number | null
