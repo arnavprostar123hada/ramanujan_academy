@@ -25,17 +25,20 @@ export function ClassAdministration() {
   const [batch,setBatch]=useState({name:"",class_name:"",board:"CBSE",academic_year:"2026-27",room:"",capacity:"30",primary_teacher_id:""});
   const [homework,setHomework]=useState({batch_id:"",teacher_id:"",subject:"",title:"",description:"",assigned_date:new Date().toISOString().slice(0,10),due_date:""});
   const [lesson,setLesson]=useState({batch_id:"",teacher_id:"",subject:"",topic:"",objectives:"",planned_date:new Date().toISOString().slice(0,10)});
+  const [timetable,setTimetable]=useState({batch_id:"",teacher_id:"",day_of_week:"1",start_time:"16:00",end_time:"17:00",subject:"",room:""});
+  const [schedule,setSchedule]=useState<any[]>([]);
   const [session,setSession]=useState({batch_id:"",teacher_id:"",session_date:new Date().toISOString().slice(0,10),subject:"",topic:"",start_time:"",end_time:"",status:"scheduled",classwork:"",homework:""});
 
   const load=async()=>{
     setLoading(true);
-    const [b,t,a]=await Promise.all([
+    const [b,t,a,tt]=await Promise.all([
       supabase.from("class_admin_dashboard").select("*").order("class_name"),
       supabase.from("teachers").select("id,name").order("name"),
-      supabase.from("class_admin_attendance_summary").select("*").order("class_name")
+      supabase.from("class_admin_attendance_summary").select("*").order("class_name"),
+      supabase.from("class_timetable").select("id,batch_id,teacher_id,day_of_week,start_time,end_time,subject,room").eq("is_active",true).order("day_of_week").order("start_time")
     ]);
-    if(b.error||t.error||a.error) toast({title:"Class administration load failed",description:(b.error||t.error||a.error)?.message,variant:"destructive"});
-    setBatches((b.data||[]) as Batch[]); setTeachers((t.data||[]) as Teacher[]); setAttendance(a.data||[]); setLoading(false);
+    if(b.error||t.error||a.error||tt.error) toast({title:"Class administration load failed",description:(b.error||t.error||a.error||tt.error)?.message,variant:"destructive"});
+    setBatches((b.data||[]) as Batch[]); setTeachers((t.data||[]) as Teacher[]); setAttendance(a.data||[]); setSchedule(tt.data||[]); setLoading(false);
   };
   useEffect(()=>{void load()},[]);
 
@@ -70,6 +73,13 @@ export function ClassAdministration() {
     else {toast({title:"Lesson plan saved"});setLesson({...lesson,topic:"",objectives:""});await load();}
   };
 
+  const addTimetable=async()=>{
+    if(!timetable.batch_id||!timetable.subject||!timetable.start_time||!timetable.end_time){toast({title:"Batch, subject and timings are required",variant:"destructive"});return}
+    const {error}=await supabase.from("class_timetable").insert({...timetable,teacher_id:timetable.teacher_id||null,day_of_week:Number(timetable.day_of_week)});
+    if(error) toast({title:"Could not save timetable",description:error.message,variant:"destructive"});
+    else {toast({title:"Timetable slot added"});setTimetable({...timetable,subject:"",room:""});await load();}
+  };
+
   const addSession=async()=>{
     if(!session.batch_id||!session.subject){toast({title:"Batch and subject are required",variant:"destructive"});return}
     const {error}=await supabase.from("class_sessions").insert({...session,teacher_id:session.teacher_id||null,start_time:session.start_time||null,end_time:session.end_time||null});
@@ -96,8 +106,8 @@ export function ClassAdministration() {
     </div>
 
     <Tabs defaultValue="overview">
-      <TabsList className="grid w-full grid-cols-6">
-        <TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="batches">Batches</TabsTrigger><TabsTrigger value="sessions">Class Log</TabsTrigger><TabsTrigger value="homework">Homework</TabsTrigger><TabsTrigger value="lessons">Lesson Plans</TabsTrigger><TabsTrigger value="attendance">Attendance</TabsTrigger>
+      <TabsList className="grid w-full grid-cols-7">
+        <TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="batches">Batches</TabsTrigger><TabsTrigger value="timetable">Timetable</TabsTrigger><TabsTrigger value="sessions">Class Log</TabsTrigger><TabsTrigger value="homework">Homework</TabsTrigger><TabsTrigger value="lessons">Lesson Plans</TabsTrigger><TabsTrigger value="attendance">Attendance</TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview" className="space-y-4">
@@ -113,6 +123,22 @@ export function ClassAdministration() {
         <div><Label>Capacity</Label><Input type="number" value={batch.capacity} onChange={e=>setBatch({...batch,capacity:e.target.value})}/></div>
         <div><Label>Primary Teacher</Label><NativeSelect options={teacherOptions} value={batch.primary_teacher_id} onValueChange={v=>setBatch({...batch,primary_teacher_id:v})} placeholder="Select teacher"/></div>
         <div className="md:col-span-2 flex items-end"><Button onClick={()=>void addBatch()} className="w-full"><Plus className="mr-2 h-4 w-4"/>Create Batch</Button></div>
+      </CardContent></Card></TabsContent>
+
+      <TabsContent value="timetable"><Card><CardHeader><CardTitle>Weekly Timetable</CardTitle></CardHeader><CardContent className="space-y-5">
+        <div className="grid gap-4 md:grid-cols-3">
+          <div><Label>Batch</Label><NativeSelect options={batchOptions} value={timetable.batch_id} onValueChange={v=>setTimetable({...timetable,batch_id:v})} placeholder="Select batch"/></div>
+          <div><Label>Teacher</Label><NativeSelect options={teacherOptions} value={timetable.teacher_id} onValueChange={v=>setTimetable({...timetable,teacher_id:v})} placeholder="Teacher"/></div>
+          <div><Label>Day</Label><NativeSelect options={days.map((v,i)=>({value:String(i),label:v}))} value={timetable.day_of_week} onValueChange={v=>setTimetable({...timetable,day_of_week:v})}/></div>
+          <div><Label>Subject</Label><Input value={timetable.subject} onChange={e=>setTimetable({...timetable,subject:e.target.value})}/></div>
+          <div><Label>Start</Label><Input type="time" value={timetable.start_time} onChange={e=>setTimetable({...timetable,start_time:e.target.value})}/></div>
+          <div><Label>End</Label><Input type="time" value={timetable.end_time} onChange={e=>setTimetable({...timetable,end_time:e.target.value})}/></div>
+          <div><Label>Room</Label><Input value={timetable.room} onChange={e=>setTimetable({...timetable,room:e.target.value})}/></div>
+          <div className="md:col-span-2 flex items-end"><Button className="w-full" onClick={()=>void addTimetable()}><Plus className="mr-2 h-4 w-4"/>Add Timetable Slot</Button></div>
+        </div>
+        <div className="overflow-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left"><th className="py-2">Day</th><th>Batch</th><th>Subject</th><th>Teacher</th><th>Time</th><th>Room</th></tr></thead><tbody>
+          {schedule.map((s:any)=>{const b=batches.find(x=>x.id===s.batch_id);const t=teachers.find(x=>x.id===s.teacher_id);return <tr key={s.id} className="border-b last:border-0"><td className="py-2">{days[Number(s.day_of_week)]}</td><td>{b?.name||"—"}</td><td className="font-medium">{s.subject}</td><td>{t?.name||"—"}</td><td>{String(s.start_time).slice(0,5)}–{String(s.end_time).slice(0,5)}</td><td>{s.room||"—"}</td></tr>})}
+        </tbody></table></div>
       </CardContent></Card></TabsContent>
 
       <TabsContent value="sessions"><Card><CardHeader><CardTitle>Daily Class Log</CardTitle></CardHeader><CardContent className="grid gap-4 md:grid-cols-3">
