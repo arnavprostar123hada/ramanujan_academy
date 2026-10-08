@@ -762,7 +762,7 @@ Deno.serve(async (req) => {
         : sse(content, fallbackUsage);
     }
 
-    const cleanResult = mode === "quiz" || mode === "mindmap" || mode === "flashcards" ? sanitizeText(result.content) : cleanGeneratedText(result.content);
+    const cleanResult = mode === "quiz" || mode === "mindmap" || mode === "flashcards" || mode === "study_plan" ? sanitizeText(result.content) : cleanGeneratedText(result.content);
 
     // Never charge a student for malformed structured study plans.
     if (mode === "study_plan" && !parseStudyPlanContent(cleanResult)) {
