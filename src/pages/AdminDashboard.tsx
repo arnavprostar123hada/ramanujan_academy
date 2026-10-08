@@ -83,6 +83,7 @@ import { ClassLogsCalendar } from "@/components/ClassLogsCalendar";
 import { EnquiryManagement } from "@/components/admin/EnquiryManagement";
 import { GrowthOS } from "@/components/admin/GrowthOS";
 import { AcademicApprovalCenter } from "@/components/admin/AcademicApprovalCenter";
+import { AcademicSyllabusManagement } from "@/components/admin/AcademicSyllabusManagement";
 import { TeacherSalaryManagement } from "@/components/admin/TeacherSalaryManagement";
 import OnlineTestManagement from "@/components/admin/OnlineTestManagement";
 import { AdminStaffManagement } from "@/components/admin/AdminStaffManagement";
@@ -1572,6 +1573,10 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                   <CheckCircle className="w-4 h-4" />
                   <span className="hidden sm:inline">Approvals</span>
                 </TabsTrigger>
+                <TabsTrigger value="syllabus" className="gap-1.5 data-[state=active]:bg-green-600 data-[state=active]:text-white">
+                  <BookOpen className="w-4 h-4" />
+                  <span className="hidden sm:inline">Syllabus</span>
+                </TabsTrigger>
                 <TabsTrigger value="tests" className="gap-1.5 data-[state=active]:bg-green-500 data-[state=active]:text-white">
                   <ClipboardList className="w-4 h-4" />
                   <span className="hidden sm:inline">Tests</span>
@@ -1686,6 +1691,10 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
 
           <TabsContent value="academic-approvals">
             <AcademicApprovalCenter />
+          </TabsContent>
+
+          <TabsContent value="syllabus">
+            <AcademicSyllabusManagement />
           </TabsContent>
 
           <TabsContent value="walk-in-enquiries">
