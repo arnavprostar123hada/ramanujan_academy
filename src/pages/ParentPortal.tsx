@@ -457,6 +457,44 @@ const ParentPortal = () => {
     ...(latestClassLog ? [`Latest class update: ${latestClassLog.subject || "Academics"}`] : [])
   ];
 
+  // Parent-facing academic intelligence built only from approved portal data.
+  const subjectPerformance = Array.from(
+    new Set(validScoredResults.map((result) => tests.find((test) => test.id === result.test_id)?.subject).filter(Boolean))
+  ).map((subject) => {
+    const subjectResults = validScoredResults.filter(
+      (result) => tests.find((test) => test.id === result.test_id)?.subject === subject
+    );
+    const percentages = subjectResults
+      .map((result) => {
+        const test = tests.find((item) => item.id === result.test_id);
+        return test ? (result.marks_obtained / test.max_marks) * 100 : null;
+      })
+      .filter((value): value is number => value !== null);
+    const latest = percentages[0] ?? 0;
+    const earlier = percentages.length > 1
+      ? percentages.slice(1, Math.min(4, percentages.length)).reduce((a, b) => a + b, 0) / Math.min(3, percentages.length - 1)
+      : latest;
+    return {
+      subject: String(subject),
+      average: Math.round(percentages.reduce((a, b) => a + b, 0) / percentages.length),
+      trend: Math.round(latest - earlier),
+      tests: percentages.length,
+    };
+  }).sort((a, b) => a.average - b.average);
+
+  const riskSignals = [
+    ...(attendance.length > 0 && attendanceRate < 75 ? ["attendance"] : []),
+    ...(scoredPercentages.length >= 2 && scoreTrend <= -5 ? ["score trend"] : []),
+    ...(subjectPerformance.some((item) => item.average < 60) ? ["subject performance"] : []),
+    ...(absentCount >= 3 ? ["repeated absence"] : []),
+  ];
+  const riskLevel = riskSignals.length >= 2 ? "Needs attention" : riskSignals.length === 1 ? "Watch" : "On track";
+  const riskDescription = riskLevel === "On track"
+    ? "Current attendance and assessment signals are broadly on track."
+    : riskLevel === "Watch"
+      ? "One learning signal deserves attention. Review the highlighted area and support a consistent routine."
+      : "Multiple learning signals need attention. Please review the highlighted areas and connect with the academy if needed.";
+
   const handleQRScan = (code: string) => {
     setShowScanner(false);
     setAccessCode(code.toUpperCase());
@@ -855,6 +893,57 @@ const ParentPortal = () => {
                 <button type="button" onClick={() => document.querySelector<HTMLButtonElement>(`[data-state][value="ai"]`)?.click()} className="rounded-2xl border p-4 text-left hover:border-primary/30 hover:bg-primary/5"><Sparkles className="mb-3 h-5 w-5 text-violet-600" /><p className="font-semibold">Get AI guidance</p><p className="mt-1 text-xs text-muted-foreground">Use the child's academic data to guide the next conversation.</p></button>
               </CardContent>
             </Card>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card className="shadow-md">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-2"><ShieldAlert className="h-5 w-5 text-primary" />Learning Health</span>
+                    <Badge variant={riskLevel === "Needs attention" ? "destructive" : riskLevel === "Watch" ? "secondary" : "default"}>{riskLevel}</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">{riskDescription}</p>
+                  {riskSignals.length > 0 ? (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {riskSignals.map((signal) => (
+                        <Badge key={signal} variant="outline" className="capitalize">{signal}</Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-4 flex items-center gap-2 text-sm font-medium text-emerald-700">
+                      <CheckCircle className="h-4 w-4" /> No early-warning signal detected
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-md">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" />Subject Performance</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {subjectPerformance.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Subject-wise performance will appear after approved test results are published.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {subjectPerformance.map((item) => (
+                        <div key={item.subject} className="space-y-1.5">
+                          <div className="flex items-center justify-between gap-3 text-sm">
+                            <span className="font-medium">{item.subject}</span>
+                            <span className="font-semibold">{item.average}% {item.trend > 2 ? `↑${item.trend}` : item.trend < -2 ? `↓${Math.abs(item.trend)}` : "→"}</span>
+                          </div>
+                          <div className="h-2 overflow-hidden rounded-full bg-muted">
+                            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, Math.max(0, item.average))}%` }} />
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">{item.tests} assessment{item.tests === 1 ? "" : "s"} considered</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="updates" className="space-y-4">
