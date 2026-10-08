@@ -221,6 +221,23 @@ function fallback(messages: Msg[], mode: string, sourceText = "", actorRole = "s
       : "Hi! Tell me the topic or problem you want to study.";
   }
 
+  if (mode === "study_plan") {
+    const days = Math.min(14, Math.max(1, Number((last.match(/duration|days?[^0-9]*(\\d+)/i)?.[1] || 7))));
+    return JSON.stringify({
+      title: "Your Study Plan",
+      summary: "A simple low-cost revision plan built around your goal.",
+      days: Array.from({ length: days }, (_, index) => ({
+        day: index + 1,
+        title: index === 0 ? "Start Strong" : index === days - 1 ? "Final Revision" : "Learn + Practise",
+        focus: "Work through the most important topic for the day.",
+        tasks: ["Study the selected topic", "Make short notes", "Review key facts or formulas"],
+        revision: "Revise yesterday's work for 10–15 minutes.",
+        practice: "Complete a short set of practice questions.",
+        minutes: 120,
+      })),
+    });
+  }
+
   if (mode === "flashcards") {
     return JSON.stringify({
       title: `Flashcards: ${last || "Revision"}`,
@@ -254,6 +271,34 @@ function fallback(messages: Msg[], mode: string, sourceText = "", actorRole = "s
   }
 
   return "AI service is temporarily busy, so I switched to low-cost fallback mode. Your request was not charged to the AI gateway. Please retry shortly for the full AI response.";
+}
+
+function parseStudyPlanContent(content: string): { title: string; summary: string; days: unknown[] } | null {
+  let cleaned = content.replace(/\\`\\`\\`json\\s*/gi, "").replace(/\\`\\`\\`\\s*/g, "").trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start >= 0 && end > start) cleaned = cleaned.slice(start, end + 1);
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (
+      parsed &&
+      typeof parsed.title === "string" &&
+      parsed.title.trim() &&
+      typeof parsed.summary === "string" &&
+      Array.isArray(parsed.days) &&
+      parsed.days.length > 0 &&
+      parsed.days.every((day: any) =>
+        day && Number.isFinite(Number(day.day)) &&
+        typeof day.title === "string" &&
+        typeof day.focus === "string" &&
+        Array.isArray(day.tasks) &&
+        day.tasks.every((task: any) => typeof task === "string") &&
+        typeof day.revision === "string" &&
+        typeof day.practice === "string"
+      )
+    ) return parsed;
+  } catch {}
+  return null;
 }
 
 function parseFlashcardContent(content: string): { title: string; cards: unknown[] } | null {
@@ -340,11 +385,12 @@ Use a mix of easy, medium and hard questions.`;
   }
 
   if (mode === "study_plan") {
-    return `Create a practical, realistic study plan for a school student.
-Use the student's goal, available hours per day and duration from the user message.
-Include Day 1 onward, daily tasks, revision, practice questions and short breaks.
-Keep the plan balanced and concise enough to be useful on a phone.
-Return polished Markdown only. Do not mention AI, tokens, credits or internal systems.`;
+    return `Create a practical, realistic study plan for a school student using the student's goal, available hours per day, duration and any supplied academy syllabus.
+Return ONLY valid JSON in this exact shape:
+{"title":"Geography Exam Study Plan","summary":"Short motivating summary","days":[{"day":1,"title":"Foundation","focus":"Topic focus","tasks":["Task 1","Task 2"],"revision":"What to revise","practice":"What to practise","minutes":120}]}
+Create one object for each day in the requested duration.
+Use the supplied syllabus to choose actual chapters/topics whenever it is provided.
+Keep tasks realistic for the available daily hours. Do not use Markdown or code fences. Do not mention AI, tokens, credits or internal systems.`;
   }
 
   if (mode === "audio_summary") {
@@ -717,6 +763,11 @@ Deno.serve(async (req) => {
     }
 
     const cleanResult = mode === "quiz" || mode === "mindmap" || mode === "flashcards" ? sanitizeText(result.content) : cleanGeneratedText(result.content);
+
+    // Never charge a student for malformed structured study plans.
+    if (mode === "study_plan" && !parseStudyPlanContent(cleanResult)) {
+      return json({ error: "The AI returned an invalid study plan. No RA Points were charged." }, 502);
+    }
 
     // Never charge a student for malformed structured flashcard responses.
     if (mode === "flashcards" && !parseFlashcardContent(cleanResult)) {
