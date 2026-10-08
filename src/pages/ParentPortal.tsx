@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  Bell, 
+  Bell,
+  WalletCards,
   MessageSquare, 
   AlertCircle, 
   Send, 
@@ -133,6 +134,34 @@ interface TestResult {
   remarks: string | null;
 }
 
+interface FeeInstallment {
+  id: string;
+  due_date: string;
+  amount: number;
+  paid_amount: number;
+  status: string;
+}
+
+interface FeePayment {
+  id: string;
+  payment_date: string;
+  amount: number;
+  payment_mode: string | null;
+  receipt_number: string | null;
+}
+
+interface ProgressReview {
+  id: string;
+  review_date: string;
+  attendance_pct: number | null;
+  academic_level: string | null;
+  strengths: string | null;
+  gaps: string | null;
+  action_plan: string | null;
+  parent_contacted: boolean;
+  next_review_date: string | null;
+}
+
 const ParentPortal = () => {
   const { toast } = useToast();
   const [accessCode, setAccessCode] = useState("");
@@ -165,6 +194,15 @@ const ParentPortal = () => {
     status: string;
     completion_required: boolean;
   }>>([]);
+  const [feeSummary, setFeeSummary] = useState<{
+    has_account: boolean;
+    total_fee: number;
+    paid_amount: number;
+    installments: FeeInstallment[];
+    payments: FeePayment[];
+  }>({ has_account: false, total_fee: 0, paid_amount: 0, installments: [], payments: [] });
+  const [progressReviews, setProgressReviews] = useState<ProgressReview[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     const storedCode = localStorage.getItem("parent_access_code");
