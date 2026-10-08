@@ -225,6 +225,28 @@ function fallback(messages: Msg[], mode: string, sourceText = "", actorRole = "s
   return "AI service is temporarily busy, so I switched to low-cost fallback mode. Your request was not charged to the AI gateway. Please retry shortly for the full AI response.";
 }
 
+function parseFlashcardContent(content: string): { title: string; cards: unknown[] } | null {
+  let cleaned = content.replace(/\`\`\`json\s*/gi, "").replace(/\`\`\`\s*/g, "").trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start >= 0 && end > start) cleaned = cleaned.slice(start, end + 1);
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (
+      parsed &&
+      typeof parsed.title === "string" &&
+      parsed.title.trim() &&
+      Array.isArray(parsed.cards) &&
+      parsed.cards.length > 0 &&
+      parsed.cards.every((card: any) =>
+        card && typeof card.front === "string" && card.front.trim() &&
+        typeof card.back === "string" && card.back.trim()
+      )
+    ) return parsed;
+  } catch {}
+  return null;
+}
+
 function parseMindMapContent(content: string): { title: string; children: unknown[] } | null {
   let cleaned = content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
   const start = cleaned.indexOf("{");
@@ -271,6 +293,13 @@ OUTPUT FORMAT RULES:
     return `You create compact student mind maps. Return ONLY valid JSON:
 {"title":"Main Topic","children":[{"title":"Subtopic","children":[{"title":"Detail","children":[]}]}]}
 Use 3-5 branches and 2-3 details each. Titles max 8 words.`;
+  }
+
+  if (mode === "flashcards") {
+    return `Create 10 concise, high-quality study flashcards for a school student at the supplied class level.
+Return ONLY valid JSON:
+{"title":"Flashcards: Topic","cards":[{"front":"Question or term","back":"Clear answer"}]}
+Keep every front and back short, accurate and useful for exam revision. Do not use Markdown or code fences.`;
   }
 
   if (mode === "quiz") {
@@ -591,7 +620,7 @@ Deno.serve(async (req) => {
     // Points and the balance would appear stuck.
     if (cached && actorRole !== "student") {
       const cachedUsage: AIUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0, credits: 0, cached: true };
-      return mode === "quiz" || mode === "mindmap"
+      return mode === "quiz" || mode === "mindmap" || mode === "flashcards"
         ? json({ content: cached, cached: true, usage: cachedUsage })
         : sse(cached);
     }
@@ -600,7 +629,7 @@ Deno.serve(async (req) => {
     const last = messages.filter((m) => m.role === "user").at(-1)?.content?.trim() || "";
     if (/^(hi|hello|hey|namaste|thanks|thank you)\b/i.test(last) || last.length < 4) {
       const local = fallback(messages, mode, sourceText, actorRole);
-      return mode === "quiz" || mode === "mindmap" ? json({ content: local, fallback: true }) : sse(local);
+      return mode === "quiz" || mode === "mindmap" || mode === "flashcards" ? json({ content: local, fallback: true }) : sse(local);
     }
 
     let result: { content: string; usage: AIUsage; provider?: string } | null = null;
@@ -608,7 +637,7 @@ Deno.serve(async (req) => {
       result = await callAI(
         buildSystemPrompt(mode, sourceText, actorRole),
         messages,
-        mode === "quiz" || mode === "mindmap",
+        mode === "quiz" || mode === "mindmap" || mode === "flashcards",
         mode,
       );
     } catch (e) {
@@ -618,12 +647,17 @@ Deno.serve(async (req) => {
     if (!result?.content) {
       const content = fallback(messages, mode, sourceText, actorRole);
       const fallbackUsage: AIUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0, credits: 0, cached: true };
-      return mode === "quiz" || mode === "mindmap"
+      return mode === "quiz" || mode === "mindmap" || mode === "flashcards"
         ? json({ content, fallback: true, usage: fallbackUsage })
         : sse(content, fallbackUsage);
     }
 
-    const cleanResult = mode === "quiz" || mode === "mindmap" ? sanitizeText(result.content) : cleanGeneratedText(result.content);
+    const cleanResult = mode === "quiz" || mode === "mindmap" || mode === "flashcards" ? sanitizeText(result.content) : cleanGeneratedText(result.content);
+
+    // Never charge a student for malformed structured flashcard responses.
+    if (mode === "flashcards" && !parseFlashcardContent(cleanResult)) {
+      return json({ error: "The AI returned invalid flashcards. No RA Points were charged." }, 502);
+    }
 
     // Never charge a student for a malformed structured mind-map response.
     // The frontend expects a JSON object, so validate it before billing.
@@ -675,7 +709,7 @@ Deno.serve(async (req) => {
       ? { ...result.usage, credits: result.usage.credits, teacherCreditsRemaining: Math.max(0, Number(teacherCredits?.credits || 0) - result.usage.credits) }
       : result.usage;
 
-    return mode === "quiz" || mode === "mindmap"
+    return mode === "quiz" || mode === "mindmap" || mode === "flashcards"
       ? json({ content: cleanResult, cached: false, usage: responseUsage })
       : sse(cleanResult, responseUsage);
   } catch (e) {
