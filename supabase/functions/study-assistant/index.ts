@@ -654,14 +654,39 @@ Deno.serve(async (req) => {
     const cacheKey = await sha256(normalized);
 
     const cached = await readCache(admin, cacheKey);
-    // Student AI usage must always be metered. Do not serve cached student
-    // responses for free, otherwise repeated AI requests would not reduce RA
-    // Points and the balance would appear stuck.
-    if (cached && actorRole !== "student") {
-      const cachedUsage: AIUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0, credits: 0, cached: true };
+    // Serve identical requests from the 24-hour cache for students too.
+    // This is the main API-cost control: repeated identical requests do not
+    // call an external AI provider again. A small RA Point cache fee still
+    // discourages unlimited repeated generation.
+    if (cached) {
+      const cachedCharge = actorRole === "student" ? 0.5 : 0;
+      if (actorRole === "student" && cachedCharge > 0) {
+        const { data: cachedChargeRows, error: cachedChargeError } = await admin.rpc("consume_student_ra_points_admin", {
+          p_student_id: resolvedStudentId,
+          p_points: cachedCharge,
+          p_reason: "ai_cached_response",
+          p_metadata: { mode, cache_hit: true },
+        });
+        const cachedChargeResult = Array.isArray(cachedChargeRows) ? cachedChargeRows[0] : cachedChargeRows;
+        if (cachedChargeError || !cachedChargeResult?.ok) {
+          return json({
+            error: "Not enough RA Points for this response.",
+            required: cachedCharge,
+            balance: Number(cachedChargeResult?.balance || 0),
+          }, 402);
+        }
+      }
+
+      const cachedUsage: AIUsage = {
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        credits: cachedCharge,
+        cached: true,
+      };
       return mode === "quiz" || mode === "mindmap" || mode === "flashcards" || mode === "study_plan"
         ? json({ content: cached, cached: true, usage: cachedUsage })
-        : sse(cached);
+        : sse(cached, cachedUsage);
     }
 
     // Cheap local responses avoid spending gateway credits on greetings/simple requests.
