@@ -2228,6 +2228,68 @@ export type Database = {
         }
         Relationships: []
       }
+      ra_points_reset_history: {
+        Row: {
+          id: string
+          student_id: string
+          reset_month: string
+          points_before: number
+          monthly_allowance: number
+          reset_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          reset_month: string
+          points_before: number
+          monthly_allowance: number
+          reset_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          reset_month?: string
+          points_before?: number
+          monthly_allowance?: number
+          reset_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ra_points_reset_history_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ra_points_settings: {
+        Row: {
+          id: number
+          regular_monthly_allowance: number
+          online_monthly_allowance: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: number
+          regular_monthly_allowance?: number
+          online_monthly_allowance?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: number
+          regular_monthly_allowance?: number
+          online_monthly_allowance?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       ra_points: {
         Row: {
           created_at: string
@@ -3441,6 +3503,22 @@ export type Database = {
           role: string
         }[]
       }
+      get_ra_points_allowances: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          regular_monthly_allowance: number
+          online_monthly_allowance: number
+        }[]
+      }
+      get_student_ra_points: {
+        Args: { p_student_id: string }
+        Returns: {
+          points: number
+          last_reset: string
+          monthly_allowance: number
+          next_reset: string
+        }[]
+      }
       is_admin_or_owner: { Args: never; Returns: boolean }
       parent_login_by_access_code: {
         Args: { p_access_code: string }
@@ -3468,6 +3546,11 @@ export type Database = {
           balance: number
           ok: boolean
         }[]
+      }
+      reset_monthly_ra_points: { Args: Record<PropertyKey, never>; Returns: number }
+      update_ra_points_allowances: {
+        Args: { p_regular_monthly_allowance: number; p_online_monthly_allowance: number }
+        Returns: { ok: boolean; regular_monthly_allowance: number; online_monthly_allowance: number }[]
       }
       set_active_geofence: {
         Args: {
