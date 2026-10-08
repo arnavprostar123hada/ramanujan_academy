@@ -14,39 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      geofence_locations: {
-        Row: {
-          id: string
-          name: string
-          latitude: number
-          longitude: number
-          radius_meters: number
-          is_active: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          name?: string
-          latitude: number
-          longitude: number
-          radius_meters?: number
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          latitude?: number
-          longitude?: number
-          radius_meters?: number
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       academic_interventions: {
         Row: {
           action_plan: string | null
@@ -178,6 +145,83 @@ export type Database = {
           },
         ]
       }
+      admin_salary_records: {
+        Row: {
+          admin_staff_id: string
+          base_salary: number
+          bonus: number
+          calculated_salary: number
+          created_at: string
+          days_absent: number
+          days_present: number
+          final_salary: number
+          half_days: number
+          id: string
+          late_count: number
+          late_deduction: number
+          month: string
+          notes: string | null
+          other_deductions: number
+          paid_at: string | null
+          status: string
+          updated_at: string
+          working_days: number
+          year: number
+        }
+        Insert: {
+          admin_staff_id: string
+          base_salary?: number
+          bonus?: number
+          calculated_salary?: number
+          created_at?: string
+          days_absent?: number
+          days_present?: number
+          final_salary?: number
+          half_days?: number
+          id?: string
+          late_count?: number
+          late_deduction?: number
+          month: string
+          notes?: string | null
+          other_deductions?: number
+          paid_at?: string | null
+          status?: string
+          updated_at?: string
+          working_days?: number
+          year: number
+        }
+        Update: {
+          admin_staff_id?: string
+          base_salary?: number
+          bonus?: number
+          calculated_salary?: number
+          created_at?: string
+          days_absent?: number
+          days_present?: number
+          final_salary?: number
+          half_days?: number
+          id?: string
+          late_count?: number
+          late_deduction?: number
+          month?: string
+          notes?: string | null
+          other_deductions?: number
+          paid_at?: string | null
+          status?: string
+          updated_at?: string
+          working_days?: number
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_salary_records_admin_staff_id_fkey"
+            columns: ["admin_staff_id"]
+            isOneToOne: false
+            referencedRelation: "admin_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_staff: {
         Row: {
           created_at: string
@@ -186,6 +230,7 @@ export type Database = {
           expected_check_out: string | null
           id: string
           is_active: boolean
+          monthly_salary: number
           name: string
           phone: string | null
           updated_at: string
@@ -198,6 +243,7 @@ export type Database = {
           expected_check_out?: string | null
           id?: string
           is_active?: boolean
+          monthly_salary?: number
           name: string
           phone?: string | null
           updated_at?: string
@@ -210,6 +256,7 @@ export type Database = {
           expected_check_out?: string | null
           id?: string
           is_active?: boolean
+          monthly_salary?: number
           name?: string
           phone?: string | null
           updated_at?: string
@@ -290,6 +337,30 @@ export type Database = {
           },
         ]
       }
+      ai_response_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          expires_at: string
+          mode: string
+          response_text: string
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          expires_at?: string
+          mode: string
+          response_text: string
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          expires_at?: string
+          mode?: string
+          response_text?: string
+        }
+        Relationships: []
+      }
       announcements: {
         Row: {
           content: string
@@ -314,6 +385,42 @@ export type Database = {
           target_classes?: string[] | null
           title?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      automation_events: {
+        Row: {
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_key: string
+          id: string
+          payload: Json
+          processed: boolean
+          processed_at: string | null
+          student_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_key: string
+          id?: string
+          payload?: Json
+          processed?: boolean
+          processed_at?: string | null
+          student_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_key?: string
+          id?: string
+          payload?: Json
+          processed?: boolean
+          processed_at?: string | null
+          student_id?: string | null
         }
         Relationships: []
       }
@@ -457,6 +564,136 @@ export type Database = {
           },
         ]
       }
+      communication_automation_rules: {
+        Row: {
+          audience: string
+          created_at: string
+          event_key: string
+          id: string
+          is_active: boolean
+          name: string
+          template_id: string | null
+        }
+        Insert: {
+          audience?: string
+          created_at?: string
+          event_key: string
+          id?: string
+          is_active?: boolean
+          name: string
+          template_id?: string | null
+        }
+        Update: {
+          audience?: string
+          created_at?: string
+          event_key?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_automation_rules_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "communication_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communication_queue: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          attempts: number
+          channel: string
+          created_at: string
+          document_url: string | null
+          event_key: string
+          failure_reason: string | null
+          id: string
+          idempotency_key: string | null
+          last_attempt_at: string | null
+          lead_id: string | null
+          message: string | null
+          next_attempt_at: string | null
+          parent_id: string | null
+          provider_message_id: string | null
+          recipient_name: string | null
+          recipient_phone: string | null
+          recipient_type: string
+          requires_approval: boolean
+          sent_at: string | null
+          status: string
+          student_id: string | null
+          template_id: string | null
+          template_params: Json
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          attempts?: number
+          channel?: string
+          created_at?: string
+          document_url?: string | null
+          event_key: string
+          failure_reason?: string | null
+          id?: string
+          idempotency_key?: string | null
+          last_attempt_at?: string | null
+          lead_id?: string | null
+          message?: string | null
+          next_attempt_at?: string | null
+          parent_id?: string | null
+          provider_message_id?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          recipient_type?: string
+          requires_approval?: boolean
+          sent_at?: string | null
+          status?: string
+          student_id?: string | null
+          template_id?: string | null
+          template_params?: Json
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          attempts?: number
+          channel?: string
+          created_at?: string
+          document_url?: string | null
+          event_key?: string
+          failure_reason?: string | null
+          id?: string
+          idempotency_key?: string | null
+          last_attempt_at?: string | null
+          lead_id?: string | null
+          message?: string | null
+          next_attempt_at?: string | null
+          parent_id?: string | null
+          provider_message_id?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          recipient_type?: string
+          requires_approval?: boolean
+          sent_at?: string | null
+          status?: string
+          student_id?: string | null
+          template_id?: string | null
+          template_params?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_queue_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "communication_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       communication_templates: {
         Row: {
           active: boolean
@@ -464,9 +701,9 @@ export type Database = {
           category: string | null
           channel: string
           created_at: string
+          event_key: string | null
           id: string
           name: string
-          event_key: string | null
           requires_approval: boolean
           updated_at: string
         }
@@ -476,9 +713,9 @@ export type Database = {
           category?: string | null
           channel?: string
           created_at?: string
+          event_key?: string | null
           id?: string
           name: string
-          event_key?: string | null
           requires_approval?: boolean
           updated_at?: string
         }
@@ -488,24 +725,12 @@ export type Database = {
           category?: string | null
           channel?: string
           created_at?: string
+          event_key?: string | null
           id?: string
           name?: string
-          event_key?: string | null
           requires_approval?: boolean
           updated_at?: string
         }
-        Relationships: []
-      }
-      communication_automation_rules: {
-        Row: { id: string; name: string; event_key: string; template_id: string | null; audience: string; is_active: boolean; created_at: string }
-        Insert: { id?: string; name: string; event_key: string; template_id?: string | null; audience?: string; is_active?: boolean; created_at?: string }
-        Update: { id?: string; name?: string; event_key?: string; template_id?: string | null; audience?: string; is_active?: boolean; created_at?: string }
-        Relationships: []
-      }
-      communication_queue: {
-        Row: { id: string; event_key: string; channel: string; recipient_type: string; recipient_name: string | null; recipient_phone: string | null; parent_id: string | null; student_id: string | null; lead_id: string | null; template_id: string | null; message: string | null; document_url: string | null; status: string; requires_approval: boolean; approved_by: string | null; approved_at: string | null; sent_at: string | null; provider_message_id: string | null; failure_reason: string | null; created_at: string }
-        Insert: { id?: string; event_key: string; channel?: string; recipient_type?: string; recipient_name?: string | null; recipient_phone?: string | null; parent_id?: string | null; student_id?: string | null; lead_id?: string | null; template_id?: string | null; message?: string | null; document_url?: string | null; status?: string; requires_approval?: boolean; approved_by?: string | null; approved_at?: string | null; sent_at?: string | null; provider_message_id?: string | null; failure_reason?: string | null; created_at?: string }
-        Update: { id?: string; event_key?: string; channel?: string; recipient_type?: string; recipient_name?: string | null; recipient_phone?: string | null; parent_id?: string | null; student_id?: string | null; lead_id?: string | null; template_id?: string | null; message?: string | null; document_url?: string | null; status?: string; requires_approval?: boolean; approved_by?: string | null; approved_at?: string | null; sent_at?: string | null; provider_message_id?: string | null; failure_reason?: string | null; created_at?: string }
         Relationships: []
       }
       communications: {
@@ -799,8 +1024,11 @@ export type Database = {
       fee_payments: {
         Row: {
           amount: number
+          branch_id: string | null
+          cash_bank: string | null
           created_at: string
           fee_account_id: string
+          fee_type: string | null
           id: string
           notes: string | null
           payment_date: string
@@ -810,8 +1038,11 @@ export type Database = {
         }
         Insert: {
           amount: number
+          branch_id?: string | null
+          cash_bank?: string | null
           created_at?: string
           fee_account_id: string
+          fee_type?: string | null
           id?: string
           notes?: string | null
           payment_date?: string
@@ -821,8 +1052,11 @@ export type Database = {
         }
         Update: {
           amount?: number
+          branch_id?: string | null
+          cash_bank?: string | null
           created_at?: string
           fee_account_id?: string
+          fee_type?: string | null
           id?: string
           notes?: string | null
           payment_date?: string
@@ -832,6 +1066,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fee_payments_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fee_payments_fee_account_id_fkey"
             columns: ["fee_account_id"]
             isOneToOne: false
@@ -839,6 +1080,167 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      finance_expenses: {
+        Row: {
+          amount: number
+          branch_id: string | null
+          cash_bank: string | null
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          expense_date: string
+          fixed_variable: string | null
+          id: string
+          notes: string | null
+          payment_mode: string | null
+          reference_number: string | null
+          tax_amount: number
+          total_amount: number | null
+          updated_at: string
+          vendor_payee: string | null
+        }
+        Insert: {
+          amount: number
+          branch_id?: string | null
+          cash_bank?: string | null
+          category: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          expense_date?: string
+          fixed_variable?: string | null
+          id?: string
+          notes?: string | null
+          payment_mode?: string | null
+          reference_number?: string | null
+          tax_amount?: number
+          total_amount?: number | null
+          updated_at?: string
+          vendor_payee?: string | null
+        }
+        Update: {
+          amount?: number
+          branch_id?: string | null
+          cash_bank?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          expense_date?: string
+          fixed_variable?: string | null
+          id?: string
+          notes?: string | null
+          payment_mode?: string | null
+          reference_number?: string | null
+          tax_amount?: number
+          total_amount?: number | null
+          updated_at?: string
+          vendor_payee?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_expenses_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_expenses_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_opening_balances: {
+        Row: {
+          as_of_date: string
+          bank_balance: number
+          branch_id: string | null
+          capital: number
+          cash_balance: number
+          created_at: string
+          current_liabilities: number
+          fixed_assets: number
+          id: string
+          long_term_liabilities: number
+          notes: string | null
+          other_current_assets: number
+        }
+        Insert: {
+          as_of_date: string
+          bank_balance?: number
+          branch_id?: string | null
+          capital?: number
+          cash_balance?: number
+          created_at?: string
+          current_liabilities?: number
+          fixed_assets?: number
+          id?: string
+          long_term_liabilities?: number
+          notes?: string | null
+          other_current_assets?: number
+        }
+        Update: {
+          as_of_date?: string
+          bank_balance?: number
+          branch_id?: string | null
+          capital?: number
+          cash_balance?: number
+          created_at?: string
+          current_liabilities?: number
+          fixed_assets?: number
+          id?: string
+          long_term_liabilities?: number
+          notes?: string | null
+          other_current_assets?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_opening_balances_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      geofence_locations: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          latitude: number
+          longitude: number
+          name: string
+          radius_meters: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          latitude: number
+          longitude: number
+          name?: string
+          radius_meters?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          latitude?: number
+          longitude?: number
+          name?: string
+          radius_meters?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       growth_tasks: {
         Row: {
@@ -1099,6 +1501,238 @@ export type Database = {
           },
         ]
       }
+      online_students: {
+        Row: {
+          batch: string | null
+          class: string
+          created_at: string
+          email: string
+          id: string
+          name: string
+          student_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          batch?: string | null
+          class?: string
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          student_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          batch?: string | null
+          class?: string
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          student_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "online_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      online_test_answers: {
+        Row: {
+          answer_text: string | null
+          created_at: string
+          id: string
+          is_correct: boolean | null
+          marks_awarded: number | null
+          question_id: string
+          submission_id: string
+        }
+        Insert: {
+          answer_text?: string | null
+          created_at?: string
+          id?: string
+          is_correct?: boolean | null
+          marks_awarded?: number | null
+          question_id: string
+          submission_id: string
+        }
+        Update: {
+          answer_text?: string | null
+          created_at?: string
+          id?: string
+          is_correct?: boolean | null
+          marks_awarded?: number | null
+          question_id?: string
+          submission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "online_test_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "online_test_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "online_test_answers_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "online_test_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      online_test_questions: {
+        Row: {
+          correct_answer: string | null
+          created_at: string
+          id: string
+          marks: number
+          options: Json | null
+          question_order: number
+          question_text: string
+          question_type: string
+          test_id: string
+        }
+        Insert: {
+          correct_answer?: string | null
+          created_at?: string
+          id?: string
+          marks?: number
+          options?: Json | null
+          question_order?: number
+          question_text: string
+          question_type?: string
+          test_id: string
+        }
+        Update: {
+          correct_answer?: string | null
+          created_at?: string
+          id?: string
+          marks?: number
+          options?: Json | null
+          question_order?: number
+          question_text?: string
+          question_type?: string
+          test_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "online_test_questions_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "online_tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      online_test_submissions: {
+        Row: {
+          created_at: string
+          id: string
+          is_graded: boolean
+          started_at: string
+          status: string
+          student_id: string
+          submitted_at: string | null
+          test_id: string
+          total_marks_obtained: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_graded?: boolean
+          started_at?: string
+          status?: string
+          student_id: string
+          submitted_at?: string | null
+          test_id: string
+          total_marks_obtained?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_graded?: boolean
+          started_at?: string
+          status?: string
+          student_id?: string
+          submitted_at?: string | null
+          test_id?: string
+          total_marks_obtained?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "online_test_submissions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "online_test_submissions_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "online_tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      online_tests: {
+        Row: {
+          class: string
+          created_at: string
+          description: string | null
+          duration_minutes: number
+          ends_at: string | null
+          id: string
+          is_published: boolean
+          max_marks: number
+          starts_at: string | null
+          subject: string
+          test_type: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          class: string
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number
+          ends_at?: string | null
+          id?: string
+          is_published?: boolean
+          max_marks?: number
+          starts_at?: string | null
+          subject: string
+          test_type?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          class?: string
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number
+          ends_at?: string | null
+          id?: string
+          is_published?: boolean
+          max_marks?: number
+          starts_at?: string | null
+          subject?: string
+          test_type?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       page_visits: {
         Row: {
           id: string
@@ -1251,6 +1885,33 @@ export type Database = {
         }
         Relationships: []
       }
+      ra_points: {
+        Row: {
+          created_at: string
+          id: string
+          last_reset: string
+          points: number
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_reset?: string
+          points?: number
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_reset?: string
+          points?: number
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       referrals: {
         Row: {
           created_at: string
@@ -1382,6 +2043,59 @@ export type Database = {
           },
         ]
       }
+      student_ai_usage: {
+        Row: {
+          action: string
+          cached: boolean
+          created_at: string
+          credits: number
+          id: string
+          input_tokens: number
+          metadata: Json
+          mode: string
+          output_tokens: number
+          provider: string | null
+          student_id: string
+          total_tokens: number
+        }
+        Insert: {
+          action?: string
+          cached?: boolean
+          created_at?: string
+          credits?: number
+          id?: string
+          input_tokens?: number
+          metadata?: Json
+          mode: string
+          output_tokens?: number
+          provider?: string | null
+          student_id: string
+          total_tokens?: number
+        }
+        Update: {
+          action?: string
+          cached?: boolean
+          created_at?: string
+          credits?: number
+          id?: string
+          input_tokens?: number
+          metadata?: Json
+          mode?: string
+          output_tokens?: number
+          provider?: string | null
+          student_id?: string
+          total_tokens?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_ai_usage_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_attendance: {
         Row: {
           attendance_date: string
@@ -1410,6 +2124,41 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "student_attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          mode: string
+          role: string
+          student_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          mode?: string
+          role: string
+          student_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          mode?: string
+          role?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_chat_messages_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
@@ -1651,7 +2400,7 @@ export type Database = {
       students: {
         Row: {
           academic_year: string | null
-          access_code: string | null
+          access_code: string
           admission_date: string | null
           batch: string | null
           board: string | null
@@ -1671,7 +2420,7 @@ export type Database = {
         }
         Insert: {
           academic_year?: string | null
-          access_code?: string | null
+          access_code: string
           admission_date?: string | null
           batch?: string | null
           board?: string | null
@@ -1691,7 +2440,7 @@ export type Database = {
         }
         Update: {
           academic_year?: string | null
-          access_code?: string | null
+          access_code?: string
           admission_date?: string | null
           batch?: string | null
           board?: string | null
@@ -1726,12 +2475,52 @@ export type Database = {
           },
         ]
       }
+      teacher_ai_credits: {
+        Row: {
+          credits: number
+          last_reset: string
+          monthly_allowance: number
+          teacher_id: string
+          updated_at: string
+        }
+        Insert: {
+          credits?: number
+          last_reset?: string
+          monthly_allowance?: number
+          teacher_id: string
+          updated_at?: string
+        }
+        Update: {
+          credits?: number
+          last_reset?: string
+          monthly_allowance?: number
+          teacher_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_ai_credits_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: true
+            referencedRelation: "teachers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teacher_attendance: {
         Row: {
           attendance_date: string
+          check_in_distance_m: number | null
+          check_in_lat: number | null
+          check_in_lng: number | null
+          check_in_method: string | null
           check_in_time: string | null
+          check_out_distance_m: number | null
+          check_out_lat: number | null
+          check_out_lng: number | null
           check_out_time: string | null
           created_at: string
+          geo_verified: boolean | null
           id: string
           is_late: boolean | null
           status: string
@@ -1739,9 +2528,17 @@ export type Database = {
         }
         Insert: {
           attendance_date: string
+          check_in_distance_m?: number | null
+          check_in_lat?: number | null
+          check_in_lng?: number | null
+          check_in_method?: string | null
           check_in_time?: string | null
+          check_out_distance_m?: number | null
+          check_out_lat?: number | null
+          check_out_lng?: number | null
           check_out_time?: string | null
           created_at?: string
+          geo_verified?: boolean | null
           id?: string
           is_late?: boolean | null
           status?: string
@@ -1749,9 +2546,17 @@ export type Database = {
         }
         Update: {
           attendance_date?: string
+          check_in_distance_m?: number | null
+          check_in_lat?: number | null
+          check_in_lng?: number | null
+          check_in_method?: string | null
           check_in_time?: string | null
+          check_out_distance_m?: number | null
+          check_out_lat?: number | null
+          check_out_lng?: number | null
           check_out_time?: string | null
           created_at?: string
+          geo_verified?: boolean | null
           id?: string
           is_late?: boolean | null
           status?: string
@@ -2124,6 +2929,59 @@ export type Database = {
       }
     }
     Views: {
+      finance_dashboard: {
+        Row: {
+          active_students: number | null
+          billed: number | null
+          collected: number | null
+          collection_efficiency_pct: number | null
+          expenses: number | null
+          operating_cash_surplus: number | null
+          operating_margin_pct: number | null
+          outstanding: number | null
+        }
+        Relationships: []
+      }
+      finance_monthly_mis: {
+        Row: {
+          cash_surplus: number | null
+          collections: number | null
+          expenses: number | null
+          report_month: string | null
+        }
+        Relationships: []
+      }
+      finance_receivables: {
+        Row: {
+          board: string | null
+          branch_id: string | null
+          class: string | null
+          collected: number | null
+          discount: number | null
+          net_fee: number | null
+          outstanding: number | null
+          scholarship: number | null
+          student_id: string | null
+          student_name: string | null
+          total_fee: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_accounts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "students_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       growth_dashboard: {
         Row: {
           admissions_this_month: number | null
@@ -2138,6 +2996,62 @@ export type Database = {
       }
     }
     Functions: {
+      award_student_ra_points: {
+        Args: {
+          p_metadata?: Json
+          p_points: number
+          p_reason?: string
+          p_student_id: string
+        }
+        Returns: {
+          awarded: number
+          balance: number
+          ok: boolean
+        }[]
+      }
+      consume_student_ra_points: {
+        Args: {
+          p_metadata?: Json
+          p_points: number
+          p_reason?: string
+          p_student_id: string
+        }
+        Returns: {
+          balance: number
+          charged: number
+          ok: boolean
+        }[]
+      }
+      consume_student_ra_points_admin: {
+        Args: {
+          p_metadata?: Json
+          p_points: number
+          p_reason?: string
+          p_student_id: string
+        }
+        Returns: {
+          balance: number
+          charged: number
+          ok: boolean
+        }[]
+      }
+      create_online_student_profile: {
+        Args: { p_class: string; p_email: string; p_name: string }
+        Returns: {
+          online_student_id: string
+          student_id: string
+        }[]
+      }
+      enqueue_automation_event: {
+        Args: {
+          p_entity_id?: string
+          p_entity_type?: string
+          p_event_key: string
+          p_payload?: Json
+          p_student_id?: string
+        }
+        Returns: string
+      }
       get_my_access_profile: {
         Args: never
         Returns: {
@@ -2147,7 +3061,57 @@ export type Database = {
         }[]
       }
       is_admin_or_owner: { Args: never; Returns: boolean }
+      parent_login_by_access_code: {
+        Args: { p_access_code: string }
+        Returns: {
+          access_code: string
+          batch: string
+          board: string
+          class: string
+          id: string
+          name: string
+          parent_name: string
+          student_type: string
+        }[]
+      }
+      queue_due_automations: { Args: never; Returns: undefined }
       refresh_overdue_installments: { Args: never; Returns: undefined }
+      refund_student_ra_points: {
+        Args: {
+          p_metadata?: Json
+          p_points: number
+          p_reason?: string
+          p_student_id: string
+        }
+        Returns: {
+          balance: number
+          ok: boolean
+        }[]
+      }
+      set_active_geofence: {
+        Args: {
+          p_latitude: number
+          p_longitude: number
+          p_name: string
+          p_radius_meters: number
+        }
+        Returns: {
+          created_at: string
+          id: string
+          is_active: boolean
+          latitude: number
+          longitude: number
+          name: string
+          radius_meters: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "geofence_locations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
     }
