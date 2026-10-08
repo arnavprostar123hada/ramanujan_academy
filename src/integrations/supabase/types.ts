@@ -3504,7 +3504,7 @@ export type Database = {
         }[]
       }
       get_ra_points_allowances: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           regular_monthly_allowance: number
           online_monthly_allowance: number
@@ -3547,7 +3547,7 @@ export type Database = {
           ok: boolean
         }[]
       }
-      reset_monthly_ra_points: { Args: Record<PropertyKey, never>; Returns: number }
+      reset_monthly_ra_points: { Args: never; Returns: number }
       update_ra_points_allowances: {
         Args: { p_regular_monthly_allowance: number; p_online_monthly_allowance: number }
         Returns: { ok: boolean; regular_monthly_allowance: number; online_monthly_allowance: number }[]
