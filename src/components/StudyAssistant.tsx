@@ -50,126 +50,42 @@ interface AcademySyllabus {
   syllabus_content: string;
 }
 
-// ─── RA Points (DB-backed + refresh-safe) ───
+// ─── RA Credits (DB-backed + monthly reset safe) ───
 function useRAPoints(studentId: string, isOnline = false) {
-  const monthlyAllowance = isOnline ? 20 : 100;
-  const [points, setPoints] = useState(monthlyAllowance);
+  const fallbackAllowance = isOnline ? 20 : 100;
+  const [points, setPoints] = useState(fallbackAllowance);
+  const [monthlyAllowance, setMonthlyAllowance] = useState(fallbackAllowance);
+  const [nextReset, setNextReset] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
-    if (!studentId) return;
-    let cancelled = false;
+  const load = useCallback(async () => {
+    if (!studentId) return null;
 
-    const load = async () => {
-      const { data, error } = await supabase
-        .from("ra_points")
-        .select("points, last_reset")
-        .eq("student_id", studentId)
-        .maybeSingle();
+    const { data, error } = await supabase.rpc("get_student_ra_points", {
+      p_student_id: studentId,
+    });
 
-      if (cancelled) return;
-
-      if (error) {
-        console.error("Failed to load RA Points:", error);
-        setLoaded(true);
-        return;
-      }
-
-      const now = new Date();
-
-      if (!data) {
-        const { data: created, error: createError } = await supabase
-          .from("ra_points")
-          .upsert(
-            {
-              student_id: studentId,
-              points: monthlyAllowance,
-              last_reset: now.toISOString(),
-              updated_at: now.toISOString(),
-            },
-            { onConflict: "student_id", ignoreDuplicates: false }
-          )
-          .select("points")
-          .single();
-
-        if (cancelled) return;
-
-        if (createError) {
-          console.error("Failed to create RA Points:", createError);
-        } else if (created) {
-          setPoints(created.points);
-        }
-      } else {
-        const lastReset = new Date(data.last_reset);
-        const monthChanged =
-          now.getMonth() !== lastReset.getMonth() ||
-          now.getFullYear() !== lastReset.getFullYear();
-
-        if (monthChanged) {
-          const { data: resetRow, error: resetError } = await supabase
-            .from("ra_points")
-            .update({
-              points: monthlyAllowance,
-              last_reset: now.toISOString(),
-              updated_at: now.toISOString(),
-            })
-            .eq("student_id", studentId)
-            .select("points")
-            .single();
-
-          if (cancelled) return;
-
-          if (resetError) {
-            console.error("Failed to reset monthly RA Points:", resetError);
-          } else if (resetRow) {
-            setPoints(resetRow.points);
-          }
-        } else {
-          setPoints(data.points);
-        }
-      }
-
+    const row = Array.isArray(data) ? data[0] : data;
+    if (error || !row) {
+      console.error("Failed to load RA Credits:", error);
       setLoaded(true);
-    };
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [studentId, monthlyAllowance]);
-
-  const refresh = async () => {
-    const { data } = await supabase
-      .from("ra_points")
-      .select("points, last_reset")
-      .eq("student_id", studentId)
-      .maybeSingle();
-    if (data) setPoints(Number(data.points));
-    return data?.points ?? null;
-  };
-
-  const updateDB = async (newPoints: number) => {
-    const previousPoints = points;
-    setPoints(newPoints);
-
-    const { data, error } = await supabase
-      .from("ra_points")
-      .update({
-        points: newPoints,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("student_id", studentId)
-      .select("points")
-      .single();
-
-    if (error || !data) {
-      console.error("Failed to save RA Points:", error);
-      setPoints(previousPoints);
-      return false;
+      return null;
     }
 
-    setPoints(data.points);
-    return true;
+    setPoints(Number(row.points));
+    setMonthlyAllowance(Number(row.monthly_allowance));
+    setNextReset(row.next_reset || null);
+    setLoaded(true);
+    return row;
+  }, [studentId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const refresh = async () => {
+    const row = await load();
+    return row?.points ?? null;
   };
 
   const spend = async (n: number, reason = "ai_fixed_cost") => {
@@ -200,7 +116,7 @@ function useRAPoints(studentId: string, isOnline = false) {
     return true;
   };
 
-  return { points, spend, earn, refresh, loaded };
+  return { points, spend, earn, refresh, loaded, monthlyAllowance, nextReset };
 }
 
 // ─── Chat persistence ───
