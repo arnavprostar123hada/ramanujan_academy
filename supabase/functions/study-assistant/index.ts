@@ -30,6 +30,24 @@ const MAX_TOTAL_INPUT_CHARS = 50000;
 const CACHE_HOURS = 24;
 const TEACHER_MONTHLY_CREDITS = 50;
 
+// Strict student AI pricing. These are RA Points charged per successful
+// provider-backed request, independent of token-count fluctuations.
+// Higher-value generation features cost more; short chat stays inexpensive.
+const STUDENT_MODE_CREDITS: Record<string, number> = {
+  chat: 1,
+  solve: 1,
+  notebook: 1,
+  audio_summary: 2,
+  quiz: 3,
+  flashcards: 3,
+  study_plan: 3,
+  mindmap: 5,
+};
+
+function studentModeCredits(mode: string) {
+  return STUDENT_MODE_CREDITS[mode] ?? 1;
+}
+
 function repairMojibake(value: string) {
   // Repair UTF-8 text that was accidentally decoded as Windows-1252/Latin-1.
   // This covers common corruption such as Marathi/Hindi "à¤...", accents "Ã...",
@@ -319,6 +337,14 @@ Keep every front and back short, accurate and useful for exam revision. Do not u
     return `You create a 5-question practice quiz for the student's class level. Return ONLY valid JSON:
 {"title":"Quiz Title","questions":[{"question":"...","options":["A","B","C","D"],"correct":0,"explanation":"..."}]}
 Use a mix of easy, medium and hard questions.`;
+  }
+
+  if (mode === "study_plan") {
+    return `Create a practical, realistic study plan for a school student.
+Use the student's goal, available hours per day and duration from the user message.
+Include Day 1 onward, daily tasks, revision, practice questions and short breaks.
+Keep the plan balanced and concise enough to be useful on a phone.
+Return polished Markdown only. Do not mention AI, tokens, credits or internal systems.`;
   }
 
   if (mode === "audio_summary") {
@@ -633,7 +659,7 @@ Deno.serve(async (req) => {
     // Points and the balance would appear stuck.
     if (cached && actorRole !== "student") {
       const cachedUsage: AIUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0, credits: 0, cached: true };
-      return mode === "quiz" || mode === "mindmap" || mode === "flashcards"
+      return mode === "quiz" || mode === "mindmap" || mode === "flashcards" || mode === "study_plan"
         ? json({ content: cached, cached: true, usage: cachedUsage })
         : sse(cached);
     }
@@ -642,7 +668,7 @@ Deno.serve(async (req) => {
     const last = messages.filter((m) => m.role === "user").at(-1)?.content?.trim() || "";
     if (/^(hi|hello|hey|namaste|thanks|thank you)\b/i.test(last) || last.length < 4) {
       const local = fallback(messages, mode, sourceText, actorRole);
-      return mode === "quiz" || mode === "mindmap" || mode === "flashcards" ? json({ content: local, fallback: true }) : sse(local);
+      return mode === "quiz" || mode === "mindmap" || mode === "flashcards" || mode === "study_plan" ? json({ content: local, fallback: true }) : sse(local);
     }
 
     let result: { content: string; usage: AIUsage; provider?: string } | null = null;
@@ -650,7 +676,7 @@ Deno.serve(async (req) => {
       result = await callAI(
         buildSystemPrompt(mode, sourceText, actorRole),
         messages,
-        mode === "quiz" || mode === "mindmap" || mode === "flashcards",
+        mode === "quiz" || mode === "mindmap" || mode === "flashcards" || mode === "study_plan",
         mode,
       );
     } catch (e) {
@@ -660,7 +686,7 @@ Deno.serve(async (req) => {
     if (!result?.content) {
       const content = fallback(messages, mode, sourceText, actorRole);
       const fallbackUsage: AIUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0, credits: 0, cached: true };
-      return mode === "quiz" || mode === "mindmap" || mode === "flashcards"
+      return mode === "quiz" || mode === "mindmap" || mode === "flashcards" || mode === "study_plan"
         ? json({ content, fallback: true, usage: fallbackUsage })
         : sse(content, fallbackUsage);
     }
@@ -685,9 +711,13 @@ Deno.serve(async (req) => {
     }
 
     if (actorRole === "student" && mode !== "audio_summary" && result.usage.credits > 0) {
+      // Student billing is intentionally stricter than provider-token billing.
+      // This protects the academy from very small AI charges being effectively
+      // free to students and makes expensive generation features predictable.
+      const studentCharge = studentModeCredits(mode);
       const { data: chargeRows, error: chargeError } = await admin.rpc("consume_student_ra_points_admin", {
         p_student_id: resolvedStudentId,
-        p_points: result.usage.credits,
+        p_points: studentCharge,
         p_reason: "ai_response",
         p_metadata: {
           mode,
@@ -705,7 +735,7 @@ Deno.serve(async (req) => {
           balance: Number(charge?.balance || 0),
         }, 402);
       }
-      result.usage.credits = Number(charge.charged || result.usage.credits);
+      result.usage.credits = Number(charge.charged || studentCharge);
       (result.usage as AIUsage & { studentPointsRemaining?: number }).studentPointsRemaining = Number(charge.balance || 0);
     }
 
@@ -722,7 +752,7 @@ Deno.serve(async (req) => {
       ? { ...result.usage, credits: result.usage.credits, teacherCreditsRemaining: Math.max(0, Number(teacherCredits?.credits || 0) - result.usage.credits) }
       : result.usage;
 
-    return mode === "quiz" || mode === "mindmap" || mode === "flashcards"
+    return mode === "quiz" || mode === "mindmap" || mode === "flashcards" || mode === "study_plan"
       ? json({ content: cleanResult, cached: false, usage: responseUsage })
       : sse(cleanResult, responseUsage);
   } catch (e) {
