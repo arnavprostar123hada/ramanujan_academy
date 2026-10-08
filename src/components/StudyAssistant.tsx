@@ -831,7 +831,7 @@ Keep each card concise and useful for exam revision.`
   }, [studentId]);
 
   useEffect(() => {
-    if (!studentId || !parentAccessCode) return;
+    if (!studentId) return;
     let cancelled = false;
     const loadSyllabus = async () => {
       setIsSyllabusLoading(true);
