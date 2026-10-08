@@ -49,13 +49,14 @@ using ((select public.is_admin_or_owner()));
 create or replace function public.get_ra_points_allowances()
 returns table(regular_monthly_allowance numeric, online_monthly_allowance numeric)
 language sql
-security definer
+stable
 set search_path = ''
 as $$
   select s.regular_monthly_allowance, s.online_monthly_allowance
   from public.ra_points_settings s
-  where s.id = 1;
-$$;
+  where s.id = 1
+    and (select public.is_admin_or_owner());
+$;
 
 revoke all on function public.get_ra_points_allowances() from public, anon;
 grant execute on function public.get_ra_points_allowances() to authenticated;
@@ -66,7 +67,6 @@ create or replace function public.update_ra_points_allowances(
 )
 returns table(ok boolean, regular_monthly_allowance numeric, online_monthly_allowance numeric)
 language plpgsql
-security definer
 set search_path = ''
 as $$
 begin
