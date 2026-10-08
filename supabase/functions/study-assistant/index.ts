@@ -203,6 +203,19 @@ function fallback(messages: Msg[], mode: string, sourceText = "", actorRole = "s
       : "Hi! Tell me the topic or problem you want to study.";
   }
 
+  if (mode === "flashcards") {
+    return JSON.stringify({
+      title: `Flashcards: ${last || "Revision"}`,
+      cards: [
+        { front: "What is the main idea?", back: "Identify the central concept of the topic." },
+        { front: "What are the key terms?", back: "List the important terms and define each briefly." },
+        { front: "What is one important example?", back: "Give one clear example that demonstrates the concept." },
+        { front: "What is a common mistake?", back: "Identify one mistake students should avoid." },
+        { front: "What should you remember for the exam?", back: "Recall the most important fact, rule or formula." }
+      ]
+    });
+  }
+
   if (mode === "notebook" && sourceText.trim()) {
     const excerpt = sourceText.trim().slice(0, 1200);
     return `AI is in low-cost fallback mode right now. Here is the most relevant source excerpt to start with:\n\n${excerpt}\n\nTry again shortly for a full source-grounded answer.`;
