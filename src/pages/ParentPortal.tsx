@@ -19,7 +19,12 @@ import {
   Sparkles,
   Zap,
   KeyRound,
-  Phone
+  Phone,
+  ShieldAlert,
+  ArrowRight,
+  CheckCircle,
+  CircleAlert,
+  Lightbulb
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -401,6 +406,57 @@ const ParentPortal = () => {
     : 0;
   const upcomingTestCount = tests.filter((test) => new Date(test.test_date) >= new Date()).length;
 
+  const scoredPercentages = validScoredResults
+    .map((result) => {
+      const test = tests.find((item) => item.id === result.test_id);
+      return test ? Math.round((result.marks_obtained / test.max_marks) * 100) : null;
+    })
+    .filter((value): value is number => value !== null);
+  const recentAverage = scoredPercentages.length
+    ? Math.round(scoredPercentages.slice(0, 5).reduce((a, b) => a + b, 0) / Math.min(5, scoredPercentages.length))
+    : 0;
+  const previousAverage = scoredPercentages.length > 5
+    ? Math.round(scoredPercentages.slice(5, 10).reduce((a, b) => a + b, 0) / Math.min(5, scoredPercentages.length - 5))
+    : recentAverage;
+  const scoreTrend = recentAverage - previousAverage;
+  const absentCount = attendance.filter((record) => record.status.toLowerCase() === "absent").length;
+  const latestClassLog = classLogs[0] || null;
+  const attentionItems = [
+    ...(attendance.length > 0 && attendanceRate < 75 ? [{
+      title: "Attendance needs attention",
+      detail: `Attendance is ${attendanceRate}%. Please help ${student?.name?.split(" ")[0] || "your child"} maintain regular attendance.`,
+      tone: "warning",
+      tab: "attendance",
+      icon: ShieldAlert
+    }] : []),
+    ...(scoreTrend <= -5 && scoredPercentages.length >= 2 ? [{
+      title: "Recent scores are dipping",
+      detail: `Recent average is ${recentAverage}%, down ${Math.abs(scoreTrend)} points from the earlier set of tests.`,
+      tone: "warning",
+      tab: "tests",
+      icon: TrendingUp
+    }] : []),
+    ...(upcomingTestCount > 0 ? [{
+      title: `${upcomingTestCount} upcoming test${upcomingTestCount > 1 ? "s" : ""}`,
+      detail: "Check the test schedule and plan revision time before the next assessment.",
+      tone: "info",
+      tab: "tests",
+      icon: ClipboardList
+    }] : []),
+    ...(concerns.some((item) => !item.is_resolved) ? [{
+      title: "Open parent concern",
+      detail: "There is a concern awaiting resolution from the academy.",
+      tone: "info",
+      tab: "concerns",
+      icon: CircleAlert
+    }] : [])
+  ];
+  const positiveSignals = [
+    ...(attendance.length > 0 && attendanceRate >= 90 ? ["Excellent attendance"] : []),
+    ...(scoreTrend >= 5 ? [`Scores improving by ${scoreTrend} points`] : []),
+    ...(latestClassLog ? [`Latest class update: ${latestClassLog.subject || "Academics"}`] : [])
+  ];
+
   const handleQRScan = (code: string) => {
     setShowScanner(false);
     setAccessCode(code.toUpperCase());
@@ -678,7 +734,76 @@ const ParentPortal = () => {
           ))}
         </div>
 
+        {/* Parent Action Centre */}
+        <Card className="overflow-hidden border-primary/15 shadow-md">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Lightbulb className="h-5 w-5 text-amber-500" />
+                  Parent Action Centre
+                </CardTitle>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  The portal highlights what deserves your attention instead of making you search for it.
+                </p>
+              </div>
+              <Badge variant={attentionItems.length ? "destructive" : "secondary"}>
+                {attentionItems.length ? `${attentionItems.length} action${attentionItems.length > 1 ? "s" : ""}` : "All clear"}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {attentionItems.length ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                {attentionItems.map((item, index) => (
+                  <motion.button
+                    key={item.title}
+                    type="button"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    onClick={() => document.querySelector<HTMLButtonElement>(`[data-state][value="${item.tab}"]`)?.click()}
+                    className="group rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-sm"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${item.tone === "warning" ? "bg-amber-500/10 text-amber-600" : "bg-primary/10 text-primary"}`}>
+                        <item.icon className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold">{item.title}</p>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">{item.detail}</p>
+                        <span className="mt-2 inline-flex items-center text-xs font-semibold text-primary">
+                          Review now <ArrowRight className="ml-1 h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                        </span>
+                      </div>
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4">
+                <CheckCircle className="h-6 w-6 shrink-0 text-emerald-600" />
+                <div>
+                  <p className="font-semibold text-emerald-900">Nothing urgent right now</p>
+                  <p className="text-xs text-emerald-800/80">Keep the routine going and check the latest class updates regularly.</p>
+                </div>
+              </div>
+            )}
+
+            {positiveSignals.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {positiveSignals.map((signal) => (
+                  <Badge key={signal} variant="secondary" className="rounded-full px-3 py-1">
+                    ✓ {signal}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Tabs */}
+
         <Tabs defaultValue="updates" className="space-y-4">
           <TabsList className="flex flex-wrap h-auto p-1 gap-1">
             <TabsTrigger value="overview" className="flex items-center gap-0.5 py-2 px-2 text-[10px] sm:text-sm"><Sparkles className="w-4 h-4" /><span>Overview</span></TabsTrigger>
@@ -716,12 +841,18 @@ const ParentPortal = () => {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Card className="shadow-sm"><CardContent className="p-4"><CheckCircle2 className="mb-2 h-5 w-5 text-emerald-600" /><p className="text-xs text-muted-foreground">Attendance</p><p className="mt-1 text-2xl font-black">{attendance.length ? `${attendanceRate}%` : "—"}</p><p className="mt-1 text-[11px] text-muted-foreground">{absentCount} absent record{absentCount === 1 ? "" : "s"}</p></CardContent></Card>
+              <Card className="shadow-sm"><CardContent className="p-4"><TrendingUp className="mb-2 h-5 w-5 text-primary" /><p className="text-xs text-muted-foreground">Average score</p><p className="mt-1 text-2xl font-black">{testResults.length ? `${averageScore}%` : "—"}</p><p className="mt-1 text-[11px] text-muted-foreground">{scoreTrend > 0 ? `↑ ${scoreTrend} pts recently` : scoreTrend < 0 ? `↓ ${Math.abs(scoreTrend)} pts recently` : "Stable trend"}</p></CardContent></Card>
+              <Card className="shadow-sm"><CardContent className="p-4"><ClipboardList className="mb-2 h-5 w-5 text-violet-600" /><p className="text-xs text-muted-foreground">Upcoming tests</p><p className="mt-1 text-2xl font-black">{upcomingTestCount}</p><p className="mt-1 text-[11px] text-muted-foreground">Prepare ahead</p></CardContent></Card>
+              <Card className="shadow-sm"><CardContent className="p-4"><BookOpen className="mb-2 h-5 w-5 text-amber-600" /><p className="text-xs text-muted-foreground">Class updates</p><p className="mt-1 text-2xl font-black">{classLogs.length}</p><p className="mt-1 text-[11px] text-muted-foreground">{latestClassLog ? `Latest: ${latestClassLog.subject || "Academic update"}` : "No updates yet"}</p></CardContent></Card>
+            </div>
             <Card className="shadow-md">
-              <CardHeader><CardTitle>Parent Overview</CardTitle></CardHeader>
-              <CardContent className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl border p-4"><p className="text-sm text-muted-foreground">Attendance</p><p className="mt-1 text-2xl font-bold">{attendance.length ? `${attendanceRate}%` : "No data"}</p></div>
-                <div className="rounded-xl border p-4"><p className="text-sm text-muted-foreground">Average test score</p><p className="mt-1 text-2xl font-bold">{testResults.length ? `${averageScore}%` : "No results"}</p></div>
-                <div className="rounded-xl border p-4"><p className="text-sm text-muted-foreground">Class updates</p><p className="mt-1 text-2xl font-bold">{classLogs.length}</p></div>
+              <CardHeader><CardTitle>What should I do as a parent?</CardTitle></CardHeader>
+              <CardContent className="grid gap-3 md:grid-cols-3">
+                <button type="button" onClick={() => document.querySelector<HTMLButtonElement>(`[data-state][value="tests"]`)?.click()} className="rounded-2xl border p-4 text-left hover:border-primary/30 hover:bg-primary/5"><ClipboardList className="mb-3 h-5 w-5 text-primary" /><p className="font-semibold">Review tests</p><p className="mt-1 text-xs text-muted-foreground">See marks, trends and upcoming assessments.</p></button>
+                <button type="button" onClick={() => document.querySelector<HTMLButtonElement>(`[data-state][value="attendance"]`)?.click()} className="rounded-2xl border p-4 text-left hover:border-primary/30 hover:bg-primary/5"><CheckCircle2 className="mb-3 h-5 w-5 text-emerald-600" /><p className="font-semibold">Check attendance</p><p className="mt-1 text-xs text-muted-foreground">Build a consistent learning routine.</p></button>
+                <button type="button" onClick={() => document.querySelector<HTMLButtonElement>(`[data-state][value="ai"]`)?.click()} className="rounded-2xl border p-4 text-left hover:border-primary/30 hover:bg-primary/5"><Sparkles className="mb-3 h-5 w-5 text-violet-600" /><p className="font-semibold">Get AI guidance</p><p className="mt-1 text-xs text-muted-foreground">Use the child's academic data to guide the next conversation.</p></button>
               </CardContent>
             </Card>
           </TabsContent>
