@@ -43,6 +43,7 @@ import {
   Video,
   Globe,
   Monitor,
+  Wallet,
   Zap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
