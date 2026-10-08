@@ -586,7 +586,7 @@ const AudioSummary = ({ sourceText, settleAIUsage }: { sourceText: string; settl
 // ─── Main Component ───
 const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent, parentAccessCode }: { studentName: string; studentId: string; studentClass?: string; isOnlineStudent?: boolean; parentAccessCode?: string }) => {
   const { toast } = useToast();
-  const { points, spend, refresh: refreshPoints } = useRAPoints(studentId, isOnlineStudent);
+  const { points, spend, refresh: refreshPoints, monthlyAllowance, nextReset } = useRAPoints(studentId, isOnlineStudent);
   const settleAIUsage = useCallback(async (usage?: AIUsage) => {
     if (!usage || usage.cached) return true;
     if (typeof usage.studentPointsRemaining === "number") {
