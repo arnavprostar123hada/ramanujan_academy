@@ -87,6 +87,7 @@ import OnlineTestManagement from "@/components/admin/OnlineTestManagement";
 import { AdminStaffManagement } from "@/components/admin/AdminStaffManagement";
 import { GeofenceSettings } from "@/components/admin/GeofenceSettings";
 import { CommunicationCenter } from "@/components/admin/CommunicationCenter";
+import { FinanceCommandCentre } from "@/components/admin/FinanceCommandCentre";
 import { GeoAttendance } from "@/components/GeoAttendance";
 import StudentAIHistory from "@/components/admin/StudentAIHistory";
 import { StudentAttendanceScanner } from "@/components/StudentAttendanceScanner";
@@ -1604,6 +1605,10 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
               {/* Finance */}
               <div className="flex items-center gap-1 px-2 py-1 bg-amber-500/10 rounded-lg">
                 <span className="text-[10px] font-medium text-amber-600 uppercase tracking-wider mr-1 hidden md:inline">Finance</span>
+                <TabsTrigger value="finance" className="gap-1.5 data-[state=active]:bg-amber-500 data-[state=active]:text-white">
+                  <Wallet className="w-4 h-4" />
+                  <span className="hidden sm:inline">Finance</span>
+                </TabsTrigger>
                 <TabsTrigger value="payments" className="gap-1.5 data-[state=active]:bg-amber-500 data-[state=active]:text-white">
                   <IndianRupee className="w-4 h-4" />
                   <span className="hidden sm:inline">Payments</span>
@@ -2053,6 +2058,12 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
           </TabsContent>
 
           {/* Payments Tab */}
+          <TabsContent value="finance">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+              <FinanceCommandCentre />
+            </motion.div>
+          </TabsContent>
+
           <TabsContent value="payments">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
