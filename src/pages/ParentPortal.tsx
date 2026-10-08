@@ -327,6 +327,17 @@ const ParentPortal = () => {
         if (homeworkData) setHomework(homeworkData);
       }
     }
+
+    const { data: secureData } = await supabase.rpc("parent_secure_summary", {
+      p_access_code: accessCode.trim().toUpperCase().replace(/\s+/g, ""),
+    });
+    if (secureData?.student_id === studentData.id) {
+      setFeeSummary(secureData.fee || { has_account: false, total_fee: 0, paid_amount: 0, installments: [], payments: [] });
+      setProgressReviews((secureData.progress_reviews || []) as ProgressReview[]);
+    } else {
+      setFeeSummary({ has_account: false, total_fee: 0, paid_amount: 0, installments: [], payments: [] });
+      setProgressReviews([]);
+    }
   };
 
   const handleLogin = async (code?: string) => {
@@ -382,12 +393,11 @@ const ParentPortal = () => {
 
     setIsLoading(true);
     try {
-      const { data: studentData, error } = await supabase
-        .from("students")
-        .select("id, name, class, batch, parent_name, access_code, student_type")
-        .ilike("name", studentName.trim())
-        .eq("phone", phoneNumber.trim())
-        .single();
+      const { data: rpcData, error } = await supabase.rpc("parent_login_by_name_phone", {
+        p_student_name: studentName.trim(),
+        p_phone: phoneNumber.trim(),
+      });
+      const studentData = Array.isArray(rpcData) ? rpcData[0] : rpcData;
 
       if (error || !studentData) {
         toast({ title: "Student not found", description: "Please check the name and phone number", variant: "destructive" });
@@ -414,6 +424,15 @@ const ParentPortal = () => {
     setAnnouncements([]);
     setConcerns([]);
     setMessages([]);
+    setTests([]);
+    setClassLogs([]);
+    setTestResults([]);
+    setAllClassResults([]);
+    setAttendance([]);
+    setHomework([]);
+    setZoomLinks([]);
+    setFeeSummary({ has_account: false, total_fee: 0, paid_amount: 0, installments: [], payments: [] });
+    setProgressReviews([]);
   };
 
   const handleSendMessage = async () => {
@@ -477,6 +496,9 @@ const ParentPortal = () => {
   const upcomingTestCount = tests.filter((test) => new Date(test.test_date) >= new Date()).length;
   const pendingHomework = homework.filter((item) => item.completion_required && item.status !== "completed" && new Date(item.due_date) >= new Date()).length;
   const overdueHomework = homework.filter((item) => item.completion_required && item.status !== "completed" && new Date(item.due_date) < new Date()).length;
+  const feeOutstanding = Math.max(0, Number(feeSummary.total_fee || 0) - Number(feeSummary.paid_amount || 0));
+  const overdueInstallments = feeSummary.installments.filter((item) => item.status !== "paid" && new Date(item.due_date) < new Date()).length;
+  const latestProgressReview = progressReviews[0] || null;
 
   const scoredPercentages = validScoredResults
     .map((result) => {
@@ -573,6 +595,17 @@ const ParentPortal = () => {
     : riskLevel === "Watch"
       ? "One learning signal deserves attention. Review the highlighted area and support a consistent routine."
       : "Multiple learning signals need attention. Please review the highlighted areas and connect with the academy if needed.";
+
+  const refreshParentData = async () => {
+    if (!student) return;
+    setIsRefreshing(true);
+    try {
+      await fetchStudentData(student);
+      toast({ title: "Parent portal refreshed" });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const handleQRScan = (code: string) => {
     setShowScanner(false);
