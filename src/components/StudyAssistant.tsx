@@ -26,6 +26,29 @@ interface QuizQuestion { question: string; options: string[]; correct: number; e
 interface Quiz { title: string; questions: QuizQuestion[]; }
 interface Flashcard { front: string; back: string; }
 interface FlashcardDeck { title: string; cards: Flashcard[]; }
+interface StudyPlanDay {
+  day: number;
+  title: string;
+  focus: string;
+  tasks: string[];
+  revision: string;
+  practice: string;
+  minutes?: number;
+}
+interface StudyPlan {
+  title: string;
+  summary: string;
+  days: StudyPlanDay[];
+}
+interface AcademySyllabus {
+  id: string;
+  board: string;
+  class_level: string;
+  subject: string;
+  title: string;
+  academic_year: string;
+  syllabus_content: string;
+}
 
 // ─── RA Points (DB-backed + refresh-safe) ───
 function useRAPoints(studentId: string, isOnline = false) {
@@ -703,7 +726,13 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent,
   const [planHours, setPlanHours] = useState("2");
   const [planDays, setPlanDays] = useState("7");
   const [studyPlan, setStudyPlan] = useState("");
+  const [studyPlanData, setStudyPlanData] = useState<StudyPlan | null>(null);
   const [isPlanLoading, setIsPlanLoading] = useState(false);
+  const [useAcademySyllabus, setUseAcademySyllabus] = useState(true);
+  const [syllabusItems, setSyllabusItems] = useState<AcademySyllabus[]>([]);
+  const [syllabusSubject, setSyllabusSubject] = useState("all");
+  const [isSyllabusLoading, setIsSyllabusLoading] = useState(false);
+  const [completedPlanTasks, setCompletedPlanTasks] = useState<Record<string, boolean>>({});
 
   // Flashcards
   const [flashcardTopic, setFlashcardTopic] = useState("");
@@ -716,22 +745,41 @@ const StudyAssistant = ({ studentName, studentId, studentClass, isOnlineStudent,
     if (!planGoal.trim() || isPlanLoading) return;
     setIsPlanLoading(true);
     try {
+      const selectedSyllabus = useAcademySyllabus
+        ? syllabusItems.filter(item => syllabusSubject === "all" || item.subject === syllabusSubject)
+        : [];
+      const syllabusText = selectedSyllabus
+        .map(item => `SUBJECT: ${item.subject}\n${item.title}\n${item.syllabus_content}`)
+        .join("\n\n---\n\n")
+        .slice(0, 7000);
+
       const result = await fetchAI(
         [{ role: "user", content:
           `Create a practical study plan for a Class ${studentClass || "student"} student.
 Goal: ${planGoal}
 Available study time: ${planHours} hours per day
-Plan duration: ${planDays} days
-Make it realistic, balanced and exam-focused. Include daily tasks, revision, practice questions and short breaks. Start with Day 1. Use clear headings and checkboxes. Do not overload the student.`
+Plan duration: ${Math.min(30, Math.max(1, Number(planDays) || 7))} days
+
+ACADEMY SYLLABUS:
+${syllabusText || "No academy syllabus selected. Use the student's goal to plan the topics."}
+
+Use the academy syllabus topics whenever supplied. Prioritize topics relevant to the goal.
+Return ONLY valid JSON:
+{"title":"...","summary":"...","days":[{"day":1,"title":"...","focus":"...","tasks":["...","..."],"revision":"...","practice":"...","minutes":120}]}
+Create one day object for every requested day. Keep the plan realistic and motivating.`
         }],
         "study_plan",
         undefined,
         studentId,
         parentAccessCode
       );
+      const parsed = extractJson<StudyPlan>(result.content);
+      if (!parsed?.days?.length) throw new Error("The AI did not return a valid study plan.");
+      setStudyPlanData(parsed);
       setStudyPlan(result.content || "");
-      localStorage.setItem(`student_study_plan_${studentId}`, result.content || "");
-      toast({ title: "📚 Your study plan is ready!" });
+      setCompletedPlanTasks({});
+      localStorage.setItem(`student_study_plan_${studentId}`, JSON.stringify(parsed));
+      toast({ title: "📚 Your smart study plan is ready!" });
     } catch (e) {
       toast({ title: e instanceof Error ? e.message : "Failed to create study plan", variant: "destructive" });
     } finally {
@@ -771,8 +819,39 @@ Keep each card concise and useful for exam revision.`
 
   useEffect(() => {
     const saved = localStorage.getItem(`student_study_plan_${studentId}`);
-    if (saved) setStudyPlan(saved);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed?.days) setStudyPlanData(parsed as StudyPlan);
+        else setStudyPlan(saved);
+      } catch {
+        setStudyPlan(saved);
+      }
+    }
   }, [studentId]);
+
+  useEffect(() => {
+    if (!studentId || !parentAccessCode) return;
+    let cancelled = false;
+    const loadSyllabus = async () => {
+      setIsSyllabusLoading(true);
+      const { data, error } = await supabase.rpc("get_student_academic_syllabus", {
+        p_student_id: studentId,
+        p_parent_access_code: parentAccessCode || null,
+      });
+      if (!cancelled) {
+        if (error) {
+          console.warn("Academy syllabus unavailable:", error.message);
+          setSyllabusItems([]);
+        } else {
+          setSyllabusItems((data || []) as AcademySyllabus[]);
+        }
+        setIsSyllabusLoading(false);
+      }
+    };
+    void loadSyllabus();
+    return () => { cancelled = true; };
+  }, [studentId, parentAccessCode]);
 
   // Notes
   const [notes, setNotes] = useState<Note[]>(() => {
@@ -1344,18 +1423,50 @@ Keep each card concise and useful for exam revision.`
           {/* ─── Study Planner ─── */}
           {activeTab === "plan" && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 space-y-3">
-              <div className="rounded-2xl border bg-gradient-to-br from-primary/5 to-accent/5 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10">
-                    <CalendarDays className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold">AI Study Planner</h3>
-                    <p className="text-[11px] text-muted-foreground">Turn your goal into a realistic daily plan.</p>
+              <div className="rounded-3xl border overflow-hidden bg-gradient-to-br from-primary/10 via-background to-amber-500/10">
+                <div className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
+                      <CalendarDays className="h-6 w-6" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold">Smart Study Planner</h3>
+                        <Badge className="bg-primary/10 text-primary hover:bg-primary/10">AI + Syllabus</Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">Your academy syllabus becomes a personalised day-by-day roadmap.</p>
+                    </div>
                   </div>
                 </div>
+                <div className="border-t bg-background/60 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">Use Academy Syllabus</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {isSyllabusLoading ? "Loading your class syllabus..." : syllabusItems.length ? `${syllabusItems.length} syllabus ${syllabusItems.length === 1 ? "item" : "items"} available` : "Your academy has not added a syllabus for this class yet."}
+                      </p>
+                    </div>
+                    <button type="button" onClick={() => setUseAcademySyllabus(v => !v)} className={`relative h-7 w-12 rounded-full transition-colors ${useAcademySyllabus ? "bg-primary" : "bg-muted"}`}>
+                      <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${useAcademySyllabus ? "translate-x-6" : "translate-x-1"}`} />
+                    </button>
+                  </div>
+                  {useAcademySyllabus && syllabusItems.length > 0 && (
+                    <div className="mt-3">
+                      <select value={syllabusSubject} onChange={e => setSyllabusSubject(e.target.value)} className="h-9 w-full rounded-xl border bg-background px-3 text-xs">
+                        <option value="all">All Academy Subjects</option>
+                        {[...new Set(syllabusItems.map(item => item.subject))].map(subject => <option key={subject} value={subject}>{subject}</option>)}
+                      </select>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {syllabusItems.filter(item => syllabusSubject === "all" || item.subject === syllabusSubject).slice(0, 6).map(item => (
+                          <Badge key={item.id} variant="secondary" className="text-[10px]">{item.subject} · {item.title}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-              <Input placeholder="What do you want to achieve? e.g. Prepare for Science exam" value={planGoal} onChange={(e) => setPlanGoal(e.target.value)} className="rounded-xl bg-muted/30" />
+
+              <Input placeholder="What do you want to achieve? e.g. Prepare for Geography exam" value={planGoal} onChange={(e) => setPlanGoal(e.target.value)} className="rounded-xl bg-muted/30" />
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <p className="mb-1 text-[10px] font-semibold text-muted-foreground">Hours / day</p>
@@ -1366,22 +1477,74 @@ Keep each card concise and useful for exam revision.`
                   <Input type="number" min="1" max="30" value={planDays} onChange={(e) => setPlanDays(e.target.value)} />
                 </div>
               </div>
-              <Button onClick={generateStudyPlan} disabled={isPlanLoading || !planGoal.trim()} className="w-full rounded-xl">
-                {isPlanLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Building your plan...</> : <><Target className="mr-2 h-4 w-4" /> Build My Study Plan</>}
+              <Button onClick={generateStudyPlan} disabled={isPlanLoading || !planGoal.trim()} className="w-full rounded-xl h-11">
+                {isPlanLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Building your roadmap...</> : <><Target className="mr-2 h-4 w-4" /> Build My Study Roadmap</>}
               </Button>
-              {studyPlan && (
-                <div className="rounded-2xl border bg-card p-4 shadow-sm">
-                  <div className="mb-3 flex items-center justify-between">
-                    <Badge variant="secondary">Saved Plan</Badge>
-                    <Button size="sm" variant="ghost" onClick={() => { setStudyPlan(""); localStorage.removeItem(`student_study_plan_${studentId}`); }} className="h-7 text-xs">
-                      <RotateCcw className="mr-1 h-3.5 w-3.5" /> New Plan
-                    </Button>
+
+              {studyPlanData ? (
+                <div className="space-y-3">
+                  <div className="rounded-3xl border bg-gradient-to-r from-primary/10 via-background to-accent/10 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <Badge variant="secondary" className="mb-2">PERSONALISED ROADMAP</Badge>
+                        <h3 className="text-lg font-bold">{studyPlanData.title}</h3>
+                        <p className="mt-1 text-xs text-muted-foreground">{studyPlanData.summary}</p>
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={() => { setStudyPlan(""); setStudyPlanData(null); setCompletedPlanTasks({}); localStorage.removeItem(`student_study_plan_${studentId}`); }} className="h-7 text-xs shrink-0">
+                        <RotateCcw className="mr-1 h-3.5 w-3.5" /> New
+                      </Button>
+                    </div>
+                    <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                      <Badge variant="outline">{studyPlanData.days.length} days</Badge>
+                      <Badge variant="outline">{studyPlanData.days.reduce((sum, day) => sum + (day.minutes || Number(planHours) * 60), 0)} min total</Badge>
+                      <Badge variant="outline">{Object.values(completedPlanTasks).filter(Boolean).length} tasks done</Badge>
+                    </div>
                   </div>
-                  <div className="prose prose-sm max-w-none dark:prose-invert">
-                    <ReactMarkdown>{studyPlan}</ReactMarkdown>
-                  </div>
+
+                  {studyPlanData.days.map((day) => (
+                    <div key={day.day} className="rounded-3xl border bg-card overflow-hidden shadow-sm">
+                      <div className="flex items-center gap-3 border-b bg-muted/20 p-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 font-bold text-primary">{day.day}</div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-sm">Day {day.day} · {day.title}</p>
+                          <p className="text-[10px] text-muted-foreground">{day.focus}</p>
+                        </div>
+                        <Badge variant="secondary">{day.minutes || Number(planHours) * 60} min</Badge>
+                      </div>
+                      <div className="grid gap-2 p-3 sm:grid-cols-2">
+                        <div className="rounded-2xl border bg-primary/[0.03] p-3">
+                          <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-primary">Today's Tasks</p>
+                          <div className="space-y-2">
+                            {(day.tasks || []).map((task, index) => {
+                              const key = `${day.day}-${index}`;
+                              return (
+                                <label key={key} className="flex cursor-pointer items-start gap-2 rounded-xl p-2 hover:bg-muted/40">
+                                  <input type="checkbox" checked={!!completedPlanTasks[key]} onChange={() => setCompletedPlanTasks(prev => ({ ...prev, [key]: !prev[key] }))} className="mt-0.5 h-4 w-4" />
+                                  <span className={`text-xs leading-relaxed ${completedPlanTasks[key] ? "text-muted-foreground line-through" : ""}`}>{task}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="rounded-2xl border p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600">Revision</p>
+                            <p className="mt-1 text-xs leading-relaxed">{day.revision}</p>
+                          </div>
+                          <div className="rounded-2xl border p-3">
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">Practice</p>
+                            <p className="mt-1 text-xs leading-relaxed">{day.practice}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              )}
+              ) : studyPlan ? (
+                <div className="rounded-2xl border bg-card p-4 shadow-sm">
+                  <div className="prose prose-sm max-w-none dark:prose-invert"><ReactMarkdown>{studyPlan}</ReactMarkdown></div>
+                </div>
+              ) : null}
             </motion.div>
           )}
 
