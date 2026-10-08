@@ -2938,6 +2938,7 @@ export type Database = {
           expenses: number | null
           operating_cash_surplus: number | null
           operating_margin_pct: number | null
+          operating_profit: number | null
           outstanding: number | null
         }
         Relationships: []
