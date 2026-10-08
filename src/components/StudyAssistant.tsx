@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Bot, Send, Sparkles, Network, StickyNote, Plus, Trash2, Save,
+  Bot, Send, Sparkles, Target, Network, StickyNote, Plus, Trash2, Save,
   BookOpen, Loader2, ChevronRight, X, FileText, Trophy,
   Brain, Wand2, CheckCircle2, XCircle, Upload,
   ExternalLink, Image as ImageIcon,
