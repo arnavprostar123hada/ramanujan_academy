@@ -1,0 +1,15 @@
+{
+  "id": "/",
+  "name": "Ramanujan Academy",
+  "short_name": "Ramanujan",
+  "description": "Ramanujan Academy student, parent and teacher portal",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#fffdf5",
+  "theme_color": "#b91c1c",
+  "icons": [
+    { "src": "/academy-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
