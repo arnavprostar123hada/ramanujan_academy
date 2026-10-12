@@ -27,3 +27,48 @@ npm run dev
 
 
 <!-- production rebuild marker: 2026-09-25 -->
+
+
+## Native mobile app (Capacitor)
+
+This repository is being prepared to package the existing React/Vite application as **Ramanujan Academy** for Android and iOS. It reuses the current Supabase backend and role-based portals.
+
+### Requirements
+- Node.js 22+
+- Android Studio and Android SDK for local Android development
+- macOS with Xcode for local iOS builds
+
+### Local Android setup
+```bash
+npm install
+npm run build
+npx cap add android
+npx cap sync android
+npx cap open android
+```
+
+In Android Studio, select a device/emulator and press Run. To build a debug APK locally, run:
+```bash
+cd android
+./gradlew assembleDebug
+```
+The APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
+
+### Local iOS setup (macOS only)
+```bash
+npm install
+npm run build
+npx cap add ios
+npx cap sync ios
+npx cap open ios
+```
+Use Xcode to select a simulator or a connected iPhone. App Store distribution requires Apple signing and store setup.
+
+### Build an Android test APK on GitHub
+Open **Actions → Build Android App → Run workflow**. When the workflow completes, download the `ramanujan-academy-android-debug` artifact. This is a testing APK, not a Play Store release.
+
+### Important
+- Capacitor 8 requires Node.js 22 or newer.
+- The app requires internet access for Supabase-backed login, data and AI features.
+- The native shell bundles the web app at build time; after web changes, rebuild and run `npx cap sync` before producing a new app.
+- Before store release, test all role logins, deep links, file uploads, camera/location permissions, payment flows, and WhatsApp links on real devices. Configure production signing, app icons/splash screens, privacy disclosures and store metadata.
