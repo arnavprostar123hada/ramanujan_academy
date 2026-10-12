@@ -1002,3 +1002,76 @@ select:focus-visible {
   .teacher-bright-shell::after { animation: none; }
   .teacher-bright-card { transition: none; }
 }
+
+
+/* Mobile usability pass: parent and teacher portals */
+@media (max-width: 767px) {
+  html { -webkit-text-size-adjust: 100%; scroll-padding-top: 5rem; }
+  body { overflow-x: hidden; }
+  #root { min-height: 100dvh; overflow-x: clip; }
+  main, [role="main"] { min-width: 0; }
+  .container-custom { width: 100%; max-width: 100%; padding-left: 1rem !important; padding-right: 1rem !important; }
+  .portal-main, .saas-admin-main { padding: 1rem !important; padding-bottom: calc(5.75rem + env(safe-area-inset-bottom)) !important; }
+  .portal-header { padding-left: 1rem !important; padding-right: 1rem !important; }
+  h1 { font-size: clamp(1.45rem, 6vw, 2rem); line-height: 1.15; overflow-wrap: anywhere; }
+  h2 { font-size: clamp(1.15rem, 4.8vw, 1.5rem); line-height: 1.25; }
+  h3 { overflow-wrap: anywhere; }
+  .grid { min-width: 0; }
+  .grid > * { min-width: 0; }
+  [role="tabpanel"] { min-width: 0; }
+  [role="tablist"] {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-wrap: nowrap !important;
+    justify-content: flex-start;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: .35rem;
+  }
+  [role="tablist"]::-webkit-scrollbar { display: none; }
+  [role="tab"] { flex: 0 0 auto; min-height: 2.65rem; white-space: nowrap; }
+  button, [role="button"], input, select, textarea {
+    touch-action: manipulation;
+  }
+  button, [role="button"] { min-height: 2.65rem; }
+  input, select, textarea { max-width: 100%; font-size: 16px !important; }
+  table { display: block; max-width: 100%; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+  .premium-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .premium-card, .saas-surface-card { min-width: 0; border-radius: 1rem; }
+  .premium-hero { padding: 1.1rem !important; border-radius: 1.25rem; }
+  .premium-number { font-size: clamp(1.5rem, 7vw, 2.2rem); }
+  [data-radix-popper-content-wrapper] { max-width: calc(100vw - 1rem); }
+  [role="dialog"] {
+    width: calc(100vw - 1rem) !important;
+    max-width: calc(100vw - 1rem) !important;
+    max-height: calc(100dvh - 1rem);
+    overflow-y: auto;
+    border-radius: 1rem;
+  }
+  .fixed.inset-0 { padding: .5rem; }
+  .flex.items-center.justify-between { gap: .65rem; }
+  .flex.items-center.justify-between > :first-child { min-width: 0; }
+  .flex.items-center.justify-between > :last-child { flex-shrink: 0; }
+  .portal-main .flex.gap-3 > button,
+  .portal-main .flex.gap-2 > button { max-width: 100%; }
+  /* Keep long student names, access codes and meeting links from widening the page. */
+  .portal-main p, .portal-main span, .portal-main a { overflow-wrap: anywhere; }
+  /* Respect iPhone safe areas when a portal uses fixed bottom controls. */
+  .portal-main nav[class*="fixed"], .portal-main .fixed.bottom-0 {
+    padding-bottom: max(.65rem, env(safe-area-inset-bottom));
+  }
+}
+
+@media (min-width: 480px) and (max-width: 767px) {
+  .premium-grid, .portal-main .grid.grid-cols-1.sm\\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .container-custom, .portal-main, .saas-admin-main { padding-left: .75rem !important; padding-right: .75rem !important; }
+  .portal-main .p-6 { padding: 1rem !important; }
+  .portal-main .p-5 { padding: .875rem !important; }
+  .portal-main .gap-6 { gap: .875rem !important; }
+}
