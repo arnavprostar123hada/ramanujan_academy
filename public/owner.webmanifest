@@ -1,0 +1,20 @@
+{
+  "id": "/owner",
+  "name": "Ramanujan Owner Portal",
+  "short_name": "RA Owner",
+  "description": "Ramanujan Academy owner portal",
+  "start_url": "/owner",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#fffdf5",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {
+      "src": "/academy-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
