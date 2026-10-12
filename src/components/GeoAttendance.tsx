@@ -248,7 +248,7 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
           toast({ title: "Check-out failed", description: error.message, variant: "destructive" });
           return;
         }
-        const payload = data as { record?: Record } | null;
+        const payload = data as unknown as { record?: Record } | null;
         if (!payload?.record) {
           toast({ title: "Check-out failed", description: "No attendance record was returned.", variant: "destructive" });
           return;
