@@ -66,6 +66,7 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
   const [history, setHistory] = useState<Record[]>([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isRefreshingLocation, setIsRefreshingLocation] = useState(false);
   const [clockTick, setClockTick] = useState(0);
   const watchId = useRef<number | null>(null);
   const autoRef = useRef({ checkingIn: false, checkingOut: false });
@@ -73,6 +74,43 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
   const outsideSince = useRef<number | null>(null);
 
   const inside = fence && distance !== null ? distance <= fence.radius_meters : false;
+
+  const friendlyLocationError = (error: GeolocationPositionError) => {
+    if (!window.isSecureContext) {
+      return "Location requires a secure HTTPS connection. Open the academy site using its https:// address.";
+    }
+    if (error.code === error.PERMISSION_DENIED) {
+      return "Location permission is blocked. Allow location for this site in your browser and turn on device Location.";
+    }
+    if (error.code === error.POSITION_UNAVAILABLE) {
+      return "Your phone could not determine its location. Turn on GPS/Location and try near a window or outdoors.";
+    }
+    if (error.code === error.TIMEOUT) {
+      return "GPS is taking too long. Turn on device Location and tap Refresh GPS to try again.";
+    }
+    return "Unable to get your location. Check your phone's Location setting and try again.";
+  };
+
+  const refreshCurrentLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setGeoError("This browser does not support location. Open the portal in Chrome or Safari.");
+      return;
+    }
+    setIsRefreshingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGeoError(null);
+        setAccuracy(pos.coords.accuracy);
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setIsRefreshingLocation(false);
+      },
+      (error) => {
+        setGeoError(friendlyLocationError(error));
+        setIsRefreshingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 25000, maximumAge: 0 }
+    );
+  }, []);
 
   const load = useCallback(async () => {
     if (kind === "teacher") {
@@ -123,8 +161,8 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
         setAccuracy(pos.coords.accuracy);
         setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
       },
-      (err) => setGeoError(err.message),
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 }
+      (err) => setGeoError(friendlyLocationError(err)),
+      { enableHighAccuracy: true, timeout: 25000, maximumAge: 5000 }
     );
     return () => {
       if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
@@ -326,15 +364,7 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
   useEffect(() => {
     const refreshLocation = () => {
       if (!navigator.geolocation) return;
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setGeoError(null);
-          setAccuracy(pos.coords.accuracy);
-          setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        },
-        (err) => setGeoError(err.message),
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-      );
+      refreshCurrentLocation();
     };
     window.addEventListener("focus", refreshLocation);
     document.addEventListener("visibilitychange", refreshLocation);
@@ -342,7 +372,7 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
       window.removeEventListener("focus", refreshLocation);
       document.removeEventListener("visibilitychange", refreshLocation);
     };
-  }, []);
+  }, [refreshCurrentLocation]);
 
   if (trackingOnly) return null;
 
@@ -359,7 +389,8 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
   return (
     <div className="space-y-6">
       <Card className="premium-card animated-border overflow-hidden">
-        <CardHeader>
+        <CardHeader className="p-4 sm:p-6">
+
           <CardTitle className="flex items-center gap-2">
             <span className="premium-icon inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-500 text-white shadow-lg shadow-emerald-500/30"><Radar className="w-5 h-5" /></span><span>Location Attendance</span><Badge className="ml-auto bg-emerald-500/10 text-emerald-700 border-emerald-300">GPS Verified</Badge>
           </CardTitle>
@@ -369,10 +400,10 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
               : "Your admin has not set the academy location yet."}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-4 p-4 pt-0 sm:space-y-5 sm:p-6 sm:pt-0">
           {/* Radar visual */}
           <div className="flex flex-col items-center gap-3 py-2">
-            <div className="relative w-44 h-44 flex items-center justify-center premium-radar">
+            <div className="relative flex h-36 w-36 items-center justify-center premium-radar sm:h-44 sm:w-44">
               <AnimatePresence>
                 {inside && (
                   <>
@@ -405,9 +436,15 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
             </div>
 
             {geoError ? (
-              <Badge variant="destructive" className="gap-1">
-                <AlertTriangle className="w-3 h-3" /> {geoError}
-              </Badge>
+              <div className="w-full max-w-xl space-y-2 text-center">
+                <Badge variant="destructive" className="inline-flex max-w-full whitespace-normal text-center leading-relaxed">
+                  <AlertTriangle className="mr-1 h-3 w-3 shrink-0" /> {geoError}
+                </Badge>
+                <Button type="button" variant="outline" size="sm" onClick={refreshCurrentLocation} disabled={isRefreshingLocation} className="min-h-10 rounded-xl">
+                  {isRefreshingLocation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
+                  Refresh GPS
+                </Button>
+              </div>
             ) : distance === null ? (
               <Badge variant="secondary" className="gap-1">
                 <Loader2 className="w-3 h-3 animate-spin" /> Finding your location…
@@ -466,12 +503,12 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
             )}
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Button
               onClick={() => doCheckIn("manual")
               }
               disabled={busy || !inside || !!record?.check_in_time || !fence}
-              className="premium-cta min-h-12 flex-1 text-base font-bold shadow-xl"
+              className="premium-cta min-h-12 w-full rounded-xl text-base font-bold shadow-xl"
             >
               {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <LogIn className="w-4 h-4 mr-2" />}
               Check In
@@ -480,12 +517,23 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
               variant="outline"
               onClick={() => doCheckOut("manual")}
               disabled={busy || !record?.check_in_time || !!record?.check_out_time}
-              className="min-h-12 sm:flex-1"
+              className="min-h-12 w-full rounded-xl"
             >
               <LogOut className="w-4 h-4 mr-2" /> Check Out
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
+          {!geoError && (
+            <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {distance === null ? "Waiting for GPS. Keep this page open while attendance is being checked." : `GPS accuracy ±${Math.round(accuracy ?? 0)} m · ${formatDistance(distance)} from academy`}
+              </p>
+              <Button type="button" variant="outline" size="sm" onClick={refreshCurrentLocation} disabled={isRefreshingLocation} className="min-h-10 shrink-0 rounded-xl">
+                {isRefreshingLocation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
+                Refresh GPS
+              </Button>
+            </div>
+          )}
+          <p className="text-xs leading-relaxed text-muted-foreground">
             Once you see Inside academy boundary, tap Check In. Your attendance is not recorded until you confirm the check-in.
           </p>
         </CardContent>
