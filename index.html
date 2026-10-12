@@ -8,7 +8,25 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Ramanujan" />
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <link id="app-manifest" rel="manifest" href="/manifest.webmanifest" />
+    <script>
+      (function () {
+        var path = window.location.pathname.replace(/\\/+$/, "") || "/";
+        var roleManifests = {
+          "/parent": "/parent.webmanifest",
+          "/teacher": "/teacher.webmanifest",
+          "/admin": "/admin.webmanifest",
+          "/admin/dashboard": "/admin.webmanifest",
+          "/owner": "/owner.webmanifest",
+          "/owner/dashboard": "/owner.webmanifest"
+        };
+        var manifest = roleManifests[path];
+        if (manifest) {
+          var link = document.getElementById("app-manifest");
+          if (link) link.setAttribute("href", manifest);
+        }
+      })();
+    </script>
     <link rel="apple-touch-icon" href="/academy-icon.svg" />
     <!-- TODO: Set the document title to the name of your application -->
     <title>Ramanujan Academy</title>
