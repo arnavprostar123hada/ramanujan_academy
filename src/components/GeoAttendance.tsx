@@ -87,7 +87,7 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
         setLoading(false);
         return;
       }
-      const payload = data as { fence?: Fence; record?: Record | null; history?: Record[] } | null;
+      const payload = data as unknown as { fence?: Fence; record?: Record | null; history?: Record[] } | null;
       setFence(payload?.fence ?? null);
       const rows = payload?.history ?? [];
       setHistory(rows);
@@ -168,7 +168,7 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
           toast({ title: "Check-in failed", description: error.message, variant: "destructive" });
           return;
         }
-        const payload = data as { record?: Record } | null;
+        const payload = data as unknown as { record?: Record } | null;
         if (!payload?.record) {
           toast({ title: "Check-in failed", description: "No attendance record was returned.", variant: "destructive" });
           return;
