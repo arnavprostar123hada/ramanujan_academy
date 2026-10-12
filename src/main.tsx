@@ -3,6 +3,15 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
+// Register the app-shell worker for installability. Authentication and API traffic are never cached.
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch((error) => {
+      console.warn("App shell registration was skipped:", error);
+    });
+  });
+}
+
 createRoot(document.getElementById("root")!).render(
   <App />
 );
