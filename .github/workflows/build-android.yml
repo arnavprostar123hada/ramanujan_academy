@@ -49,8 +49,8 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install dependencies and reconcile lockfile
+        run: npm install --no-audit --no-fund
 
       - name: Build web application
         run: npm run build
