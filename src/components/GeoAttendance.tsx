@@ -75,26 +75,37 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
   const inside = fence && distance !== null ? distance <= fence.radius_meters : false;
 
   const load = useCallback(async () => {
+    if (kind === "teacher") {
+      const accessCode = localStorage.getItem("teacher_access_code") || "";
+      const { data, error } = await supabase.rpc("teacher_geo_attendance", {
+        p_teacher_id: teacherId,
+        p_access_code: accessCode,
+        p_action: "load",
+      });
+      if (error) {
+        setGeoError(error.message);
+        setLoading(false);
+        return;
+      }
+      const payload = data as { fence?: Fence; record?: Record | null; history?: Record[] } | null;
+      setFence(payload?.fence ?? null);
+      const rows = payload?.history ?? [];
+      setHistory(rows);
+      setRecord(payload?.record ?? rows.find((r) => r.attendance_date === today()) ?? null);
+      setLoading(false);
+      return;
+    }
+
     const [{ data: fenceData }, { data: attData }] = await Promise.all([
-      supabase
-        .from("geofence_locations")
-        .select("*")
-        .eq("is_active", true)
-        .order("created_at", { ascending: true })
-        .limit(1),
-      supabase
-        .from(table)
-        .select("*")
-        .eq(idCol, teacherId)
-        .order("attendance_date", { ascending: false })
-        .limit(14),
+      supabase.from("geofence_locations").select("*").eq("is_active", true).order("created_at", { ascending: true }).limit(1),
+      supabase.from(table).select("*").eq(idCol, teacherId).order("attendance_date", { ascending: false }).limit(14),
     ]);
     setFence((fenceData?.[0] as Fence) ?? null);
     const rows = (attData ?? []) as unknown as Record[];
     setHistory(rows);
     setRecord(rows.find((r) => r.attendance_date === today()) ?? null);
     setLoading(false);
-  }, [teacherId, table, idCol]);
+  }, [teacherId, table, idCol, kind]);
 
   useEffect(() => {
     void load();
@@ -140,6 +151,39 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
       setBusy(true);
       const late = minutesLate(expectedCheckIn, new Date());
       const isLate = late !== null && late > LATE_GRACE_MINUTES;
+
+      if (kind === "teacher") {
+        const { data, error } = await supabase.rpc("teacher_geo_attendance", {
+          p_teacher_id: teacherId,
+          p_access_code: localStorage.getItem("teacher_access_code") || "",
+          p_action: "check_in",
+          p_lat: coords.lat,
+          p_lng: coords.lng,
+          p_accuracy: accuracy,
+          p_is_late: isLate,
+          p_method: method,
+        });
+        setBusy(false);
+        if (error) {
+          toast({ title: "Check-in failed", description: error.message, variant: "destructive" });
+          return;
+        }
+        const payload = data as { record?: Record } | null;
+        if (!payload?.record) {
+          toast({ title: "Check-in failed", description: "No attendance record was returned.", variant: "destructive" });
+          return;
+        }
+        setRecord(payload.record);
+        void load();
+        toast({
+          title: isLate ? "Checked in (late mark)" : "Checked in",
+          description: isLate
+            ? `You arrived ${late} minutes after ${expectedCheckIn?.slice(0, 5)}.`
+            : `Welcome, ${teacherName}. Marked present at ${format(new Date(), "hh:mm a")}.`,
+        });
+        return;
+      }
+
       const { data, error } = await supabase
         .from(table)
         .upsert(
@@ -173,7 +217,7 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
           : `Welcome, ${teacherName}. Marked present at ${format(new Date(), "hh:mm a")}.`,
       });
     },
-    [coords, fence, record, expectedCheckIn, teacherId, teacherName, toast, load, table, idCol]
+    [coords, fence, record, expectedCheckIn, teacherId, teacherName, toast, load, table, idCol, kind, accuracy]
   );
 
   const doCheckOut = useCallback(
@@ -188,6 +232,37 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
         coords && fence
           ? distanceMeters(coords.lat, coords.lng, fence.latitude, fence.longitude)
           : null;
+
+      if (kind === "teacher") {
+        const { data, error } = await supabase.rpc("teacher_geo_attendance", {
+          p_teacher_id: teacherId,
+          p_access_code: localStorage.getItem("teacher_access_code") || "",
+          p_action: "check_out",
+          p_lat: coords?.lat ?? null,
+          p_lng: coords?.lng ?? null,
+          p_accuracy: accuracy,
+          p_method: method,
+        });
+        setBusy(false);
+        if (error) {
+          toast({ title: "Check-out failed", description: error.message, variant: "destructive" });
+          return;
+        }
+        const payload = data as { record?: Record } | null;
+        if (!payload?.record) {
+          toast({ title: "Check-out failed", description: "No attendance record was returned.", variant: "destructive" });
+          return;
+        }
+        setRecord(payload.record);
+        void load();
+        const workedMinutes = payload.record.worked_minutes ?? 0;
+        toast({
+          title: method === "auto" ? "Auto checked out" : "Checked out",
+          description: `Worked ${Math.floor(workedMinutes / 60)}h ${workedMinutes % 60}m today.`,
+        });
+        return;
+      }
+
       const { data, error } = await supabase
         .from(table)
         .update({
@@ -212,7 +287,7 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
         description: `Worked ${Math.floor(worked / 60)}h ${worked % 60}m today.`,
       });
     },
-    [record, coords, fence, toast, load]
+    [record, coords, fence, toast, load, kind, teacherId, accuracy]
   );
 
   // Keep the auto-attendance decision loop alive even when the GPS provider is not emitting a new position.
