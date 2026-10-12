@@ -597,17 +597,17 @@ const TeacherDashboard = () => {
             <TabsTrigger value="attendance" className="premium-tab flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs sm:gap-2 sm:px-4 sm:py-3 sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg">
               <MapPin className="w-4 h-4" /> Attendance
             </TabsTrigger>
-            <TabsTrigger value="logs" className="premium-tab flex items-center gap-2 rounded-xl py-3 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg">
+            <TabsTrigger value="logs" className="premium-tab flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs sm:gap-2 sm:px-4 sm:py-3 sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg">
               <BookOpen className="w-4 h-4" /> Class Logs
             </TabsTrigger>
-            <TabsTrigger value="tests" className="premium-tab flex items-center gap-2 rounded-xl py-3 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg">
+            <TabsTrigger value="tests" className="premium-tab flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs sm:gap-2 sm:px-4 sm:py-3 sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg">
               <ClipboardList className="w-4 h-4" /> Tests
             </TabsTrigger>
-            <TabsTrigger value="ai" className="premium-tab flex items-center gap-2 rounded-xl py-3 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg">
+            <TabsTrigger value="ai" className="premium-tab flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs sm:gap-2 sm:px-4 sm:py-3 sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg">
               <Sparkles className="w-4 h-4" />
               <span>Teacher AI</span>
             </TabsTrigger>
-            <TabsTrigger value="complaints" className="premium-tab flex items-center gap-2 rounded-xl py-3 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg">
+            <TabsTrigger value="complaints" className="premium-tab flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs sm:gap-2 sm:px-4 sm:py-3 sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg">
               <AlertTriangle className="w-4 h-4" /> Complaints
             </TabsTrigger>
           </TabsList>
