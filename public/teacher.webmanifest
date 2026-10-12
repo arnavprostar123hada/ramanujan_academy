@@ -1,0 +1,20 @@
+{
+  "id": "/teacher",
+  "name": "Ramanujan Teacher Portal",
+  "short_name": "RA Teacher",
+  "description": "Ramanujan Academy teacher portal",
+  "start_url": "/teacher",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#fffdf5",
+  "theme_color": "#0f766e",
+  "icons": [
+    {
+      "src": "/academy-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
