@@ -1,0 +1,20 @@
+{
+  "id": "/parent",
+  "name": "Ramanujan Parent Portal",
+  "short_name": "RA Parents",
+  "description": "Ramanujan Academy parent portal",
+  "start_url": "/parent",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#fffdf5",
+  "theme_color": "#b91c1c",
+  "icons": [
+    {
+      "src": "/academy-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
