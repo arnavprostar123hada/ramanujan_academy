@@ -534,17 +534,17 @@ const TeacherDashboard = () => {
       <header className="portal-header teacher-bright-header sticky top-0 z-40 border-b backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <div>
-            <h1 className="text-xl font-bold text-green-800">Welcome, {teacher?.name}</h1>
-            <p className="text-sm text-muted-foreground">Teacher Dashboard</p>
+            <h1 className="max-w-[62vw] truncate text-base font-bold text-green-800 sm:max-w-none sm:text-xl">Welcome, {teacher?.name}</h1>
+            <p className="text-xs text-muted-foreground sm:text-sm">Teacher Dashboard</p>
           </div>
-          <Button variant="outline" onClick={handleLogout}>
-            <LogOut className="w-4 h-4 mr-2" /> Logout
+          <Button variant="outline" size="sm" onClick={handleLogout} className="min-h-10 shrink-0 rounded-xl px-3 sm:px-4">
+            <LogOut className="mr-1.5 h-4 w-4 sm:mr-2" /> Logout
           </Button>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="portal-main max-w-7xl mx-auto px-4 py-6">
+      <main className="portal-main mx-auto max-w-7xl overflow-x-hidden px-3 py-4 sm:px-4 sm:py-6">
         {teacher && (
           <div className="hidden" aria-hidden="true">
             <GeoAttendance
@@ -557,14 +557,14 @@ const TeacherDashboard = () => {
           </div>
         )}
 
-        <section className="premium-hero teacher-command-glow animated-border mb-7 overflow-hidden rounded-3xl border border-cyan-300/50 bg-gradient-to-br from-cyan-100 via-violet-100 to-amber-100 p-6 text-slate-900 shadow-2xl">
+        <section className="premium-hero teacher-command-glow animated-border mb-5 overflow-hidden rounded-2xl border border-cyan-300/50 bg-gradient-to-br from-cyan-100 via-violet-100 to-amber-100 p-4 text-slate-900 shadow-xl sm:mb-7 sm:rounded-3xl sm:p-6">
           <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-slate-900/10 bg-white/70 px-3 py-1.5 text-xs font-semibold backdrop-blur">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
                 TEACHER COMMAND CENTRE
               </div>
-              <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
+              <h2 className="text-2xl font-extrabold tracking-tight sm:text-4xl">
                 Good to see you, {teacher?.name?.split(" ")[0]} 👋
               </h2>
               <p className="mt-2 max-w-2xl text-sm text-slate-700/70 sm:text-base">
@@ -575,25 +575,26 @@ const TeacherDashboard = () => {
               <Zap className="h-9 w-9 text-yellow-300" />
             </div>
           </div>
-          <div className="premium-grid relative z-10 mt-7 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="premium-grid relative z-10 mt-5 grid grid-cols-2 gap-2 sm:mt-7 sm:gap-3 lg:grid-cols-4">
             {[
               { label: "Assigned Classes", value: teacher?.assigned_classes?.length ?? 0, icon: BookOpen },
               { label: "Class Logs", value: classLogs.length, icon: Activity },
               { label: "Tests Created", value: tests.length, icon: ClipboardList },
               { label: "Open Complaints", value: complaints.length, icon: AlertTriangle },
             ].map(({ label, value, icon: Icon }) => (
-              <div key={label} className="premium-card premium-stat rounded-2xl border-white/10 bg-white/10 p-4 text-white backdrop-blur-xl">
+              <div key={label} className="premium-card premium-stat min-w-0 rounded-xl border-white/10 bg-white/10 p-3 text-white backdrop-blur-xl sm:rounded-2xl sm:p-4">
                 <Icon className="mb-2 h-5 w-5 text-cyan-300" />
-                <div className="text-xs text-white/60">{label}</div>
-                <div className="premium-number mt-1 text-2xl font-extrabold">{value}</div>
+                <div className="text-[11px] leading-snug text-white/70 sm:text-xs">{label}</div>
+                <div className="premium-number mt-1 text-xl font-extrabold sm:text-2xl">{value}</div>
               </div>
             ))}
           </div>
         </section>
 
-        <Tabs defaultValue="attendance" className="space-y-6">
-          <TabsList className="teacher-bright-tabs premium-tabs grid w-full max-w-5xl grid-cols-5 rounded-2xl border border-white/60 bg-white/75 p-1.5 shadow-xl backdrop-blur-xl">
-            <TabsTrigger value="attendance" className="premium-tab flex items-center gap-2 rounded-xl py-3 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg">
+        <Tabs defaultValue="attendance" className="min-w-0 space-y-4 sm:space-y-6">
+          <div className="-mx-1 max-w-full overflow-x-auto overscroll-x-contain pb-1">
+          <TabsList className="teacher-bright-tabs premium-tabs flex h-auto w-max min-w-full gap-1 rounded-2xl border border-white/60 bg-white/75 p-1.5 shadow-xl backdrop-blur-xl lg:grid lg:w-full lg:max-w-5xl lg:grid-cols-5">
+            <TabsTrigger value="attendance" className="premium-tab flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs sm:gap-2 sm:px-4 sm:py-3 sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg">
               <MapPin className="w-4 h-4" /> Attendance
             </TabsTrigger>
             <TabsTrigger value="logs" className="premium-tab flex items-center gap-2 rounded-xl py-3 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg">
@@ -604,15 +605,16 @@ const TeacherDashboard = () => {
             </TabsTrigger>
             <TabsTrigger value="ai" className="premium-tab flex items-center gap-2 rounded-xl py-3 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg">
               <Sparkles className="w-4 h-4" />
-              <span className="hidden sm:inline">Teacher AI</span>
+              <span>Teacher AI</span>
             </TabsTrigger>
             <TabsTrigger value="complaints" className="premium-tab flex items-center gap-2 rounded-xl py-3 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-lg">
               <AlertTriangle className="w-4 h-4" /> Complaints
             </TabsTrigger>
           </TabsList>
+          </div>
 
           {/* Attendance Tab */}
-          <TabsContent value="attendance" className="space-y-6">
+          <TabsContent value="attendance" className="min-w-0 space-y-4 sm:space-y-6">
             {teacher && (
               <GeoAttendance
                 teacherId={teacher.id}
@@ -626,7 +628,7 @@ const TeacherDashboard = () => {
 
 
           {/* Class Logs Tab */}
-          <TabsContent value="logs" className="space-y-6">
+          <TabsContent value="logs" className="min-w-0 space-y-4 sm:space-y-6">
             <Card className="teacher-bright-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -728,7 +730,7 @@ const TeacherDashboard = () => {
           </TabsContent>
 
           {/* Tests Tab */}
-          <TabsContent value="tests" className="space-y-6">
+          <TabsContent value="tests" className="min-w-0 space-y-4 sm:space-y-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -795,11 +797,11 @@ const TeacherDashboard = () => {
           </TabsContent>
 
           {/* Complaints Tab */}
-          <TabsContent value="ai" className="space-y-6">
+          <TabsContent value="ai" className="min-w-0 space-y-4 sm:space-y-6">
             <TeacherAIAssistant teacherName={teacher?.name} teacherId={teacher?.id} />
           </TabsContent>
 
-          <TabsContent value="complaints" className="space-y-6">
+          <TabsContent value="complaints" className="min-w-0 space-y-4 sm:space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
