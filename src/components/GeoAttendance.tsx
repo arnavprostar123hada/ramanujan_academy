@@ -79,13 +79,13 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
     if (!window.isSecureContext) {
       return "Location requires a secure HTTPS connection. Open the academy site using its https:// address.";
     }
-    if (error.code === error.PERMISSION_DENIED) {
+    if (error.code === 1) {
       return "Location permission is blocked. Allow location for this site in your browser and turn on device Location.";
     }
-    if (error.code === error.POSITION_UNAVAILABLE) {
+    if (error.code === 2) {
       return "Your phone could not determine its location. Turn on GPS/Location and try near a window or outdoors.";
     }
-    if (error.code === error.TIMEOUT) {
+    if (error.code === 3) {
       return "GPS is taking too long. Turn on device Location and tap Refresh GPS to try again.";
     }
     return "Unable to get your location. Check your phone's Location setting and try again.";
@@ -446,9 +446,15 @@ export function GeoAttendance({ teacherId, teacherName, expectedCheckIn, expecte
                 </Button>
               </div>
             ) : distance === null ? (
-              <Badge variant="secondary" className="gap-1">
-                <Loader2 className="w-3 h-3 animate-spin" /> Finding your location…
-              </Badge>
+              <div className="space-y-2 text-center">
+                <Badge variant="secondary" className="gap-1 whitespace-normal">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Finding your location…
+                </Badge>
+                <div><Button type="button" variant="outline" size="sm" onClick={refreshCurrentLocation} disabled={isRefreshingLocation} className="min-h-10 rounded-xl">
+                  {isRefreshingLocation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
+                  Refresh GPS
+                </Button></div>
+              </div>
             ) : (
               <div className="text-center space-y-1">
                 <Badge
