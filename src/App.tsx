@@ -2,7 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, HashRouter, Routes, Route } from "react-router-dom";
+import { Capacitor } from "@capacitor/core";
 import Index from "./pages/Index";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -14,6 +15,7 @@ import OnlineStudentPortal from "./pages/OnlineStudentPortal";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 
 const queryClient = new QueryClient();
+const AppRouter = Capacitor.isNativePlatform() ? HashRouter : BrowserRouter;
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -21,7 +23,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+        <AppRouter>
           <div className="app-shell">
           <div className="app-orb app-orb-one" aria-hidden="true" />
           <div className="app-orb app-orb-two" aria-hidden="true" />
@@ -39,7 +41,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
           </div>
-        </BrowserRouter>
+        </AppRouter>
       </TooltipProvider>
     </AppErrorBoundary>
   </QueryClientProvider>
