@@ -3552,6 +3552,19 @@ export type Database = {
         Args: { p_regular_monthly_allowance: number; p_online_monthly_allowance: number }
         Returns: { ok: boolean; regular_monthly_allowance: number; online_monthly_allowance: number }[]
       }
+      teacher_geo_attendance: {
+        Args: {
+          p_access_code: string
+          p_action: string
+          p_accuracy?: number | null
+          p_is_late?: boolean
+          p_lat?: number | null
+          p_lng?: number | null
+          p_method?: string
+          p_teacher_id: string
+        }
+        Returns: Json
+      }
       set_active_geofence: {
         Args: {
           p_latitude: number
