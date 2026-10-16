@@ -28,6 +28,8 @@ const MAX_MESSAGE_CHARS = 8000;
 const MAX_SOURCE_CHARS = 40000;
 const MAX_TOTAL_INPUT_CHARS = 50000;
 const CACHE_HOURS = 24;
+const DEFAULT_CACHE_CHARGE = 0.5;
+const DEFAULT_REQUEST_RESERVE_USD = 0.05;
 const TEACHER_MONTHLY_CREDITS = 50;
 
 // Strict student AI pricing. These are RA Points charged per successful
@@ -531,15 +533,55 @@ async function readCache(admin: ReturnType<typeof createClient> | null, cacheKey
   return data?.response_text || null;
 }
 
-async function writeCache(admin: ReturnType<typeof createClient> | null, cacheKey: string, mode: string, responseText: string) {
+async function writeCache(admin: ReturnType<typeof createClient> | null, cacheKey: string, mode: string, responseText: string, cacheHours = CACHE_HOURS) {
   if (!admin || !responseText) return;
   await admin.from("ai_response_cache").upsert({
     cache_key: cacheKey,
     mode,
     response_text: responseText,
     created_at: new Date().toISOString(),
-    expires_at: new Date(Date.now() + CACHE_HOURS * 60 * 60 * 1000).toISOString(),
+    expires_at: new Date(Date.now() + Math.max(1, Math.min(720, cacheHours)) * 60 * 60 * 1000).toISOString(),
   });
+}
+
+function isPersonalizedRequest(messages: Msg[], sourceText: string) {
+  // Keep questions that depend on private records isolated to that student/teacher.
+  const query = messages.filter((m) => m.role === "user").map((m) => m.content).join("\\n").toLowerCase();
+  if (sourceText.trim()) return true;
+  return /\\b(my|mine|me|my child|my student|my marks|my attendance|my fees|my progress|my report|my balance|my payment|my salary)\\b/.test(query)
+    || /\\b(attendance record|fee balance|payment history|marks obtained|personal report|student profile|parent phone|phone number|access code)\\b/.test(query);
+}
+
+async function logCacheHit(admin: ReturnType<typeof createClient> | null, mode: string, actorRole: string, actorId: string) {
+  if (!admin) return;
+  try {
+    await admin.from("ai_operations_events").insert({
+      event_type: "cache_hit", feature: mode || "unknown", actor_role: actorRole,
+      cache_hit: true, success: true, estimated_cost_usd: 0,
+      metadata: { actor_id: actorId, provider_call_avoided: true },
+    });
+  } catch (error) { console.error("AI cache event logging failed", error); }
+}
+
+async function finalizeAIEvent(admin: ReturnType<typeof createClient> | null, reservationId: string | null, details: {
+  provider?: string; model?: string; inputTokens: number; outputTokens: number; success: boolean; latencyMs: number; error?: string;
+}) {
+  if (!admin || !reservationId) return;
+  // Budget is reserved conservatively before provider calls. Keep the higher of
+  // the reservation or token-based estimate so the guardrail cannot undercount.
+  const tokenEstimate = ((details.inputTokens / 1_000_000) * 2) + ((details.outputTokens / 1_000_000) * 10);
+  try {
+    await admin.from("ai_operations_events").update({
+      provider: details.provider || null,
+      model: details.model || null,
+      input_tokens: Math.max(0, details.inputTokens),
+      output_tokens: Math.max(0, details.outputTokens),
+      latency_ms: Math.max(0, details.latencyMs),
+      success: details.success,
+      estimated_cost_usd: Math.max(DEFAULT_REQUEST_RESERVE_USD, tokenEstimate),
+      metadata: { status: details.success ? "completed" : "provider_error", error: details.error || null, input_tokens: details.inputTokens, output_tokens: details.outputTokens },
+    }).eq("id", reservationId);
+  } catch (error) { console.error("AI usage event update failed", error); }
 }
 
 async function callProvider(baseUrl: string, apiKey: string, model: string, systemPrompt: string, messages: Msg[], wantJson: boolean) {
@@ -590,7 +632,7 @@ async function callAI(systemPrompt: string, messages: Msg[], wantJson: boolean, 
       const result = await callProvider(provider.url, provider.key, provider.model, systemPrompt, messages, wantJson);
       if (result.content) {
         console.log("AI provider used:", provider.name, provider.model, result.usage);
-        return { ...result, provider: provider.name };
+        return { ...result, provider: provider.name, model: provider.model };
       }
     } catch (error) {
       console.error("AI provider failed", provider.name, provider.model, error);
@@ -689,10 +731,18 @@ Deno.serve(async (req) => {
       }
     }
 
+    const cacheSettingsResult = admin ? await admin.from("ai_operations_settings").select("setting_value").eq("setting_key", "global").maybeSingle() : { data: null };
+    const aiSettings = {
+      enabled: cacheSettingsResult.data?.setting_value?.enabled !== false,
+      cache_hours: Math.max(1, Math.min(720, Number(cacheSettingsResult.data?.setting_value?.cache_hours ?? CACHE_HOURS))),
+      cached_student_charge: Math.max(0, Math.min(10, Number(cacheSettingsResult.data?.setting_value?.cached_student_charge ?? DEFAULT_CACHE_CHARGE))),
+    };
+    const personalized = isPersonalizedRequest(messages, sourceText) || !!parentAccessCode;
     const normalized = JSON.stringify({
       actorRole,
-      teacherId: actorRole === "teacher" ? teacherId : "",
-      studentId: actorRole === "student" ? resolvedStudentId : "",
+      // General academic questions share cached answers across users of the same role.
+      // Requests with source material or personal data stay scoped to the user.
+      cacheScope: personalized ? (actorRole === "teacher" ? teacherId : resolvedStudentId) : "shared",
       mode,
       messages,
       sourceText,
@@ -705,7 +755,7 @@ Deno.serve(async (req) => {
     // call an external AI provider again. A small RA Point cache fee still
     // discourages unlimited repeated generation.
     if (cached) {
-      const cachedCharge = actorRole === "student" ? 0.5 : 0;
+      const cachedCharge = actorRole === "student" ? aiSettings.cached_student_charge : 0;
       if (actorRole === "student" && cachedCharge > 0) {
         const { data: cachedChargeRows, error: cachedChargeError } = await admin.rpc("consume_student_ra_points_admin", {
           p_student_id: resolvedStudentId,
@@ -723,6 +773,7 @@ Deno.serve(async (req) => {
         }
       }
 
+      await logCacheHit(admin, mode, actorRole, actorRole === "teacher" ? teacherId : resolvedStudentId);
       const cachedUsage: AIUsage = {
         inputTokens: 0,
         outputTokens: 0,
@@ -742,7 +793,26 @@ Deno.serve(async (req) => {
       return mode === "quiz" || mode === "mindmap" || mode === "flashcards" || mode === "study_plan" ? json({ content: local, fallback: true }) : sse(local);
     }
 
-    let result: { content: string; usage: AIUsage; provider?: string } | null = null;
+    if (!aiSettings.enabled) {
+      return json({ error: "AI is currently disabled by an administrator." }, 503);
+    }
+
+    const actorId = actorRole === "teacher" ? teacherId : resolvedStudentId;
+    const reservationResult = admin ? await admin.rpc("reserve_ai_operations_request", {
+      p_actor_id: actorId,
+      p_actor_role: actorRole,
+      p_feature: mode,
+      p_estimated_cost_usd: DEFAULT_REQUEST_RESERVE_USD,
+    }) : { data: null, error: new Error("AI operations service unavailable") };
+    const reservation = Array.isArray(reservationResult.data) ? reservationResult.data[0] : reservationResult.data;
+    if (reservationResult.error || !reservation?.allowed) {
+      const reason = reservation?.reason || "AI budget controls are temporarily unavailable. Please retry shortly.";
+      return json({ error: reason }, reservationResult.error ? 503 : 429);
+    }
+    const reservationId = String(reservation.reservation_id || "");
+    const requestStartedAt = Date.now();
+
+    let result: { content: string; usage: AIUsage; provider?: string; model?: string } | null = null;
     try {
       result = await callAI(
         buildSystemPrompt(mode, sourceText, actorRole),
@@ -755,6 +825,8 @@ Deno.serve(async (req) => {
     }
 
     if (!result?.content) {
+      await finalizeAIEvent(admin, reservationId, { inputTokens: 0, outputTokens: 0, success: false, latencyMs: Date.now() - requestStartedAt, error: "All configured AI providers failed" });
+      if (admin) await admin.from("ai_operations_events").insert({ event_type: "provider_error", feature: mode, actor_role: actorRole, success: false, estimated_cost_usd: 0, metadata: { actor_id: actorId, reason: "all providers failed" } });
       const content = fallback(messages, mode, sourceText, actorRole);
       const fallbackUsage: AIUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0, credits: 0, cached: true };
       return mode === "quiz" || mode === "mindmap" || mode === "flashcards" || mode === "study_plan"
@@ -763,6 +835,7 @@ Deno.serve(async (req) => {
     }
 
     const cleanResult = mode === "quiz" || mode === "mindmap" || mode === "flashcards" || mode === "study_plan" ? sanitizeText(result.content) : cleanGeneratedText(result.content);
+    await finalizeAIEvent(admin, reservationId, { provider: result.provider, model: result.model, inputTokens: result.usage.inputTokens, outputTokens: result.usage.outputTokens, success: true, latencyMs: Date.now() - requestStartedAt });
 
     // Never charge a student for malformed structured study plans.
     if (mode === "study_plan" && !parseStudyPlanContent(cleanResult)) {
@@ -822,7 +895,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    await writeCache(admin, cacheKey, mode, cleanResult);
+    await writeCache(admin, cacheKey, mode, cleanResult, aiSettings.cache_hours);
 
     const responseUsage = actorRole === "teacher"
       ? { ...result.usage, credits: result.usage.credits, teacherCreditsRemaining: Math.max(0, Number(teacherCredits?.credits || 0) - result.usage.credits) }
