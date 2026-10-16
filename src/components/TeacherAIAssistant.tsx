@@ -52,13 +52,14 @@ type TeacherUsage = { credits?: number; teacherCreditsRemaining?: number; cached
 
 async function callTeacherAI(messages: Message[], teacherId: string, onUsage?: (usage: TeacherUsage) => void) {
   const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/study-assistant`;
+  const teacherAccessCode = localStorage.getItem("teacher_access_code") || "";
   const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
     },
-    body: JSON.stringify({ messages: messages.slice(-8), mode: "teacher_chat", actorRole: "teacher", teacherId }),
+    body: JSON.stringify({ messages: messages.slice(-8), mode: "teacher_chat", actorRole: "teacher", teacherId, teacherAccessCode }),
   });
 
   if (!response.ok) {
@@ -132,7 +133,7 @@ export default function TeacherAIAssistant({ teacherName, teacherId }: { teacher
         const response = await fetch(import.meta.env.VITE_SUPABASE_URL + "/functions/v1/study-assistant", {
           method: "POST",
           headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
-          body: JSON.stringify({ mode: "teacher_balance", actorRole: "teacher", teacherId: effectiveTeacherId, messages: [{ role: "user", content: "balance" }] }),
+          body: JSON.stringify({ mode: "teacher_balance", actorRole: "teacher", teacherId: effectiveTeacherId, teacherAccessCode: localStorage.getItem("teacher_access_code") || "", messages: [{ role: "user", content: "balance" }] }),
         });
         if (!response.ok) return;
         const data = await response.json();
