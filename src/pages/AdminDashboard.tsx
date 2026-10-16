@@ -1665,6 +1665,10 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                   )}
                 </TabsTrigger>
               </div>
+                <TabsTrigger value="ai-operations" className="gap-1.5 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+                  <Zap className="w-4 h-4" />
+                  <span className="hidden sm:inline">AI Operations</span>
+                </TabsTrigger>
               {/* Staff */}
               <div className="flex items-center gap-1 px-2 py-1 bg-rose-500/10 rounded-lg">
                 <span className="text-[10px] font-medium text-rose-600 uppercase tracking-wider mr-1 hidden md:inline">Staff</span>
