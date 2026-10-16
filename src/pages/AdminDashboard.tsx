@@ -95,6 +95,7 @@ import { ClassAdministration } from "@/components/admin/ClassAdministration";
 import { GeoAttendance } from "@/components/GeoAttendance";
 import StudentAIHistory from "@/components/admin/StudentAIHistory";
 import { StudentAttendanceScanner } from "@/components/StudentAttendanceScanner";
+import { AIOperationsDashboard } from "@/components/admin/AIOperationsDashboard";
 
 interface ContactSubmission {
   id: string;
@@ -2263,6 +2264,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
 
           {/* Analytics Tab */}
           <TabsContent value="analytics">
+            {isOwner || mode === "admin" ? <AIOperationsDashboard /> : null}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
