@@ -360,6 +360,12 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
 
   // Quick toggle (keeps old behavior for fast marking)
   const handleQuickToggle = (teacherId: string, dateStr: string) => {
+    // Attendance must never be marked for a future calendar date.
+    const today = format(new Date(), "yyyy-MM-dd");
+    if (dateStr > today) {
+      toast({ title: "Future attendance is not allowed", description: "You can mark attendance only for today or a past date.", variant: "destructive" });
+      return;
+    }
     const existing = attendance.find(
       (a) => a.teacher_id === teacherId && a.attendance_date === dateStr
     );
@@ -690,10 +696,13 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
                                       : isToday
                                       ? "border-2 border-primary bg-primary/10"
                                       : isFuture
-                                      ? "bg-muted/30 text-muted-foreground/50"
+                                      ? "bg-muted/20 text-muted-foreground/30 cursor-not-allowed opacity-50"
                                       : "bg-muted/50 hover:bg-muted"
                                   }`}
                                   onClick={() => handleQuickToggle(teacher.id, dateStr)}
+                                  disabled={isFuture}
+                                  aria-label={isFuture ? `Future date ${dateStr}; attendance disabled` : `Mark attendance for ${teacher.name} on ${dateStr}`}
+                                  title={isFuture ? "Future attendance cannot be marked" : `Mark attendance for ${dateStr}`}
                                 >
                                   {status === "present"
                                     ? "P"
