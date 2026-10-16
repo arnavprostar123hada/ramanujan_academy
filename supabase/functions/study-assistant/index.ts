@@ -563,7 +563,7 @@ async function logCacheHit(admin: ReturnType<typeof createClient> | null, mode: 
   } catch (error) { console.error("AI cache event logging failed", error); }
 }
 
-async function finalizeAIEvent(admin: ReturnType<typeof createClient> | null, reservationId: string | null, details: {
+async function finalizeAIEvent(admin: ReturnType<typeof createClient> | null, reservationId: string | null, actorId: string, details: {
   provider?: string; model?: string; inputTokens: number; outputTokens: number; success: boolean; latencyMs: number; error?: string;
 }) {
   if (!admin || !reservationId) return;
@@ -579,7 +579,7 @@ async function finalizeAIEvent(admin: ReturnType<typeof createClient> | null, re
       latency_ms: Math.max(0, details.latencyMs),
       success: details.success,
       estimated_cost_usd: Math.max(DEFAULT_REQUEST_RESERVE_USD, tokenEstimate),
-      metadata: { status: details.success ? "completed" : "provider_error", error: details.error || null, input_tokens: details.inputTokens, output_tokens: details.outputTokens },
+      metadata: { actor_id: actorId, status: details.success ? "completed" : "provider_error", error: details.error || null, input_tokens: details.inputTokens, output_tokens: details.outputTokens },
     }).eq("id", reservationId);
   } catch (error) { console.error("AI usage event update failed", error); }
 }
@@ -656,10 +656,23 @@ Deno.serve(async (req) => {
     const sourceText = sanitizeText(rawSource.slice(0, MAX_SOURCE_CHARS));
 
     if (!messages.length && !sourceText) return json({ error: "Please provide a message." }, 400);
-    if (actorRole === "teacher" && !teacherId) return json({ error: "Teacher identity is required." }, 400);
+    const teacherAccessCode = typeof body.teacherAccessCode === "string" ? body.teacherAccessCode.trim().toUpperCase() : "";
+    if (actorRole === "teacher" && (!teacherId || !teacherAccessCode)) {
+      return json({ error: "Please sign in again to use Teacher AI." }, 401);
+    }
 
     const admin = await getAdminClient();
     const authenticatedUserId = await getAuthenticatedUserId(req);
+
+    if (actorRole === "teacher") {
+      if (!admin) return json({ error: "Teacher AI service unavailable." }, 503);
+      const { data: authorizedTeacher } = await admin.from("teachers")
+        .select("id")
+        .eq("id", teacherId)
+        .eq("access_code", teacherAccessCode)
+        .maybeSingle();
+      if (!authorizedTeacher) return json({ error: "Teacher access is not authorized. Please sign in again." }, 403);
+    }
 
     const teacherCredits = actorRole === "teacher" ? await getTeacherCredits(admin, teacherId) : null;
     if (actorRole === "teacher" && mode === "teacher_balance") {
@@ -738,11 +751,18 @@ Deno.serve(async (req) => {
       cached_student_charge: Math.max(0, Math.min(10, Number(cacheSettingsResult.data?.setting_value?.cached_student_charge ?? DEFAULT_CACHE_CHARGE))),
     };
     const personalized = isPersonalizedRequest(messages, sourceText) || !!parentAccessCode;
-    const normalized = JSON.stringify({
+    const lastUserQuestion = messages.filter((m) => m.role === "user").at(-1)?.content?.trim() || "";
+    const singleQuestion = messages.length === 1 && messages[0]?.role === "user" && !sourceText;
+    const shareable = singleQuestion && !personalized && lastUserQuestion.length >= 4;
+    const normalized = JSON.stringify(shareable ? {
+      cacheVersion: 2,
       actorRole,
-      // General academic questions share cached answers across users of the same role.
-      // Requests with source material or personal data stay scoped to the user.
-      cacheScope: personalized ? (actorRole === "teacher" ? teacherId : resolvedStudentId) : "shared",
+      mode,
+      question: lastUserQuestion,
+    } : {
+      cacheVersion: 2,
+      actorRole,
+      cacheScope: actorRole === "teacher" ? teacherId : resolvedStudentId,
       mode,
       messages,
       sourceText,
@@ -825,7 +845,7 @@ Deno.serve(async (req) => {
     }
 
     if (!result?.content) {
-      await finalizeAIEvent(admin, reservationId, { inputTokens: 0, outputTokens: 0, success: false, latencyMs: Date.now() - requestStartedAt, error: "All configured AI providers failed" });
+      await finalizeAIEvent(admin, reservationId, actorId, { inputTokens: 0, outputTokens: 0, success: false, latencyMs: Date.now() - requestStartedAt, error: "All configured AI providers failed" });
       if (admin) await admin.from("ai_operations_events").insert({ event_type: "provider_error", feature: mode, actor_role: actorRole, success: false, estimated_cost_usd: 0, metadata: { actor_id: actorId, reason: "all providers failed" } });
       const content = fallback(messages, mode, sourceText, actorRole);
       const fallbackUsage: AIUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0, credits: 0, cached: true };
@@ -835,7 +855,7 @@ Deno.serve(async (req) => {
     }
 
     const cleanResult = mode === "quiz" || mode === "mindmap" || mode === "flashcards" || mode === "study_plan" ? sanitizeText(result.content) : cleanGeneratedText(result.content);
-    await finalizeAIEvent(admin, reservationId, { provider: result.provider, model: result.model, inputTokens: result.usage.inputTokens, outputTokens: result.usage.outputTokens, success: true, latencyMs: Date.now() - requestStartedAt });
+    await finalizeAIEvent(admin, reservationId, actorId, { provider: result.provider, model: result.model, inputTokens: result.usage.inputTokens, outputTokens: result.usage.outputTokens, success: true, latencyMs: Date.now() - requestStartedAt });
 
     // Never charge a student for malformed structured study plans.
     if (mode === "study_plan" && !parseStudyPlanContent(cleanResult)) {
