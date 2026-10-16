@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,7 @@ type Settings = {
   cache_hours: number;
   cached_student_charge: number;
   max_requests_per_user_per_minute: number;
+  request_reserve_usd: number;
 };
 
 const defaultSummary: Summary = {
@@ -38,7 +40,7 @@ const defaultSummary: Summary = {
 
 const defaultSettings: Settings = {
   enabled: true, daily_budget_usd: 1, monthly_budget_usd: 10, cache_hours: 24,
-  cached_student_charge: 0.5, max_requests_per_user_per_minute: 10,
+  cached_student_charge: 0.5, max_requests_per_user_per_minute: 10, request_reserve_usd: 0.05,
 };
 
 const money = (value: number) => new Intl.NumberFormat("en-US", {
@@ -78,9 +80,9 @@ export function AIOperationsDashboard() {
 
   const saveSettings = async () => {
     setSettingsLoading(true);
-    const { data, error } = await supabase.rpc("update_ai_operations_settings" as never, {
-      p_settings: settings as never,
-    } as never);
+    const { data, error } = await supabase.rpc("update_ai_operations_settings", {
+      p_settings: settings as unknown as Json,
+    });
     setSettingsLoading(false);
     if (error || !data) {
       toast({
@@ -183,7 +185,8 @@ export function AIOperationsDashboard() {
             <label className="space-y-1 text-sm"><span>Monthly API budget (USD)</span><input type="number" min="0" max="10000" step="1" value={settings.monthly_budget_usd} onChange={(e) => setSettings({ ...settings, monthly_budget_usd: Math.max(0, Number(e.target.value)) })} className="w-full rounded-md border bg-background px-3 py-2" /></label>
             <label className="space-y-1 text-sm"><span>Cache lifetime (hours)</span><input type="number" min="1" max="720" step="1" value={settings.cache_hours} onChange={(e) => setSettings({ ...settings, cache_hours: Math.min(720, Math.max(1, Number(e.target.value))) })} className="w-full rounded-md border bg-background px-3 py-2" /></label>
             <label className="space-y-1 text-sm"><span>Cached response RA Points</span><input type="number" min="0" max="10" step="0.25" value={settings.cached_student_charge} onChange={(e) => setSettings({ ...settings, cached_student_charge: Math.min(10, Math.max(0, Number(e.target.value))) })} className="w-full rounded-md border bg-background px-3 py-2" /></label>
-            <label className="space-y-1 text-sm sm:col-span-2"><span>Maximum AI requests per user per minute</span><input type="number" min="1" max="120" step="1" value={settings.max_requests_per_user_per_minute} onChange={(e) => setSettings({ ...settings, max_requests_per_user_per_minute: Math.min(120, Math.max(1, Number(e.target.value))) })} className="w-full rounded-md border bg-background px-3 py-2" /></label>
+            <label className="space-y-1 text-sm"><span>Maximum AI requests per user per minute</span><input type="number" min="1" max="120" step="1" value={settings.max_requests_per_user_per_minute} onChange={(e) => setSettings({ ...settings, max_requests_per_user_per_minute: Math.min(120, Math.max(1, Number(e.target.value))) })} className="w-full rounded-md border bg-background px-3 py-2" /></label>
+            <label className="space-y-1 text-sm"><span>Budget reserved per AI request (USD)</span><input type="number" min="0.001" max="10" step="0.005" value={settings.request_reserve_usd} onChange={(e) => setSettings({ ...settings, request_reserve_usd: Math.min(10, Math.max(0.001, Number(e.target.value))) })} className="w-full rounded-md border bg-background px-3 py-2" /><span className="block text-xs text-muted-foreground">Conservative budget estimate, not the provider's exact charge.</span></label>
           </div>
           <div className="flex justify-end"><Button onClick={() => void saveSettings()} disabled={settingsLoading}>{settingsLoading ? "Saving…" : "Save settings"}</Button></div>
         </CardContent>
