@@ -3444,7 +3444,7 @@ export type Database = {
         Returns: Json
       }
       get_ai_operations_settings: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: Json
       }
       update_ai_operations_settings: {
