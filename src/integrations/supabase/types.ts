@@ -3439,6 +3439,19 @@ export type Database = {
       }
     }
     Functions: {
+      get_ai_operations_summary: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
+      get_ai_operations_settings: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      update_ai_operations_settings: {
+        Args: { p_settings: Json }
+        Returns: Json
+      }
+
       award_student_ra_points: {
         Args: {
           p_metadata?: Json
