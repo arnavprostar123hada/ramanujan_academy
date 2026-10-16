@@ -67,11 +67,7 @@ export function AIOperationsDashboard() {
           <p className="text-sm text-muted-foreground">Provider health, usage, caching and estimated cost from recorded AI events.</p>
         </div>
         <div className="flex items-center gap-2">
-          <NativeSelect value={days} onChange={(event) => setDays(event.target.value)} aria-label="Metrics period">
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 90 days</option>
-          </NativeSelect>
+          <NativeSelect value={days} onValueChange={setDays} options={[{ value: "7", label: "Last 7 days" }, { value: "30", label: "Last 30 days" }, { value: "90", label: "Last 90 days" }]} aria-label="Metrics period" />
           <Button variant="outline" onClick={() => void load()} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Refresh
