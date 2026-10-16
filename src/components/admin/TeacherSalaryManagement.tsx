@@ -696,7 +696,7 @@ export function TeacherSalaryManagement({ teachers, onRefresh }: TeacherSalaryMa
                                       : isToday
                                       ? "border-2 border-primary bg-primary/10"
                                       : isFuture
-                                      ? "bg-muted/20 text-muted-foreground/30 cursor-not-allowed opacity-50"
+                                      ? "border border-dashed border-slate-300 bg-slate-50 text-slate-400 cursor-not-allowed opacity-100"
                                       : "bg-muted/50 hover:bg-muted"
                                   }`}
                                   onClick={() => handleQuickToggle(teacher.id, dateStr)}
