@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -76,6 +76,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      academic_syllabi: {
+        Row: {
+          academic_year: string
+          board: string
+          class_level: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          subject: string
+          syllabus_content: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          academic_year?: string
+          board?: string
+          class_level: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          subject: string
+          syllabus_content: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          academic_year?: string
+          board?: string
+          class_level?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          subject?: string
+          syllabus_content?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       admin_attendance: {
         Row: {
@@ -336,6 +378,190 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_admin_actions: {
+        Row: {
+          action_type: string
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          payload: Json
+          resolved_at: string | null
+          result: Json | null
+          status: string
+          thread_id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          created_by: string
+          expires_at?: string
+          id?: string
+          payload?: Json
+          resolved_at?: string | null
+          result?: Json | null
+          status?: string
+          thread_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          payload?: Json
+          resolved_at?: string | null
+          result?: Json | null
+          status?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_admin_actions_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "ai_admin_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_admin_messages: {
+        Row: {
+          actor_user_id: string | null
+          content: string
+          created_at: string
+          id: string
+          metadata: Json
+          role: string
+          thread_id: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          role: string
+          thread_id: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          role?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_admin_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "ai_admin_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_admin_threads: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          created_by: string
+          id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_operations_events: {
+        Row: {
+          actor_role: string
+          cache_hit: boolean
+          created_at: string
+          estimated_cost_usd: number
+          event_type: string
+          feature: string
+          id: string
+          input_tokens: number
+          latency_ms: number | null
+          metadata: Json
+          model: string | null
+          output_tokens: number
+          provider: string | null
+          success: boolean
+        }
+        Insert: {
+          actor_role?: string
+          cache_hit?: boolean
+          created_at?: string
+          estimated_cost_usd?: number
+          event_type: string
+          feature?: string
+          id?: string
+          input_tokens?: number
+          latency_ms?: number | null
+          metadata?: Json
+          model?: string | null
+          output_tokens?: number
+          provider?: string | null
+          success?: boolean
+        }
+        Update: {
+          actor_role?: string
+          cache_hit?: boolean
+          created_at?: string
+          estimated_cost_usd?: number
+          event_type?: string
+          feature?: string
+          id?: string
+          input_tokens?: number
+          latency_ms?: number | null
+          metadata?: Json
+          model?: string | null
+          output_tokens?: number
+          provider?: string | null
+          success?: boolean
+        }
+        Relationships: []
+      }
+      ai_operations_settings: {
+        Row: {
+          setting_key: string
+          setting_value: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          setting_key: string
+          setting_value?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          setting_key?: string
+          setting_value?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       ai_response_cache: {
         Row: {
@@ -1282,108 +1508,13 @@ export type Database = {
           },
         ]
       }
-      fee_structures: {
-        Row: {
-          id: string
-          academic_year: string
-          class: string
-          board: string
-          course_name: string
-          fee_amount: number
-          currency: string
-          is_active: boolean
-          effective_from: string
-          effective_to: string | null
-          created_by: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          academic_year?: string
-          class: string
-          board?: string
-          course_name?: string
-          fee_amount: number
-          currency?: string
-          is_active?: boolean
-          effective_from?: string
-          effective_to?: string | null
-          created_by?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          academic_year?: string
-          class?: string
-          board?: string
-          course_name?: string
-          fee_amount?: number
-          currency?: string
-          is_active?: boolean
-          effective_from?: string
-          effective_to?: string | null
-          created_by?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      student_fee_concessions: {
-        Row: {
-          id: string
-          student_id: string
-          academic_year: string
-          concession_type: string
-          concession_value: number
-          reason: string
-          approved_by: string
-          approved_at: string
-          expires_on: string | null
-          active: boolean
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          student_id: string
-          academic_year?: string
-          concession_type: string
-          concession_value: number
-          reason: string
-          approved_by: string
-          approved_at?: string
-          expires_on?: string | null
-          active?: boolean
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          student_id?: string
-          academic_year?: string
-          concession_type?: string
-          concession_value?: number
-          reason?: string
-          approved_by?: string
-          approved_at?: string
-          expires_on?: string | null
-          active?: boolean
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "student_fee_concessions_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       fee_accounts: {
         Row: {
           created_at: string
           discount: number | null
+          fee_applied_at: string | null
+          fee_applied_by: string | null
+          fee_structure_id: string | null
           id: string
           net_fee: number
           scholarship: number | null
@@ -1394,6 +1525,9 @@ export type Database = {
         Insert: {
           created_at?: string
           discount?: number | null
+          fee_applied_at?: string | null
+          fee_applied_by?: string | null
+          fee_structure_id?: string | null
           id?: string
           net_fee?: number
           scholarship?: number | null
@@ -1404,6 +1538,9 @@ export type Database = {
         Update: {
           created_at?: string
           discount?: number | null
+          fee_applied_at?: string | null
+          fee_applied_by?: string | null
+          fee_structure_id?: string | null
           id?: string
           net_fee?: number
           scholarship?: number | null
@@ -1412,6 +1549,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fee_accounts_fee_structure_id_fkey"
+            columns: ["fee_structure_id"]
+            isOneToOne: false
+            referencedRelation: "fee_structures"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fee_accounts_student_id_fkey"
             columns: ["student_id"]
@@ -1521,6 +1665,90 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      fee_structures: {
+        Row: {
+          academic_year: string
+          board: string
+          class: string
+          course_name: string
+          created_at: string
+          created_by: string | null
+          currency: string
+          effective_from: string
+          effective_to: string | null
+          fee_amount: number
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          academic_year?: string
+          board?: string
+          class: string
+          course_name?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          effective_from?: string
+          effective_to?: string | null
+          fee_amount: number
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          academic_year?: string
+          board?: string
+          class?: string
+          course_name?: string
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          effective_from?: string
+          effective_to?: string | null
+          fee_amount?: number
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      finance_audit_log: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          after_data: Json | null
+          before_data: Json | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          reason: string | null
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          reason?: string | null
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          reason?: string | null
+        }
+        Relationships: []
       }
       finance_expenses: {
         Row: {
@@ -1649,6 +1877,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      finance_receipt_sequence: {
+        Row: {
+          last_value: number
+          sequence_year: number
+        }
+        Insert: {
+          last_value?: number
+          sequence_year: number
+        }
+        Update: {
+          last_value?: number
+          sequence_year?: number
+        }
+        Relationships: []
       }
       geofence_locations: {
         Row: {
@@ -2326,68 +2569,6 @@ export type Database = {
         }
         Relationships: []
       }
-      ra_points_reset_history: {
-        Row: {
-          id: string
-          student_id: string
-          reset_month: string
-          points_before: number
-          monthly_allowance: number
-          reset_at: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          student_id: string
-          reset_month: string
-          points_before: number
-          monthly_allowance: number
-          reset_at?: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          student_id?: string
-          reset_month?: string
-          points_before?: number
-          monthly_allowance?: number
-          reset_at?: string
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ra_points_reset_history_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ra_points_settings: {
-        Row: {
-          id: number
-          regular_monthly_allowance: number
-          online_monthly_allowance: number
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          id?: number
-          regular_monthly_allowance?: number
-          online_monthly_allowance?: number
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          id?: number
-          regular_monthly_allowance?: number
-          online_monthly_allowance?: number
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: []
-      }
       ra_points: {
         Row: {
           created_at: string
@@ -2412,6 +2593,68 @@ export type Database = {
           points?: number
           student_id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      ra_points_reset_history: {
+        Row: {
+          created_at: string
+          id: string
+          monthly_allowance: number
+          points_before: number
+          reset_at: string
+          reset_month: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          monthly_allowance: number
+          points_before: number
+          reset_at?: string
+          reset_month: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          monthly_allowance?: number
+          points_before?: number
+          reset_at?: string
+          reset_month?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ra_points_reset_history_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ra_points_settings: {
+        Row: {
+          id: number
+          online_monthly_allowance: number
+          regular_monthly_allowance: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: number
+          online_monthly_allowance?: number
+          regular_monthly_allowance?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: number
+          online_monthly_allowance?: number
+          regular_monthly_allowance?: number
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -2745,6 +2988,56 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "student_concerns_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_fee_concessions: {
+        Row: {
+          academic_year: string
+          active: boolean
+          approved_at: string
+          approved_by: string
+          concession_type: string
+          concession_value: number
+          created_at: string
+          expires_on: string | null
+          id: string
+          reason: string
+          student_id: string
+        }
+        Insert: {
+          academic_year?: string
+          active?: boolean
+          approved_at?: string
+          approved_by: string
+          concession_type: string
+          concession_value: number
+          created_at?: string
+          expires_on?: string | null
+          id?: string
+          reason: string
+          student_id: string
+        }
+        Update: {
+          academic_year?: string
+          active?: boolean
+          approved_at?: string
+          approved_by?: string
+          concession_type?: string
+          concession_value?: number
+          created_at?: string
+          expires_on?: string | null
+          id?: string
+          reason?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_fee_concessions_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "students"
@@ -3469,30 +3762,6 @@ export type Database = {
           },
         ]
       }
-      finance_receipt_register: {
-        Row: {
-          payment_id: string
-          receipt_number: string | null
-          payment_date: string
-          amount: number
-          payment_mode: string | null
-          reference_number: string | null
-          fee_type: string | null
-          cash_bank: string | null
-          notes: string | null
-          branch_id: string | null
-          student_id: string
-          student_name: string
-          class: string
-          board: string | null
-          academic_year: string | null
-          total_fee: number
-          scholarship: number | null
-          discount: number | null
-          net_fee: number
-        }
-        Relationships: []
-      }
       finance_dashboard: {
         Row: {
           active_students: number | null
@@ -3515,6 +3784,45 @@ export type Database = {
           report_month: string | null
         }
         Relationships: []
+      }
+      finance_receipt_register: {
+        Row: {
+          academic_year: string | null
+          amount: number | null
+          board: string | null
+          branch_id: string | null
+          cash_bank: string | null
+          class: string | null
+          discount: number | null
+          fee_type: string | null
+          net_fee: number | null
+          notes: string | null
+          payment_date: string | null
+          payment_id: string | null
+          payment_mode: string | null
+          receipt_number: string | null
+          reference_number: string | null
+          scholarship: number | null
+          student_id: string | null
+          student_name: string | null
+          total_fee: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_accounts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_payments_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       finance_receivables: {
         Row: {
@@ -3561,19 +3869,14 @@ export type Database = {
       }
     }
     Functions: {
-      get_ai_operations_summary: {
-        Args: { p_days?: number }
+      apply_student_fee_structure: {
+        Args: {
+          p_fee_structure_id: string
+          p_reason?: string
+          p_student_id: string
+        }
         Returns: Json
       }
-      get_ai_operations_settings: {
-        Args: never
-        Returns: Json
-      }
-      update_ai_operations_settings: {
-        Args: { p_settings: Json }
-        Returns: Json
-      }
-
       award_student_ra_points: {
         Args: {
           p_metadata?: Json
@@ -3630,6 +3933,8 @@ export type Database = {
         }
         Returns: string
       }
+      get_ai_operations_settings: { Args: never; Returns: Json }
+      get_ai_operations_summary: { Args: { p_days?: number }; Returns: Json }
       get_my_access_profile: {
         Args: never
         Returns: {
@@ -3641,20 +3946,36 @@ export type Database = {
       get_ra_points_allowances: {
         Args: never
         Returns: {
-          regular_monthly_allowance: number
           online_monthly_allowance: number
+          regular_monthly_allowance: number
+        }[]
+      }
+      get_student_academic_syllabus: {
+        Args: { p_parent_access_code?: string; p_student_id: string }
+        Returns: {
+          academic_year: string
+          board: string
+          class_level: string
+          id: string
+          subject: string
+          syllabus_content: string
+          title: string
         }[]
       }
       get_student_ra_points: {
         Args: { p_student_id: string }
         Returns: {
-          points: number
           last_reset: string
           monthly_allowance: number
           next_reset: string
+          points: number
         }[]
       }
       is_admin_or_owner: { Args: never; Returns: boolean }
+      next_finance_receipt_number: {
+        Args: { p_payment_date?: string }
+        Returns: string
+      }
       parent_login_by_access_code: {
         Args: { p_access_code: string }
         Returns: {
@@ -3668,6 +3989,20 @@ export type Database = {
           student_type: string
         }[]
       }
+      parent_login_by_name_phone: {
+        Args: { p_phone: string; p_student_name: string }
+        Returns: {
+          access_code: string
+          batch: string
+          board: string
+          class: string
+          id: string
+          name: string
+          parent_name: string
+          student_type: string
+        }[]
+      }
+      parent_secure_summary: { Args: { p_access_code: string }; Returns: Json }
       queue_due_automations: { Args: never; Returns: undefined }
       refresh_overdue_installments: { Args: never; Returns: undefined }
       refund_student_ra_points: {
@@ -3682,24 +4017,16 @@ export type Database = {
           ok: boolean
         }[]
       }
-      reset_monthly_ra_points: { Args: never; Returns: number }
-      update_ra_points_allowances: {
-        Args: { p_regular_monthly_allowance: number; p_online_monthly_allowance: number }
-        Returns: { ok: boolean; regular_monthly_allowance: number; online_monthly_allowance: number }[]
-      }
-      teacher_geo_attendance: {
+      reserve_ai_operations_request: {
         Args: {
-          p_access_code: string
-          p_action: string
-          p_accuracy?: number | null
-          p_is_late?: boolean
-          p_lat?: number | null
-          p_lng?: number | null
-          p_method?: string
-          p_teacher_id: string
+          p_actor_id: string
+          p_actor_role: string
+          p_estimated_cost_usd?: number
+          p_feature: string
         }
         Returns: Json
       }
+      reset_monthly_ra_points: { Args: never; Returns: number }
       set_active_geofence: {
         Args: {
           p_latitude: number
@@ -3726,6 +4053,34 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      teacher_geo_attendance: {
+        Args: {
+          p_access_code: string
+          p_accuracy?: number
+          p_action: string
+          p_is_late?: boolean
+          p_lat?: number
+          p_lng?: number
+          p_method?: string
+          p_teacher_id: string
+        }
+        Returns: Json
+      }
+      update_ai_operations_settings: {
+        Args: { p_settings: Json }
+        Returns: Json
+      }
+      update_ra_points_allowances: {
+        Args: {
+          p_online_monthly_allowance: number
+          p_regular_monthly_allowance: number
+        }
+        Returns: {
+          ok: boolean
+          online_monthly_allowance: number
+          regular_monthly_allowance: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
