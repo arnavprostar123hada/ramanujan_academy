@@ -117,8 +117,6 @@ export function FinanceCommandCentre() {
       supabase.from("finance_monthly_mis").select("*").order("report_month", { ascending: true }),
       supabase.from("finance_receivables").select("*").order("outstanding", { ascending: false }).limit(100),
       supabase.from("students").select("id,name,class,board,branch_id").eq("status", "active").order("name"),
-      supabase.from("fee_structures").select("id,academic_year,class,board,course_name,fee_amount,is_active").order("academic_year", { ascending: false }).order("class"),
-      supabase.from("finance_receipt_register").select("payment_id,receipt_number,payment_date,amount,payment_mode,reference_number,fee_type,student_id,student_name,class,board").order("payment_date", { ascending: false }).limit(100),
     ]);
     if (d.error || m.error || r.error || s.error) {
       console.error("Finance load error", { d: d.error, m: m.error, r: r.error, s: s.error });
@@ -321,12 +319,13 @@ export function FinanceCommandCentre() {
       </div>
 
       <Tabs defaultValue="collection">
-        <TabsList className="grid w-full grid-cols-2 gap-1 sm:grid-cols-5">
+        <TabsList className="grid w-full grid-cols-2 gap-1 sm:grid-cols-6">
           <TabsTrigger value="collection">Fee Collection</TabsTrigger>
           <TabsTrigger value="fees">Fee Setup</TabsTrigger>
           <TabsTrigger value="concessions">Concessions</TabsTrigger>
           <TabsTrigger value="receipts">Receipts</TabsTrigger>
           <TabsTrigger value="expenses">Expense Entry</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
 
         <TabsContent value="collection">
