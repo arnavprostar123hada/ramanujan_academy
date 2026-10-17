@@ -165,7 +165,7 @@ function printFinanceReceipt(receipt: ReceiptRow) {
     '<div class="field"><b>Payment Date:</b><span>' + escapeReceiptHtml(paidDate) + '</span></div>' +
     '<div class="field"><b>Bank Name (if applicable):</b><span>—</span></div>' +
     '<div class="field"><b>Cash / Bank Account:</b><span>' + escapeReceiptHtml(receipt.cash_bank || "—") + '</span></div></div></section>' +
-    '<section class="signatures"><div class="sign">Depositor\\'s Signature</div><div class="sign">Authorised Signatory / Seal</div></section>' +
+    '<section class="signatures"><div class="sign">Depositor&#39;s Signature</div><div class="sign">Authorised Signatory / Seal</div></section>' +
     '<p class="foot">Computer-generated receipt. Please retain this receipt for your records.</p></main>' +
     '<div class="actions"><button onclick="window.print()">Print / Save as PDF</button></div>' +
     '<script>window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},300)});</script></body></html>';
