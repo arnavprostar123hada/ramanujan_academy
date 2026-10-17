@@ -65,6 +65,7 @@ type ReceiptRow = {
 
 type StudentOption = { id: string; name: string; class: string; board: string | null; branch_id: string | null; academic_year?: string | null };
 type AppliedFeeResult = { success: boolean; net_fee: number; discount: number; scholarship: number; outstanding: number; collected: number };
+type RecordedPaymentResult = { success: boolean; payment_id: string; receipt_number: string; amount: number; outstanding_after: number; student_name: string };
 
 export function FinanceCommandCentre() {
   const { toast } = useToast();
@@ -149,45 +150,52 @@ export function FinanceCommandCentre() {
     }
     setSavingFee(true);
     const student = students.find((s) => s.id === feeForm.student_id);
-    const account = await supabase.from("fee_accounts").select("id").eq("student_id", feeForm.student_id).maybeSingle();
-    let accountId = account.data?.id;
+    const account = await supabase
+      .from("fee_accounts")
+      .select("id")
+      .eq("student_id", feeForm.student_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    if (!accountId) {
-      const created = await supabase
-        .from("fee_accounts")
-        .insert({
-          student_id: feeForm.student_id,
-          total_fee: Number(feeForm.amount),
-          net_fee: Number(feeForm.amount),
-          scholarship: 0,
-          discount: 0,
-        })
-        .select("id")
-        .single();
-      if (created.error) {
-        toast({ title: "Fee account could not be created", description: created.error.message, variant: "destructive" });
-        setSavingFee(false);
-        return;
-      }
-      accountId = created.data.id;
+    if (account.error) {
+      toast({ title: "Fee account could not be loaded", description: account.error.message, variant: "destructive" });
+      setSavingFee(false);
+      return;
+    }
+    if (!account.data?.id) {
+      toast({
+        title: "Set the student's fee first",
+        description: "Open Fee Setup → Apply Fee to Student Account before recording an instalment. No payment was recorded.",
+        variant: "destructive",
+      });
+      setSavingFee(false);
+      return;
     }
 
-    const { data: paymentData, error } = await supabase.from("fee_payments").insert({
-      fee_account_id: accountId,
-      payment_date: feeForm.payment_date,
-      amount: Number(feeForm.amount),
-      payment_mode: feeForm.payment_mode,
-      reference_number: feeForm.reference_number || null,
-      notes: feeForm.notes || (student ? `Payment for ${student.name}` : null),
-      branch_id: student?.branch_id ?? null,
-      fee_type: feeForm.fee_type,
-      cash_bank: feeForm.cash_bank,
-    }).select("receipt_number").single();
+    const { data, error } = await supabase.rpc("record_fee_payment", {
+      p_fee_account_id: account.data.id,
+      p_payment_date: feeForm.payment_date,
+      p_amount: Number(feeForm.amount),
+      p_payment_mode: feeForm.payment_mode,
+      p_reference_number: feeForm.reference_number || null,
+      p_notes: feeForm.notes || (student ? `Payment for ${student.name}` : null),
+      p_fee_type: feeForm.fee_type,
+      p_cash_bank: feeForm.cash_bank,
+    });
 
-    if (error) {
-      toast({ title: "Payment not recorded", description: error.message, variant: "destructive" });
+    if (error || !data) {
+      toast({
+        title: "Payment not recorded",
+        description: error?.message || "The payment service did not return a receipt.",
+        variant: "destructive",
+      });
     } else {
-      toast({ title: "Payment recorded", description: `Receipt ${paymentData.receipt_number} created.` });
+      const result = data as unknown as RecordedPaymentResult;
+      toast({
+        title: "Payment recorded",
+        description: `Receipt ${result.receipt_number} created. Remaining fee: ${money(result.outstanding_after)}.`,
+      });
       setFeeForm((f) => ({ ...f, amount: "", reference_number: "", notes: "" }));
       await loadFinance();
     }
