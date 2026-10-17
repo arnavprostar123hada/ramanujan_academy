@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { AIOperationsDashboard } from "@/components/admin/AIOperationsDashboard";
+import { AdminWorkflowAssistant } from "@/components/admin/AdminWorkflowAssistant";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
@@ -2269,7 +2270,10 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
           {/* Analytics Tab */}
                     {/* AI Operations Dashboard */}
           <TabsContent value="ai-operations">
-            <AIOperationsDashboard />
+            <div className="space-y-6">
+              <AdminWorkflowAssistant />
+              <AIOperationsDashboard />
+            </div>
           </TabsContent>
 
 <TabsContent value="analytics">
