@@ -4004,6 +4004,19 @@ export type Database = {
       }
       parent_secure_summary: { Args: { p_access_code: string }; Returns: Json }
       queue_due_automations: { Args: never; Returns: undefined }
+      record_fee_payment: {
+        Args: {
+          p_amount: number
+          p_cash_bank?: string
+          p_fee_account_id: string
+          p_fee_type?: string
+          p_notes?: string
+          p_payment_date: string
+          p_payment_mode: string
+          p_reference_number?: string
+        }
+        Returns: Json
+      }
       refresh_overdue_installments: { Args: never; Returns: undefined }
       refund_student_ra_points: {
         Args: {
