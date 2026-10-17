@@ -126,17 +126,6 @@ Deno.serve(async (req) => {
     const actorRecent = (recentEvents || []).filter((e) => (e.metadata as Record<string, unknown> | null)?.actor_id === actorId);
     if (actorRecent.length >= perMinute) return json({ error: "Rate limit reached. Please wait a minute before trying again." }, 429);
 
-    const dayAgo = new Date(now - 86_400_000).toISOString();
-    const monthAgo = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-    const { data: costEvents } = await admin.from("ai_operations_events").select("estimated_cost_usd,created_at")
-      .gte("created_at", monthAgo).order("created_at", { ascending: false }).limit(5000);
-    const events = costEvents || [];
-    const dailyCost = events.filter((e) => e.created_at >= dayAgo).reduce((sum, e) => sum + Number(e.estimated_cost_usd || 0), 0);
-    const monthlyCost = events.reduce((sum, e) => sum + Number(e.estimated_cost_usd || 0), 0);
-    if (dailyCost + reserve > dailyBudget || monthlyCost + reserve > monthlyBudget) {
-      return json({ error: "AI budget limit reached. Increase the budget in AI Operations or try again after the budget window resets." }, 429);
-    }
-
     const cacheHours = clamp(settings.cache_hours, 24, 1, 720);
     const cacheKey = "admin-workflow:" + await hash(actorId + "\n" + prompt + "\n" + imageDataUrl);
     const { data: cached } = await admin.from("ai_response_cache").select("response_text")
@@ -149,6 +138,17 @@ Deno.serve(async (req) => {
         metadata: { actor_id: actorId },
       });
       return json({ reply: cached.response_text, cached: true, provider: "cache" });
+    }
+
+    const dayAgo = new Date(now - 86_400_000).toISOString();
+    const monthAgo = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+    const { data: costEvents } = await admin.from("ai_operations_events").select("estimated_cost_usd,created_at")
+      .gte("created_at", monthAgo).order("created_at", { ascending: false }).limit(5000);
+    const events = costEvents || [];
+    const dailyCost = events.filter((e) => e.created_at >= dayAgo).reduce((sum, e) => sum + Number(e.estimated_cost_usd || 0), 0);
+    const monthlyCost = events.reduce((sum, e) => sum + Number(e.estimated_cost_usd || 0), 0);
+    if (dailyCost + reserve > dailyBudget || monthlyCost + reserve > monthlyBudget) {
+      return json({ error: "AI budget limit reached. Increase the budget in AI Operations or try again after the budget window resets." }, 429);
     }
 
     const { data: reservation, error: reservationError } = await admin.from("ai_operations_events").insert({
