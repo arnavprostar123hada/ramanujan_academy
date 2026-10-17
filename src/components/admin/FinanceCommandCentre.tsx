@@ -171,24 +171,22 @@ export function FinanceCommandCentre() {
       accountId = created.data.id;
     }
 
-    const receiptNumber = `RC-${Date.now().toString().slice(-8)}`;
-    const { error } = await supabase.from("fee_payments").insert({
+    const { data: paymentData, error } = await supabase.from("fee_payments").insert({
       fee_account_id: accountId,
       payment_date: feeForm.payment_date,
       amount: Number(feeForm.amount),
       payment_mode: feeForm.payment_mode,
-      receipt_number: receiptNumber,
       reference_number: feeForm.reference_number || null,
       notes: feeForm.notes || (student ? `Payment for ${student.name}` : null),
       branch_id: student?.branch_id ?? null,
       fee_type: feeForm.fee_type,
       cash_bank: feeForm.cash_bank,
-    });
+    }).select("receipt_number").single();
 
     if (error) {
       toast({ title: "Payment not recorded", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Payment recorded", description: `Receipt ${receiptNumber} created.` });
+      toast({ title: "Payment recorded", description: `Receipt ${paymentData.receipt_number} created.` });
       setFeeForm((f) => ({ ...f, amount: "", reference_number: "", notes: "" }));
       await loadFinance();
     }
