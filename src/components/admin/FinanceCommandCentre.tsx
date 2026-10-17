@@ -67,6 +67,76 @@ type StudentOption = { id: string; name: string; class: string; board: string | 
 type AppliedFeeResult = { success: boolean; net_fee: number; discount: number; scholarship: number; outstanding: number; collected: number };
 type RecordedPaymentResult = { success: boolean; payment_id: string; receipt_number: string; amount: number; outstanding_after: number; student_name: string };
 
+
+function escapeReceiptHtml(value: unknown): string {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[character] || character);
+}
+
+function printFinanceReceipt(receipt: ReceiptRow) {
+  // Print a dedicated receipt document, never the dashboard viewport.
+  const printWindow = window.open("", "_blank", "width=900,height=720");
+  if (!printWindow) {
+    window.alert("Your browser blocked the receipt window. Allow pop-ups for this site and click Print again.");
+    return;
+  }
+
+  const amount = new Intl.NumberFormat("en-IN", {
+    style: "currency", currency: "INR", maximumFractionDigits: 2,
+  }).format(Number(receipt.amount || 0));
+  const field = (label: string, value: unknown) => (
+    '<div class="field"><span class="label">' + escapeReceiptHtml(label) +
+    '</span><span class="value">' + escapeReceiptHtml(value || "—") + "</span></div>"
+  );
+  const documentHtml = '<!doctype html><html><head><meta charset="utf-8" />' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1" />' +
+    '<title>Fee Receipt ' + escapeReceiptHtml(receipt.receipt_number) + '</title>' +
+    '<style>' +
+    'body{font-family:Arial,Helvetica,sans-serif;color:#171717;margin:0;padding:28px;background:#fff}' +
+    '.receipt{max-width:760px;margin:0 auto;border:1px solid #d4d4d4;padding:30px}' +
+    '.brand{text-align:center;border-bottom:2px solid #171717;padding-bottom:18px;margin-bottom:20px}' +
+    '.brand h1{font-size:25px;margin:0 0 6px}.brand p{margin:3px 0;color:#525252;font-size:12px}' +
+    '.title{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:20px 0}' +
+    '.title h2{font-size:19px;margin:0}.receipt-no{font-weight:700;font-size:14px}' +
+    '.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 24px}' +
+    '.field{border-bottom:1px solid #e5e5e5;padding:8px 0;display:flex;flex-direction:column;gap:5px}' +
+    '.label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#737373}.value{font-size:14px;font-weight:600;overflow-wrap:anywhere}' +
+    '.amount{margin-top:24px;background:#f5f5f5;border:1px solid #ddd;padding:18px;display:flex;justify-content:space-between;align-items:center;font-size:16px}' +
+    '.amount strong{font-size:24px}.footer{display:flex;justify-content:space-between;gap:20px;margin-top:55px;font-size:12px;color:#525252}' +
+    '.signature{border-top:1px solid #737373;padding-top:8px;min-width:160px;text-align:center}' +
+    '.note{font-size:11px;color:#737373;margin-top:24px;text-align:center}' +
+    '.actions{text-align:center;margin:20px auto}.actions button{padding:10px 18px;cursor:pointer}' +
+    '@media print{body{padding:0}.receipt{border:0;max-width:none;padding:16mm}.actions{display:none}@page{size:A4;margin:8mm}}' +
+    '@media(max-width:560px){.receipt{padding:16px}.grid{grid-template-columns:1fr}.title{align-items:flex-start;flex-direction:column}}' +
+    '</style></head><body><main class="receipt">' +
+    '<header class="brand"><h1>Ramanujan Academy</h1>' +
+    '<p>Not Just Education, But Complete Development</p>' +
+    '<p>Official Fee Payment Receipt</p></header>' +
+    '<div class="title"><h2>PAYMENT RECEIPT</h2><span class="receipt-no">Receipt No: ' +
+    escapeReceiptHtml(receipt.receipt_number) + '</span></div>' +
+    '<section class="grid">' +
+    field("Student Name", receipt.student_name) +
+    field("Class / Standard", receipt.class) +
+    field("Board", receipt.board) +
+    field("Payment Date", receipt.payment_date) +
+    field("Payment Mode", receipt.payment_mode) +
+    field("Fee Type", receipt.fee_type) +
+    field("Transaction / Reference No.", receipt.reference_number) +
+    field("Student ID", receipt.student_id) +
+    '</section><section class="amount"><span>Amount Received</span><strong>' +
+    escapeReceiptHtml(amount) + '</strong></section>' +
+    '<div class="footer"><span>This receipt confirms receipt of the payment shown above.</span>' +
+    '<span class="signature">Authorised Signature</span></div>' +
+    '<p class="note">Please retain this receipt for your records. Computer-generated receipt.</p>' +
+    '</main><div class="actions"><button onclick="window.print()">Print / Save as PDF</button></div>' +
+    '<script>window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},250);});</script>' +
+    '</body></html>';
+  printWindow.document.open();
+  printWindow.document.write(documentHtml);
+  printWindow.document.close();
+}
+
 export function FinanceCommandCentre() {
   const { toast } = useToast();
   const [dashboard, setDashboard] = useState<FinanceDashboardRow | null>(null);
@@ -517,7 +587,7 @@ export function FinanceCommandCentre() {
               <div className="overflow-auto">
                 <table className="w-full text-sm">
                   <thead><tr className="border-b text-left"><th className="py-2">Receipt</th><th>Date</th><th>Student</th><th>Class</th><th>Mode</th><th>Amount</th><th>Action</th></tr></thead>
-                  <tbody>{receipts.map((r) => <tr key={r.payment_id} className="border-b last:border-0"><td className="py-2 font-medium">{r.receipt_number}</td><td>{r.payment_date}</td><td>{r.student_name}</td><td>{r.class}</td><td>{r.payment_mode || "—"}</td><td className="font-semibold">{money(r.amount)}</td><td><Button size="sm" variant="outline" onClick={() => window.print()}>Print</Button></td></tr>)}</tbody>
+                  <tbody>{receipts.map((r) => <tr key={r.payment_id} className="border-b last:border-0"><td className="py-2 font-medium">{r.receipt_number}</td><td>{r.payment_date}</td><td>{r.student_name}</td><td>{r.class}</td><td>{r.payment_mode || "—"}</td><td className="font-semibold">{money(r.amount)}</td><td><Button size="sm" variant="outline" onClick={() => printFinanceReceipt(r)}>Print Receipt</Button></td></tr>)}</tbody>
                 </table>
                 {receipts.length === 0 && <p className="py-4 text-sm text-muted-foreground">No receipts available to this account yet.</p>}
               </div>
