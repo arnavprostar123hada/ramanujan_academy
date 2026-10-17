@@ -1282,6 +1282,104 @@ export type Database = {
           },
         ]
       }
+      fee_structures: {
+        Row: {
+          id: string
+          academic_year: string
+          class: string
+          board: string
+          course_name: string
+          fee_amount: number
+          currency: string
+          is_active: boolean
+          effective_from: string
+          effective_to: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          academic_year?: string
+          class: string
+          board?: string
+          course_name?: string
+          fee_amount: number
+          currency?: string
+          is_active?: boolean
+          effective_from?: string
+          effective_to?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          academic_year?: string
+          class?: string
+          board?: string
+          course_name?: string
+          fee_amount?: number
+          currency?: string
+          is_active?: boolean
+          effective_from?: string
+          effective_to?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      student_fee_concessions: {
+        Row: {
+          id: string
+          student_id: string
+          academic_year: string
+          concession_type: string
+          concession_value: number
+          reason: string
+          approved_by: string
+          approved_at: string
+          expires_on: string | null
+          active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          academic_year?: string
+          concession_type: string
+          concession_value: number
+          reason: string
+          approved_by: string
+          approved_at?: string
+          expires_on?: string | null
+          active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          academic_year?: string
+          concession_type?: string
+          concession_value?: number
+          reason?: string
+          approved_by?: string
+          approved_at?: string
+          expires_on?: string | null
+          active?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_fee_concessions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fee_accounts: {
         Row: {
           created_at: string
