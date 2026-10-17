@@ -63,7 +63,8 @@ type ReceiptRow = {
   board: string | null;
 };
 
-type StudentOption = { id: string; name: string; class: string; board: string | null; branch_id: string | null };
+type StudentOption = { id: string; name: string; class: string; board: string | null; branch_id: string | null; academic_year?: string | null };
+type AppliedFeeResult = { success: boolean; net_fee: number; discount: number; scholarship: number; outstanding: number; collected: number };
 
 export function FinanceCommandCentre() {
   const { toast } = useToast();
@@ -75,6 +76,8 @@ export function FinanceCommandCentre() {
   const [receipts, setReceipts] = useState<ReceiptRow[]>([]);
   const [feeRuleSaving, setFeeRuleSaving] = useState(false);
   const [concessionSaving, setConcessionSaving] = useState(false);
+  const [applyFeeSaving, setApplyFeeSaving] = useState(false);
+  const [applyFeeForm, setApplyFeeForm] = useState({ student_id: "", fee_structure_id: "", reason: "Apply standard fee structure" });
   const [feeRuleForm, setFeeRuleForm] = useState({ academic_year: "2026-27", class: "", board: "Any", course_name: "Tuition", fee_amount: "" });
   const [concessionForm, setConcessionForm] = useState({ student_id: "", academic_year: "2026-27", concession_type: "fixed_amount", concession_value: "", reason: "" });
   const [loading, setLoading] = useState(true);
@@ -116,7 +119,7 @@ export function FinanceCommandCentre() {
       supabase.from("finance_dashboard").select("*").maybeSingle(),
       supabase.from("finance_monthly_mis").select("*").order("report_month", { ascending: true }),
       supabase.from("finance_receivables").select("*").order("outstanding", { ascending: false }).limit(100),
-      supabase.from("students").select("id,name,class,board,branch_id").eq("status", "active").order("name"),
+      supabase.from("students").select("id,name,class,board,branch_id,academic_year").eq("status", "active").order("name"),
     ]);
     if (d.error || m.error || r.error || s.error) {
       console.error("Finance load error", { d: d.error, m: m.error, r: r.error, s: s.error });
@@ -215,6 +218,41 @@ export function FinanceCommandCentre() {
     setFeeRuleForm((f) => ({ ...f, fee_amount: "" }));
     await loadFinance();
   };
+
+  const applyFeeToStudent = async () => {
+    if (!applyFeeForm.student_id || !applyFeeForm.fee_structure_id) {
+      toast({ title: "Select a student and fee structure", variant: "destructive" });
+      return;
+    }
+    setApplyFeeSaving(true);
+    const { data, error } = await supabase.rpc("apply_student_fee_structure", {
+      p_student_id: applyFeeForm.student_id,
+      p_fee_structure_id: applyFeeForm.fee_structure_id,
+      p_reason: applyFeeForm.reason.trim() || "Apply standard fee structure",
+    });
+    setApplyFeeSaving(false);
+    if (error) {
+      toast({ title: "Fee was not applied", description: error.message, variant: "destructive" });
+      return;
+    }
+    const result = data as unknown as AppliedFeeResult;
+    toast({
+      title: "Fee applied to student account",
+      description: `Net fee ${money(result.net_fee)} · collected ${money(result.collected)} · outstanding ${money(result.outstanding)}`,
+    });
+    setApplyFeeForm((f) => ({ ...f, fee_structure_id: "" }));
+    await loadFinance();
+  };
+
+  const selectedFeeStudent = students.find((s) => s.id === applyFeeForm.student_id);
+  const applicableFeeStructures = feeStructures.filter((r) => {
+    if (!r.is_active) return false;
+    if (!selectedFeeStudent) return true;
+    const studentYear = selectedFeeStudent.academic_year || "2026-27";
+    return r.class === selectedFeeStudent.class
+      && (r.board === "Any" || r.board === (selectedFeeStudent.board || ""))
+      && r.academic_year === studentYear;
+  });
 
   const saveConcession = async () => {
     const concessionValue = Number(concessionForm.concession_value);
@@ -356,6 +394,18 @@ export function FinanceCommandCentre() {
               <div><Label>Course</Label><Input value={feeRuleForm.course_name} onChange={(e) => setFeeRuleForm(f => ({ ...f, course_name: e.target.value }))} placeholder="Maths + Science" /></div>
               <div><Label>Standard Fee (₹)</Label><Input type="number" min="0" value={feeRuleForm.fee_amount} onChange={(e) => setFeeRuleForm(f => ({ ...f, fee_amount:e.target.value }))} /></div>
               <div className="flex items-end"><Button onClick={() => void saveFeeRule()} disabled={feeRuleSaving} className="w-full">{feeRuleSaving ? "Saving…" : "Save Standard Fee"}</Button></div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle>Apply Fee to Student Account</CardTitle></CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-2">
+              <div><Label>Student</Label><NativeSelect options={students.map(s => ({ value: s.id, label: `${s.name} — Class ${s.class} (${s.board || "Board not set"})` }))} value={applyFeeForm.student_id} onValueChange={(value) => setApplyFeeForm(f => ({ ...f, student_id:value, fee_structure_id:"" }))} placeholder="Select student" /></div>
+              <div><Label>Matching Standard Fee</Label><NativeSelect options={applicableFeeStructures.map(r => ({ value:r.id, label:`${r.academic_year} · ${r.board} · ${r.course_name} · ${money(r.fee_amount)}` }))} value={applyFeeForm.fee_structure_id} onValueChange={(value) => setApplyFeeForm(f => ({ ...f, fee_structure_id:value }))} placeholder="Choose matching fee" /></div>
+              <div className="md:col-span-2"><Label>Application / Approval Note</Label><Textarea value={applyFeeForm.reason} onChange={(e) => setApplyFeeForm(f => ({ ...f, reason:e.target.value }))} /></div>
+              <div className="md:col-span-2">
+                <Button onClick={() => void applyFeeToStudent()} disabled={applyFeeSaving || !applyFeeForm.student_id || !applyFeeForm.fee_structure_id} className="w-full">{applyFeeSaving ? "Applying fee…" : "Apply Fee & Recalculate Outstanding"}</Button>
+                <p className="mt-2 text-xs text-muted-foreground">The server checks owner/admin access and matching class, board and academic year. It applies active concessions and blocks changes if already-collected money would exceed the new net fee; actions are audit-logged.</p>
+              </div>
             </CardContent>
           </Card>
           <Card>
