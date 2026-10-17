@@ -3469,6 +3469,30 @@ export type Database = {
           },
         ]
       }
+      finance_receipt_register: {
+        Row: {
+          payment_id: string
+          receipt_number: string | null
+          payment_date: string
+          amount: number
+          payment_mode: string | null
+          reference_number: string | null
+          fee_type: string | null
+          cash_bank: string | null
+          notes: string | null
+          branch_id: string | null
+          student_id: string
+          student_name: string
+          class: string
+          board: string | null
+          academic_year: string | null
+          total_fee: number
+          scholarship: number | null
+          discount: number | null
+          net_fee: number
+        }
+        Relationships: []
+      }
       finance_dashboard: {
         Row: {
           active_students: number | null
