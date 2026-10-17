@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { IndianRupee, Plus, RefreshCw, Receipt, Wallet, TrendingUp, AlertTriangle } from "lucide-react";
+import { IndianRupee, Plus, RefreshCw, Receipt, Wallet, TrendingUp, AlertTriangle, Sparkles, ClipboardCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -312,6 +312,53 @@ export function FinanceCommandCentre() {
     setSavingExpense(false);
   };
 
+  const financeSignals = useMemo(() => {
+    const signals: { priority: "High" | "Review" | "Info"; title: string; detail: string }[] = [];
+    if (dashboard) {
+      if (dashboard.outstanding > 0) {
+        const topNames = receivables.filter((r) => r.outstanding > 0).slice(0, 3).map((r) => r.student_name);
+        signals.push({
+          priority: dashboard.collection_efficiency_pct < 70 ? "High" : "Review",
+          title: "Follow up on outstanding fees",
+          detail: `${money(dashboard.outstanding)} remains outstanding. Start with ${topNames.length ? topNames.join(", ") : "the highest outstanding accounts"}.`,
+        });
+      }
+      if (dashboard.operating_cash_surplus < 0) {
+        signals.push({
+          priority: "High",
+          title: "Review cash outflow",
+          detail: `Recorded expenses exceed collections by ${money(Math.abs(dashboard.operating_cash_surplus))}. Check large or duplicate entries before discretionary spending.`,
+        });
+      }
+      if (dashboard.collection_efficiency_pct < 80) {
+        signals.push({
+          priority: "Review",
+          title: "Collection efficiency is below target",
+          detail: `${Number(dashboard.collection_efficiency_pct || 0).toFixed(1)}% of billed fees are collected in the current finance view. Prioritise due-fee follow-ups.`,
+        });
+      }
+    }
+    if (monthly.length >= 2) {
+      const previous = monthly[monthly.length - 2];
+      const latest = monthly[monthly.length - 1];
+      if (Number(previous.collections) > 0 && Number(latest.collections) < Number(previous.collections) * 0.8) {
+        signals.push({
+          priority: "Review",
+          title: "Collections have slowed",
+          detail: `Latest reported month is down more than 20% versus ${new Date(previous.report_month).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}. Check admissions and follow-up activity.`,
+        });
+      }
+    }
+    if (!signals.length) {
+      signals.push({
+        priority: "Info",
+        title: "No immediate finance exception detected",
+        detail: "Continue reviewing the daily collection, expense and outstanding-fee reports.",
+      });
+    }
+    return signals.slice(0, 4);
+  }, [dashboard, monthly, receivables, money]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
@@ -355,6 +402,25 @@ export function FinanceCommandCentre() {
           <CardContent><div className="flex items-center gap-2 text-4xl font-bold"><TrendingUp className="h-8 w-8" />{money(dashboard?.operating_cash_surplus)}</div><p className="text-sm text-muted-foreground mt-2">Collections less recorded expenses</p></CardContent>
         </Card>
       </div>
+
+      <Card className="card-elevated">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" />Finance Decision Assistant</CardTitle>
+          <p className="text-sm text-muted-foreground">Automatic signals from your live finance reports. This rules-based layer makes no external AI API calls, so it adds no model usage charges.</p>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2">
+          {financeSignals.map((signal, index) => (
+            <div key={`${signal.title}-${index}`} className="rounded-lg border p-4">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{signal.priority} priority</span>
+                {signal.priority === "High" ? <AlertTriangle className="h-4 w-4 text-destructive" /> : <ClipboardCheck className="h-4 w-4 text-primary" />}
+              </div>
+              <p className="font-semibold">{signal.title}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{signal.detail}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="collection">
         <TabsList className="grid w-full grid-cols-2 gap-1 sm:grid-cols-6">
