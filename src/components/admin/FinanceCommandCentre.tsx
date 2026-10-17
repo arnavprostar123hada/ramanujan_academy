@@ -61,6 +61,9 @@ type ReceiptRow = {
   student_name: string;
   class: string;
   board: string | null;
+  academic_year?: string | null;
+  parent_name?: string | null;
+  cash_bank?: string | null;
 };
 
 type StudentOption = { id: string; name: string; class: string; board: string | null; branch_id: string | null; academic_year?: string | null };
@@ -74,64 +77,98 @@ function escapeReceiptHtml(value: unknown): string {
   })[character] || character);
 }
 
+function amountInWords(value: number): string {
+  const n = Math.round(Math.abs(value));
+  if (n === 0) return "Zero Rupees";
+  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+  const underThousand = (num: number): string => {
+    const parts: string[] = [];
+    if (num >= 100) { parts.push(ones[Math.floor(num / 100)] + " Hundred"); num %= 100; }
+    if (num >= 20) { parts.push(tens[Math.floor(num / 10)]); num %= 10; }
+    if (num > 0) parts.push(ones[num]);
+    return parts.join(" ");
+  };
+  let rest = n;
+  const parts: string[] = [];
+  const crore = Math.floor(rest / 10000000); rest %= 10000000;
+  const lakh = Math.floor(rest / 100000); rest %= 100000;
+  const thousand = Math.floor(rest / 1000); rest %= 1000;
+  if (crore) parts.push(underThousand(crore) + " Crore");
+  if (lakh) parts.push(underThousand(lakh) + " Lakh");
+  if (thousand) parts.push(underThousand(thousand) + " Thousand");
+  if (rest) parts.push(underThousand(rest));
+  return parts.join(" ");
+}
+
 function printFinanceReceipt(receipt: ReceiptRow) {
-  // Print a dedicated receipt document, never the dashboard viewport.
+  // Open and print a standalone fee receipt document, not the admin page.
   const printWindow = window.open("", "_blank", "width=900,height=720");
   if (!printWindow) {
-    window.alert("Your browser blocked the receipt window. Allow pop-ups for this site and click Print again.");
+    window.alert("Your browser blocked the receipt window. Allow pop-ups for this site and click Print Receipt again.");
     return;
   }
 
-  const amount = new Intl.NumberFormat("en-IN", {
-    style: "currency", currency: "INR", maximumFractionDigits: 2,
-  }).format(Number(receipt.amount || 0));
-  const field = (label: string, value: unknown) => (
-    '<div class="field"><span class="label">' + escapeReceiptHtml(label) +
-    '</span><span class="value">' + escapeReceiptHtml(value || "—") + "</span></div>"
-  );
-  const documentHtml = '<!doctype html><html><head><meta charset="utf-8" />' +
-    '<meta name="viewport" content="width=device-width,initial-scale=1" />' +
-    '<title>Fee Receipt ' + escapeReceiptHtml(receipt.receipt_number) + '</title>' +
-    '<style>' +
-    'body{font-family:Arial,Helvetica,sans-serif;color:#171717;margin:0;padding:28px;background:#fff}' +
-    '.receipt{max-width:760px;margin:0 auto;border:1px solid #d4d4d4;padding:30px}' +
-    '.brand{text-align:center;border-bottom:2px solid #171717;padding-bottom:18px;margin-bottom:20px}' +
-    '.brand h1{font-size:25px;margin:0 0 6px}.brand p{margin:3px 0;color:#525252;font-size:12px}' +
-    '.title{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:20px 0}' +
-    '.title h2{font-size:19px;margin:0}.receipt-no{font-weight:700;font-size:14px}' +
-    '.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 24px}' +
-    '.field{border-bottom:1px solid #e5e5e5;padding:8px 0;display:flex;flex-direction:column;gap:5px}' +
-    '.label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#737373}.value{font-size:14px;font-weight:600;overflow-wrap:anywhere}' +
-    '.amount{margin-top:24px;background:#f5f5f5;border:1px solid #ddd;padding:18px;display:flex;justify-content:space-between;align-items:center;font-size:16px}' +
-    '.amount strong{font-size:24px}.footer{display:flex;justify-content:space-between;gap:20px;margin-top:55px;font-size:12px;color:#525252}' +
-    '.signature{border-top:1px solid #737373;padding-top:8px;min-width:160px;text-align:center}' +
-    '.note{font-size:11px;color:#737373;margin-top:24px;text-align:center}' +
-    '.actions{text-align:center;margin:20px auto}.actions button{padding:10px 18px;cursor:pointer}' +
-    '@media print{body{padding:0}.receipt{border:0;max-width:none;padding:16mm}.actions{display:none}@page{size:A4;margin:8mm}}' +
-    '@media(max-width:560px){.receipt{padding:16px}.grid{grid-template-columns:1fr}.title{align-items:flex-start;flex-direction:column}}' +
+  const amount = Number(receipt.amount || 0);
+  const rupees = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(amount);
+  const paidDate = receipt.payment_date
+    ? new Date(receipt.payment_date + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })
+    : new Date().toLocaleDateString("en-IN");
+  const academicYear = receipt.academic_year || "2026-2027";
+  const field = (label: string, value: unknown) =>
+    '<div class="field"><b>' + escapeReceiptHtml(label) + '</b><span>' + escapeReceiptHtml(value || "—") + "</span></div>";
+  const feeLine = (label: string, value: number, index: number) =>
+    "<tr><td>" + index + ".</td><td>" + escapeReceiptHtml(label) + "</td><td class=\"money\">" +
+    (value > 0 ? "₹ " + new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 }).format(value) : "—") + "</td></tr>";
+  const modes = ["Cash", "Cheque", "UPI / Net Banking", "Card"];
+  const selectedMode = (receipt.payment_mode || "").toLowerCase();
+  const modeBoxes = modes.map((mode) => {
+    const chosen = mode === "UPI / Net Banking"
+      ? /upi|net|bank|online|neft|imps/i.test(selectedMode)
+      : selectedMode.includes(mode.toLowerCase());
+    return '<span class="mode">' + (chosen ? "☑" : "☐") + " " + escapeReceiptHtml(mode) + "</span>";
+  }).join("");
+
+  const documentHtml = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<title>Fee Receipt - ' + escapeReceiptHtml(receipt.receipt_number) + '</title><style>' +
+    '@page{size:A4;margin:12mm}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:0;background:#fff;font-size:12px}' +
+    '.receipt{width:100%;max-width:780px;margin:0 auto;padding:10px}.brand{text-align:center;border-bottom:3px double #111;padding:0 0 12px;margin-bottom:14px}' +
+    '.brand h1{font-size:24px;letter-spacing:.4px;margin:0 0 5px}.brand p{margin:3px 0;font-size:11px}.brand .tag{font-size:10px;font-weight:bold;letter-spacing:1px;margin-top:6px}' +
+    '.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;margin:12px 0 16px}.field{display:flex;gap:8px;align-items:baseline;min-height:24px;border-bottom:1px dotted #777;padding:4px 0}.field b{white-space:nowrap;font-size:10px;text-transform:uppercase}.field span{font-weight:600;overflow-wrap:anywhere}' +
+    '.full{grid-column:1/-1}.student{margin:12px 0 16px}.student .field{min-height:28px}.table{width:100%;border-collapse:collapse;margin-top:8px}.table th,.table td{border:1px solid #333;padding:8px;text-align:left}.table th{font-size:11px;background:#f1f1f1}.table td:first-child{width:42px;text-align:center}.table td:last-child,.table th:last-child{text-align:right;width:145px}.table .money{white-space:nowrap}' +
+    '.totals{margin:10px 0 12px auto;width:290px}.totalrow{display:flex;justify-content:space-between;padding:4px 0}.grand{border-top:1px solid #111;border-bottom:3px double #111;font-size:16px;font-weight:bold;padding:8px 0}.words{border:1px solid #555;padding:9px;margin:12px 0}.words b{display:block;margin-bottom:5px;font-size:10px}.payment{margin:14px 0}.modes{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0}.mode{white-space:nowrap}.bank{display:grid;grid-template-columns:1fr 1fr;gap:10px 22px;margin-top:8px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:50px;margin-top:54px}.sign{border-top:1px solid #222;padding-top:7px;text-align:center;font-size:11px}.foot{text-align:center;font-size:9px;margin-top:18px;color:#555}.actions{text-align:center;margin:18px auto}.actions button{padding:10px 18px;font-size:14px;cursor:pointer}' +
+    '@media print{.actions{display:none}.receipt{max-width:none;padding:0}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}}@media(max-width:560px){.meta,.bank{grid-template-columns:1fr}.full{grid-column:auto}.totals{width:100%}}' +
     '</style></head><body><main class="receipt">' +
-    '<header class="brand"><h1>Ramanujan Academy</h1>' +
-    '<p>Not Just Education, But Complete Development</p>' +
-    '<p>Official Fee Payment Receipt</p></header>' +
-    '<div class="title"><h2>PAYMENT RECEIPT</h2><span class="receipt-no">Receipt No: ' +
-    escapeReceiptHtml(receipt.receipt_number) + '</span></div>' +
-    '<section class="grid">' +
-    field("Student Name", receipt.student_name) +
-    field("Class / Standard", receipt.class) +
-    field("Board", receipt.board) +
-    field("Payment Date", receipt.payment_date) +
-    field("Payment Mode", receipt.payment_mode) +
-    field("Fee Type", receipt.fee_type) +
-    field("Transaction / Reference No.", receipt.reference_number) +
-    field("Student ID", receipt.student_id) +
-    '</section><section class="amount"><span>Amount Received</span><strong>' +
-    escapeReceiptHtml(amount) + '</strong></section>' +
-    '<div class="footer"><span>This receipt confirms receipt of the payment shown above.</span>' +
-    '<span class="signature">Authorised Signature</span></div>' +
-    '<p class="note">Please retain this receipt for your records. Computer-generated receipt.</p>' +
-    '</main><div class="actions"><button onclick="window.print()">Print / Save as PDF</button></div>' +
-    '<script>window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},250);});</script>' +
-    '</body></html>';
+    '<header class="brand"><h1>RAMANUJAN ACADEMY</h1><p>Not Just Education, But Complete Development</p>' +
+    '<p>Jehan Circle Branch, Patil Sankul, Opp. Reliance Digital, Gangapur Road, Nashik</p>' +
+    '<p>Website: ramanujanacademy.in</p><p class="tag">OFFICIAL FEE PAYMENT RECEIPT</p></header>' +
+    '<section class="meta"><div class="field"><b>Receipt No:</b><span>' + escapeReceiptHtml(receipt.receipt_number) + '</span></div>' +
+    '<div class="field"><b>Date:</b><span>' + escapeReceiptHtml(paidDate) + '</span></div>' +
+    '<div class="field"><b>Admission / Reg. No:</b><span>' + escapeReceiptHtml(receipt.student_id) + '</span></div>' +
+    '<div class="field"><b>Academic Year:</b><span>' + escapeReceiptHtml(academicYear.replace("-", " - ")) + '</span></div></section>' +
+    '<section class="student"><div class="field full"><b>Student Name:</b><span>' + escapeReceiptHtml(receipt.student_name) + '</span></div>' +
+    '<div class="meta"><div class="field"><b>Class / Course:</b><span>' + escapeReceiptHtml(receipt.class + (receipt.board ? " / " + receipt.board : "")) + '</span></div>' +
+    '<div class="field"><b>Roll No / Section:</b><span>—</span></div>' +
+    '<div class="field full"><b>Parent / Guardian Name:</b><span>' + escapeReceiptHtml(receipt.parent_name || "—") + '</span></div></div></section>' +
+    '<table class="table"><thead><tr><th>S.No.</th><th>Fee Particulars / Description</th><th>Amount (₹)</th></tr></thead><tbody>' +
+    feeLine(receipt.fee_type || "Fee Payment", amount, 1) +
+    feeLine("Tuition Fee (Monthly / Quarterly)", 0, 2) +
+    feeLine("Examination Fee", 0, 3) +
+    feeLine("Library / Laboratory Fee", 0, 4) +
+    feeLine("Transport / School Bus Fee", 0, 5) +
+    feeLine("Miscellaneous Charges", 0, 6) +
+    '</tbody></table><section class="totals"><div class="totalrow"><span>SUBTOTAL:</span><b>₹ ' + rupees + '</b></div>' +
+    '<div class="totalrow"><span>TAXES:</span><b>₹ 0.00</b></div><div class="totalrow grand"><span>TOTAL PAID:</span><span>₹ ' + rupees + '</span></div></section>' +
+    '<section class="words"><b>AMOUNT IN WORDS</b>Rupees ' + escapeReceiptHtml(amountInWords(amount)) + ' only.</section>' +
+    '<section class="payment"><b>PAYMENT MODE:</b><div class="modes">' + modeBoxes + '</div>' +
+    '<div class="bank"><div class="field"><b>Transaction / Cheque Ref No:</b><span>' + escapeReceiptHtml(receipt.reference_number || "—") + '</span></div>' +
+    '<div class="field"><b>Payment Date:</b><span>' + escapeReceiptHtml(paidDate) + '</span></div>' +
+    '<div class="field"><b>Bank Name (if applicable):</b><span>—</span></div>' +
+    '<div class="field"><b>Cash / Bank Account:</b><span>' + escapeReceiptHtml(receipt.cash_bank || "—") + '</span></div></div></section>' +
+    '<section class="signatures"><div class="sign">Depositor\\'s Signature</div><div class="sign">Authorised Signatory / Seal</div></section>' +
+    '<p class="foot">Computer-generated receipt. Please retain this receipt for your records.</p></main>' +
+    '<div class="actions"><button onclick="window.print()">Print / Save as PDF</button></div>' +
+    '<script>window.addEventListener("load",function(){setTimeout(function(){window.focus();window.print();},300)});</script></body></html>';
   printWindow.document.open();
   printWindow.document.write(documentHtml);
   printWindow.document.close();
@@ -190,7 +227,7 @@ export function FinanceCommandCentre() {
       supabase.from("finance_dashboard").select("*").maybeSingle(),
       supabase.from("finance_monthly_mis").select("*").order("report_month", { ascending: true }),
       supabase.from("finance_receivables").select("*").order("outstanding", { ascending: false }).limit(100),
-      supabase.from("students").select("id,name,class,board,branch_id,academic_year").eq("status", "active").order("name"),
+      supabase.from("students").select("id,name,class,board,branch_id,academic_year,parent_name,admission_date").eq("status", "active").order("name"),
     ]);
     if (d.error || m.error || r.error || s.error) {
       console.error("Finance load error", { d: d.error, m: m.error, r: r.error, s: s.error });
@@ -201,11 +238,12 @@ export function FinanceCommandCentre() {
     setReceivables((r.data as ReceivableRow[]) ?? []);
     setStudents((s.data as StudentOption[]) ?? []);
     const { data: feeRules, error: feeRulesError } = await supabase.from("fee_structures").select("id,academic_year,class,board,course_name,fee_amount,is_active").order("academic_year", { ascending: false }).order("class");
-    const { data: receiptRows, error: receiptsError } = await supabase.from("finance_receipt_register").select("payment_id,receipt_number,payment_date,amount,payment_mode,reference_number,fee_type,student_id,student_name,class,board").order("payment_date", { ascending: false }).limit(100);
+    const { data: receiptRows, error: receiptsError } = await supabase.from("finance_receipt_register").select("payment_id,receipt_number,payment_date,amount,payment_mode,reference_number,fee_type,cash_bank,student_id,student_name,class,board,academic_year").order("payment_date", { ascending: false }).limit(100);
     if (feeRulesError) console.warn("Fee rules unavailable to this role", feeRulesError.message);
     if (receiptsError) console.warn("Receipt register unavailable to this role", receiptsError.message);
     setFeeStructures((feeRules as FeeStructureRow[]) ?? []);
-    setReceipts((receiptRows as ReceiptRow[]) ?? []);
+    const studentDetails = new Map(((s.data as (StudentOption & { parent_name?: string | null })[]) ?? []).map((student) => [student.id, student]));
+    setReceipts(((receiptRows as ReceiptRow[]) ?? []).map((receipt) => ({ ...receipt, parent_name: studentDetails.get(receipt.student_id)?.parent_name ?? null })));
     setLoading(false);
   };
 
