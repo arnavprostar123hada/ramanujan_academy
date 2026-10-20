@@ -133,9 +133,22 @@ const OnlineTestManagement = ({ students }: { students: { id: string; name: stri
   };
 
   const togglePublish = async (test: OnlineTest) => {
-    await supabase.from("online_tests").update({ is_published: !test.is_published }).eq("id", test.id);
-    loadTests();
-    toast({ title: test.is_published ? "Test unpublished" : "Test published! ✅" });
+    const { error } = await supabase
+      .from("online_tests")
+      .update({ is_published: !test.is_published })
+      .eq("id", test.id);
+    if (error) {
+      console.error("Online test publish failed:", error);
+      toast({ title: "Could not update publication", description: error.message, variant: "destructive" });
+      return;
+    }
+    await loadTests();
+    toast({
+      title: test.is_published ? "Test unpublished" : "Test published!",
+      description: test.is_published
+        ? "The test is no longer available to students."
+        : "The test is now visible in the matching parent portal and a parent notification has been queued.",
+    });
   };
 
   const deleteTest = async (id: string) => {
