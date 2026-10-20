@@ -48,7 +48,7 @@ type FinanceReceiptRow = {
   payment_id: string; receipt_number: string; payment_date: string; amount: number;
   payment_mode: string | null; reference_number: string | null; fee_type: string | null;
   cash_bank: string | null; student_id: string; student_name: string; class: string;
-  board: string | null; academic_year: string | null;
+  board: string | null; academic_year: string | null; next_installment_due_date?: string | null;
 };
 type FeeStructureOption = {
   id: string; class: string; board: string; course_name: string;
@@ -173,7 +173,7 @@ export function FinanceCommandCentre({ mode = "admin" }: { mode?: "owner" | "adm
     setLoading(true);
     const [s, p, fs, fa] = await Promise.all([
       supabase.from("students").select("id,name,class,board,branch_id,parent_name,academic_year").eq("status", "active").order("name"),
-      supabase.from("finance_receipt_register").select("payment_id,receipt_number,payment_date,amount,payment_mode,reference_number,fee_type,cash_bank,student_id,student_name,class,board,academic_year").order("payment_date", { ascending: false }).range(0, 499),
+      supabase.from("finance_receipt_register").select("payment_id,receipt_number,payment_date,amount,payment_mode,reference_number,fee_type,cash_bank,student_id,student_name,class,board,academic_year,next_installment_due_date").order("payment_date", { ascending: false }).range(0, 499),
       supabase.from("fee_structures").select("id,class,board,course_name,fee_amount,academic_year").eq("is_active", true).eq("academic_year", "2026-27").order("class"),
       supabase.from("fee_accounts").select("id"),
     ]);
@@ -262,19 +262,18 @@ export function FinanceCommandCentre({ mode = "admin" }: { mode?: "owner" | "adm
       accountId = refreshedAccount.data.id;
     }
 
-    const { data: paymentRecord, error } = await supabase.from("fee_payments").insert({
-      fee_account_id: accountId,
-      payment_date: feeForm.payment_date,
-      amount: Number(feeForm.amount),
-      payment_mode: feeForm.payment_mode,
-      reference_number: feeForm.reference_number || null,
-      notes: feeForm.notes || (student ? `Payment for ${student.name}` : null),
-      branch_id: student?.branch_id ?? null,
-      fee_type: feeForm.fee_type,
-      cash_bank: feeForm.cash_bank,
-    }).select("id,receipt_number").single();
+    const { data: paymentRecord, error } = await supabase.rpc("record_fee_payment", {
+      p_fee_account_id: accountId,
+      p_payment_date: feeForm.payment_date,
+      p_amount: Number(feeForm.amount),
+      p_payment_mode: feeForm.payment_mode,
+      p_reference_number: feeForm.reference_number || null,
+      p_notes: feeForm.notes || (student ? "Payment for " + student.name : null),
+      p_fee_type: feeForm.fee_type,
+      p_cash_bank: feeForm.cash_bank,
+    });
 
-    const receiptNumber = paymentRecord?.receipt_number || "RA—";
+    const receiptNumber = (paymentRecord as any)?.receipt_number || "RA—";
     if (error) {
       receiptWindow?.close();
       toast({ title: "Payment not recorded", description: error.message, variant: "destructive" });
@@ -310,7 +309,9 @@ export function FinanceCommandCentre({ mode = "admin" }: { mode?: "owner" | "adm
       printWindow.document.write("<!doctype html><title>Preparing saved receipt…</title><p style='font:16px Arial;padding:24px'>Loading saved receipt…</p>");
     }
     const student = students.find((item) => item.id === receipt.student_id);
-    const nextDue = await supabase.from("finance_student_ledger").select("next_instalment_due_date").eq("student_id", receipt.student_id).maybeSingle();
+    const nextDue = receipt.next_installment_due_date
+      ? { data: { next_instalment_due_date: receipt.next_installment_due_date } }
+      : await supabase.from("finance_student_ledger").select("next_instalment_due_date").eq("student_id", receipt.student_id).maybeSingle();
     renderFeeReceipt(printWindow, {
       nextInstallmentDueDate: nextDue.data?.next_instalment_due_date ?? null,
       receiptNumber: receipt.receipt_number || "RA—",
