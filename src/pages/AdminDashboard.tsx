@@ -387,6 +387,8 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
     batch: "",
     board: "",
     parent_name: "",
+    total_fee: "",
+    discount: "0",
   });
 
   // New teacher form state
@@ -1201,10 +1203,33 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
 
       if (error) throw error;
 
+      const totalFee = Number(editStudent.total_fee || 0);
+      const discount = Number(editStudent.discount || 0);
+      const netFee = totalFee - discount;
+      if (!Number.isFinite(totalFee) || !Number.isFinite(discount) || totalFee < 0 || discount < 0 || discount > totalFee) {
+        toast({ title: "Invalid fee details", description: "Enter valid total fees and a discount that does not exceed the total fee.", variant: "destructive" });
+        return;
+      }
+      const { data: existingFee, error: feeReadError } = await (supabase as any)
+        .from("fee_accounts").select("id,opening_collected").eq("student_id", selectedStudent.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (feeReadError) throw feeReadError;
+      if (totalFee > 0 || existingFee) {
+        const paidOpening = Number(existingFee?.opening_collected || 0);
+        if (netFee < paidOpening) {
+          toast({ title: "Net fee is below already recorded collections", description: "Adjust the discount or verify the opening collection before saving.", variant: "destructive" });
+          return;
+        }
+        const feeValues = { total_fee: totalFee, discount, net_fee: netFee, updated_at: new Date().toISOString() };
+        const feeResult = existingFee
+          ? await (supabase as any).from("fee_accounts").update(feeValues).eq("id", existingFee.id)
+          : await (supabase as any).from("fee_accounts").insert({ ...feeValues, student_id: selectedStudent.id, scholarship: 0, fee_applied_at: new Date().toISOString() });
+        if (feeResult.error) throw feeResult.error;
+      }
+
       setStudents(students.map(s => s.id === selectedStudent.id ? data as Student : s));
       setIsEditStudentOpen(false);
       setSelectedStudent(null);
-      toast({ title: "Student updated successfully" });
+      toast({ title: "Student and fee details updated", description: "Finance will reflect the revised total fee and discount." });
     } catch (error) {
       toast({
         title: "Error updating student",
@@ -1244,15 +1269,23 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
     }
   };
 
-  const openEditDialog = (student: Student) => {
+  const openEditDialog = async (student: Student) => {
     setSelectedStudent(student);
     setEditStudent({
       name: student.name,
       email: student.email || "",
       phone: student.phone,
       class: student.class,
+      batch: student.batch || "",
+      board: student.board || "",
       parent_name: student.parent_name || "",
+      total_fee: "",
+      discount: "0",
     });
+    const { data: fee, error } = await (supabase as any)
+      .from("fee_accounts").select("total_fee,discount").eq("student_id", student.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (error) console.warn("Could not load student's fee details", error.message);
+    if (fee) setEditStudent(prev => ({ ...prev, total_fee: String(fee.total_fee ?? 0), discount: String(fee.discount ?? 0) }));
     setIsEditStudentOpen(true);
   };
 
@@ -3747,6 +3780,23 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                   onChange={(e) => setEditStudent({ ...editStudent, email: e.target.value })}
                   placeholder="Enter email"
                 />
+              </div>
+              <div className="rounded-lg border p-3 space-y-3">
+                <div>
+                  <h4 className="font-semibold">Fees & discount</h4>
+                  <p className="text-xs text-muted-foreground">Enter the total course fee including any extra subjects. Saving updates this student's fee account used by Finance.</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-total-fee">Total course + extra subject fees (₹)</Label>
+                    <Input id="edit-total-fee" type="number" min="0" value={editStudent.total_fee} onChange={e=>setEditStudent({...editStudent,total_fee:e.target.value})} placeholder="e.g. 55000" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-discount">Discount (₹)</Label>
+                    <Input id="edit-discount" type="number" min="0" value={editStudent.discount} onChange={e=>setEditStudent({...editStudent,discount:e.target.value})} placeholder="0" />
+                  </div>
+                </div>
+                <p className="text-sm bg-muted rounded p-2">Net payable: <b>₹{(Number(editStudent.total_fee||0)-Number(editStudent.discount||0)).toLocaleString("en-IN")}</b></p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-parent">Parent Name (Optional)</Label>
