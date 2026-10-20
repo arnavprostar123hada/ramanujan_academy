@@ -55,7 +55,7 @@ export function FinanceLedgerWorkspace({ mode = "admin" }: { mode?: "owner" | "a
       (supabase as any).from("finance_expenses").select("id,amount,total_amount,expense_date,category,batch,vendor_payee,description,payment_mode,reference_number").order("expense_date").order("id"),
       (supabase as any).from("finance_other_income").select("id,amount,income_date,category,batch,source,description,payment_mode,reference_number").order("income_date").order("id"),
       supabase.from("fee_installments").select("id,fee_account_id,due_date,amount,paid_amount,status").order("due_date").order("id"),
-      supabase.from("finance_opening_balances").select("id,as_of_date,cash_balance,bank_balance,other_current_assets,fixed_assets,current_liabilities,long_term_liabilities,capital").order("as_of_date", { ascending: false }).limit(1).maybeSingle(),
+      isOwner ? supabase.from("finance_opening_balances").select("id,as_of_date,cash_balance,bank_balance,other_current_assets,fixed_assets,current_liabilities,long_term_liabilities,capital").order("as_of_date", { ascending: false }).limit(1).maybeSingle() : Promise.resolve({data:null,error:null}),
     ]);
     const loadAllPages = async (table: string, columns: string, dateColumn: string, initial: any) => {
       const rows: any[] = [...((initial.data as any[]) || [])];
@@ -77,7 +77,7 @@ export function FinanceLedgerWorkspace({ mode = "admin" }: { mode?: "owner" | "a
       loadAllPages("finance_other_income", "id,amount,income_date,category,batch,source,description,payment_mode,reference_number", "income_date", i),
       loadAllPages("fee_installments", "id,fee_account_id,due_date,amount,paid_amount,status", "due_date", ins),
     ]);
-    const errs = [s.error,l.error,fs.error,p.error,e.error,i.error,ins.error,ob.error].filter(Boolean);
+    const errs = [s.error,l.error,fs.error,p.error,ins.error,...(isOwner ? [e.error,i.error,ob.error] : [])].filter(Boolean);
     if (errs.length) {
       console.error("Finance workspace load errors", errs);
       toast({ title: "Some finance data could not load", description: "Check the finance permissions and refresh.", variant: "destructive" });
@@ -95,7 +95,7 @@ export function FinanceLedgerWorkspace({ mode = "admin" }: { mode?: "owner" | "a
       setOpeningForm(f => ({ ...f, as_of_date: row.as_of_date, cash_balance: String(row.cash_balance), bank_balance: String(row.bank_balance), other_current_assets: String(row.other_current_assets), fixed_assets: String(row.fixed_assets), current_liabilities: String(row.current_liabilities), long_term_liabilities: String(row.long_term_liabilities), capital: String(row.capital) }));
     }
     setLoading(false);
-  }, [toast]);
+  }, [toast, isOwner]);
 
   useEffect(() => { void load(); }, [load]);
 
