@@ -1375,6 +1375,7 @@ export type Database = {
           id: string
           notes: string | null
           payment_date: string
+          next_installment_due_date: string | null
           payment_mode: string | null
           receipt_number: string | null
           reference_number: string | null
@@ -1389,6 +1390,7 @@ export type Database = {
           id?: string
           notes?: string | null
           payment_date?: string
+          next_installment_due_date?: string | null
           payment_mode?: string | null
           receipt_number?: string | null
           reference_number?: string | null
@@ -3424,6 +3426,52 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      finance_receipt_register: {
+        Row: {
+          payment_id: string
+          receipt_number: string | null
+          payment_date: string
+          amount: number
+          payment_mode: string | null
+          reference_number: string | null
+          fee_type: string | null
+          cash_bank: string | null
+          notes: string | null
+          branch_id: string | null
+          student_id: string
+          student_name: string
+          class: string
+          board: string | null
+          academic_year: string | null
+          total_fee: number
+          scholarship: number
+          discount: number
+          net_fee: number
+          next_installment_due_date: string | null
+        }
+        Relationships: []
+      }
+      finance_student_ledger: {
+        Row: {
+          student_id: string
+          student_name: string
+          class: string
+          board: string | null
+          batch: string | null
+          branch_id: string | null
+          academic_year: string | null
+          fee_account_id: string | null
+          total_fee: number
+          scholarship: number
+          discount: number
+          net_fee: number
+          paid: number
+          pending: number
+          next_instalment_due_date: string | null
+          next_instalment_amount: number
+        }
+        Relationships: []
       }
       growth_dashboard: {
         Row: {
