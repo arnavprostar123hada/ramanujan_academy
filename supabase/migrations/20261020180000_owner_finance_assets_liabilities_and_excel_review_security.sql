@@ -49,6 +49,8 @@ alter table public.finance_fixed_assets add column if not exists amount_paid num
 alter table public.finance_fixed_assets add column if not exists payment_due_date date;
 alter table public.finance_fixed_assets drop constraint if exists finance_fixed_assets_amount_paid_lte_cost;
 alter table public.finance_fixed_assets add constraint finance_fixed_assets_amount_paid_lte_cost check (amount_paid <= purchase_cost);
+alter table public.finance_fixed_assets drop constraint if exists finance_fixed_assets_accumulated_depreciation_lte_cost;
+alter table public.finance_fixed_assets add constraint finance_fixed_assets_accumulated_depreciation_lte_cost check (accumulated_depreciation <= purchase_cost);
 alter table public.finance_fixed_assets enable row level security;
 drop policy if exists finance_fixed_assets_owner_all on public.finance_fixed_assets;
 create policy finance_fixed_assets_owner_all on public.finance_fixed_assets
