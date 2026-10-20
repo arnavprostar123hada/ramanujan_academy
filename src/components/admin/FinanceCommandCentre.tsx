@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { IndianRupee, Plus, RefreshCw, Receipt, Wallet, TrendingUp, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import logo from "@/assets/logo.jpg";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,12 @@ type MonthlyRow = {
 };
 
 type StudentOption = { id: string; name: string; class: string; board: string | null; branch_id: string | null; parent_name?: string | null; academic_year?: string | null };
+type FinanceReceiptRow = {
+  payment_id: string; receipt_number: string; payment_date: string; amount: number;
+  payment_mode: string | null; reference_number: string | null; fee_type: string | null;
+  cash_bank: string | null; student_id: string; student_name: string; class: string;
+  board: string | null; academic_year: string | null;
+};
 
 function escapeReceiptHtml(value: unknown): string {
   return String(value ?? "").replace(/[&<>"']/g, (c) => ({
@@ -90,11 +97,11 @@ function renderFeeReceipt(
   ].map(([label, checked]) => '<span>' + (checked ? "☑" : "☐") + " " + label + "</span>").join("");
   const html = '<!doctype html><html><head><meta charset="utf-8"><title>Fee Receipt ' + escapeReceiptHtml(data.receiptNumber) + '</title><style>' +
     '@page{size:A4;margin:12mm}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#111;font-size:12px;margin:0;background:white}.receipt{max-width:780px;margin:auto;padding:10px}' +
-    '.brand{text-align:center;border-bottom:3px double #111;padding-bottom:12px;margin-bottom:14px}.brand h1{font-size:24px;margin:0 0 5px}.brand p{font-size:11px;margin:3px 0}.brand .sub{font-size:10px;font-weight:bold;letter-spacing:1px;margin-top:7px}' +
+    '.brand{text-align:center;border-bottom:3px double #111;padding-bottom:12px;margin-bottom:14px}.brand img{width:72px;height:72px;object-fit:contain;display:block;margin:0 auto 7px}.brand h1{font-size:24px;margin:0 0 5px}.brand p{font-size:11px;margin:3px 0}.brand .sub{font-size:10px;font-weight:bold;letter-spacing:1px;margin-top:7px}' +
     '.meta{display:grid;grid-template-columns:1fr 1fr;gap:7px 24px;margin:12px 0}.field{display:flex;gap:8px;align-items:baseline;border-bottom:1px dotted #777;min-height:25px;padding:5px 0}.field b{font-size:10px;white-space:nowrap;text-transform:uppercase}.field span{font-weight:600;overflow-wrap:anywhere}.full{grid-column:1/-1}' +
     'table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #333;padding:8px}th{text-align:left;background:#f2f2f2;font-size:11px}td:first-child{width:45px;text-align:center}th:last-child,td:last-child{text-align:right;width:150px}.amt{white-space:nowrap}' +
     '.totals{width:290px;margin:10px 0 12px auto}.total{display:flex;justify-content:space-between;padding:4px 0}.grand{font-size:16px;font-weight:bold;border-top:1px solid #111;border-bottom:3px double #111;padding:8px 0}.words{border:1px solid #555;padding:9px;margin:12px 0}.words b{display:block;font-size:10px;margin-bottom:5px}.payment{margin-top:14px}.modes{display:flex;flex-wrap:wrap;gap:16px;margin:8px 0}.bank{display:grid;grid-template-columns:1fr 1fr;gap:8px 22px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:50px;margin-top:54px}.sign{border-top:1px solid #222;text-align:center;padding-top:7px;font-size:11px}.foot{text-align:center;font-size:9px;color:#555;margin-top:18px}.actions{text-align:center;margin:18px}.actions button{padding:10px 18px;cursor:pointer}@media print{.actions{display:none}.receipt{max-width:none;padding:0}}@media(max-width:560px){.meta,.bank{grid-template-columns:1fr}.full{grid-column:auto}.totals{width:100%}}' +
-    '</style></head><body><main class="receipt"><header class="brand"><h1>RAMANUJAN ACADEMY</h1><p>Not Just Education, But Complete Development</p><p>Jehan Circle Branch, Patil Sankul, Opp. Reliance Digital, Gangapur Road, Nashik</p><p>Website: ramanujanacademy.in</p><p class="sub">OFFICIAL FEE PAYMENT RECEIPT</p></header>' +
+    '</style></head><body><main class="receipt"><header class="brand"><img src="' + escapeReceiptHtml(logo) + '" alt="Ramanujan Academy logo"><h1>RAMANUJAN ACADEMY</h1><p>Not Just Education, But Complete Development</p><p>Jehan Circle Branch, Patil Sankul, Opp. Reliance Digital, Gangapur Road, Nashik</p><p>Website: ramanujanacademy.in</p><p class="sub">OFFICIAL FEE PAYMENT RECEIPT</p></header>' +
     '<section class="meta"><div class="field"><b>Receipt No:</b><span>' + escapeReceiptHtml(data.receiptNumber) + '</span></div><div class="field"><b>Date:</b><span>' + escapeReceiptHtml(date) + '</span></div>' +
     '<div class="field"><b>Admission / Reg. No:</b><span>' + escapeReceiptHtml(data.studentId) + '</span></div><div class="field"><b>Academic Year:</b><span>' + escapeReceiptHtml((data.academicYear || "2026-2027").replace("-", " - ")) + '</span></div></section>' +
     '<section class="meta"><div class="field full"><b>Student Name:</b><span>' + escapeReceiptHtml(data.studentName) + '</span></div><div class="field"><b>Class / Course:</b><span>' + escapeReceiptHtml(data.studentClass + (data.board ? " / " + data.board : "")) + '</span></div><div class="field"><b>Roll No / Section:</b><span>—</span></div><div class="field full"><b>Parent / Guardian Name:</b><span>' + escapeReceiptHtml(data.parentName || "—") + '</span></div></section>' +
@@ -116,6 +123,7 @@ export function FinanceCommandCentre() {
   const [monthly, setMonthly] = useState<MonthlyRow[]>([]);
   const [receivables, setReceivables] = useState<ReceivableRow[]>([]);
   const [students, setStudents] = useState<StudentOption[]>([]);
+  const [recentReceipts, setRecentReceipts] = useState<FinanceReceiptRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingFee, setSavingFee] = useState(false);
   const [savingExpense, setSavingExpense] = useState(false);
@@ -151,20 +159,22 @@ export function FinanceCommandCentre() {
 
   const loadFinance = async () => {
     setLoading(true);
-    const [d, m, r, s] = await Promise.all([
+    const [d, m, r, s, p] = await Promise.all([
       supabase.from("finance_dashboard").select("*").maybeSingle(),
       supabase.from("finance_monthly_mis").select("*").order("report_month", { ascending: true }),
       supabase.from("finance_receivables").select("*").order("outstanding", { ascending: false }).limit(100),
       supabase.from("students").select("id,name,class,board,branch_id,parent_name,academic_year").eq("status", "active").order("name"),
+      supabase.from("finance_receipt_register").select("payment_id,receipt_number,payment_date,amount,payment_mode,reference_number,fee_type,cash_bank,student_id,student_name,class,board,academic_year").order("payment_date", { ascending: false }).limit(8),
     ]);
-    if (d.error || m.error || r.error || s.error) {
-      console.error("Finance load error", { d: d.error, m: m.error, r: r.error, s: s.error });
+    if (d.error || m.error || r.error || s.error || p.error) {
+      console.error("Finance load error", { d: d.error, m: m.error, r: r.error, s: s.error, p: p.error });
       toast({ title: "Finance load failed", description: "Please refresh and try again.", variant: "destructive" });
     }
     setDashboard((d.data as FinanceDashboardRow | null) ?? null);
     setMonthly((m.data as MonthlyRow[]) ?? []);
     setReceivables((r.data as ReceivableRow[]) ?? []);
     setStudents((s.data as StudentOption[]) ?? []);
+    setRecentReceipts((p.data as FinanceReceiptRow[]) ?? []);
     setLoading(false);
   };
 
@@ -208,20 +218,19 @@ export function FinanceCommandCentre() {
       accountId = created.data.id;
     }
 
-    const receiptNumber = `RC-${Date.now().toString().slice(-8)}`;
-    const { error } = await supabase.from("fee_payments").insert({
+    const { data: paymentRecord, error } = await supabase.from("fee_payments").insert({
       fee_account_id: accountId,
       payment_date: feeForm.payment_date,
       amount: Number(feeForm.amount),
       payment_mode: feeForm.payment_mode,
-      receipt_number: receiptNumber,
       reference_number: feeForm.reference_number || null,
       notes: feeForm.notes || (student ? `Payment for ${student.name}` : null),
       branch_id: student?.branch_id ?? null,
       fee_type: feeForm.fee_type,
       cash_bank: feeForm.cash_bank,
-    });
+    }).select("id,receipt_number").single();
 
+    const receiptNumber = paymentRecord?.receipt_number || "RA—";
     if (error) {
       receiptWindow?.close();
       toast({ title: "Payment not recorded", description: error.message, variant: "destructive" });
