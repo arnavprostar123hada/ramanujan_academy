@@ -135,6 +135,20 @@ interface TestResult {
   remarks: string | null;
 }
 
+interface OnlineTestNotice {
+  id: string;
+  title: string;
+  description: string | null;
+  class: string;
+  subject: string;
+  test_type: string;
+  duration_minutes: number;
+  max_marks: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  created_at: string;
+}
+
 interface FeeInstallment {
   id: string;
   due_date: string;
@@ -171,6 +185,7 @@ const ParentPortal = () => {
   const [concerns, setConcerns] = useState<Concern[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [tests, setTests] = useState<Test[]>([]);
+  const [onlineTests, setOnlineTests] = useState<OnlineTestNotice[]>([]);
   const [classLogs, setClassLogs] = useState<ClassLog[]>([]);
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [allClassResults, setAllClassResults] = useState<TestResult[]>([]);
@@ -254,8 +269,20 @@ const ParentPortal = () => {
       .eq("approval_status", "approved");
     testsQuery = studentData.batch ? testsQuery.eq("batch", studentData.batch) : testsQuery.is("batch", null);
     testsQuery = studentData.board ? testsQuery.eq("board", studentData.board) : testsQuery.is("board", null);
-    const { data: testsData } = await testsQuery.order("test_date", { ascending: false });
+    const { data: testsData, error: testsError } = await testsQuery.order("test_date", { ascending: false });
+    if (testsError) console.error("Parent portal test schedule load failed", testsError);
     if (testsData) setTests(testsData as Test[]);
+
+    // Published online assessments are stored separately from teacher-entered test schedules.
+    // Load them independently so publishing an online test makes it visible to the correct class.
+    const { data: onlineTestsData, error: onlineTestsError } = await supabase
+      .from("online_tests")
+      .select("id,title,description,class,subject,test_type,duration_minutes,max_marks,starts_at,ends_at,created_at")
+      .eq("is_published", true)
+      .eq("class", studentData.class)
+      .order("created_at", { ascending: false });
+    if (onlineTestsError) console.error("Parent portal online tests load failed", onlineTestsError);
+    setOnlineTests((onlineTestsData as OnlineTestNotice[]) || []);
 
     // Fetch approved teaching logs for this batch
     let logsQuery = supabase
@@ -494,7 +521,7 @@ const ParentPortal = () => {
         }, 0) / validScoredResults.length
       )
     : 0;
-  const upcomingTestCount = tests.filter((test) => new Date(test.test_date) >= new Date()).length;
+  const upcomingTestCount = tests.filter((test) => new Date(test.test_date) >= new Date()).length + onlineTests.length;
   const pendingHomework = homework.filter((item) => item.completion_required && item.status !== "completed" && new Date(item.due_date) >= new Date()).length;
   const overdueHomework = homework.filter((item) => item.completion_required && item.status !== "completed" && new Date(item.due_date) < new Date()).length;
   const feeOutstanding = Math.max(0, Number(feeSummary.total_fee || 0) - Number(feeSummary.paid_amount || 0));
@@ -1247,6 +1274,46 @@ const ParentPortal = () => {
                       </div>
                     );
                   })()}
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Published online tests, separate from teacher-entered test schedules */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
+              <Card className="shadow-md border-primary/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-primary" />
+                    Online Tests Available
+                    <Badge variant="secondary">{onlineTests.length}</Badge>
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">Published tests for your child's class. Students open these in their student portal.</p>
+                </CardHeader>
+                <CardContent>
+                  {onlineTests.length === 0 ? (
+                    <p className="py-4 text-sm text-muted-foreground">No published online tests for this class right now.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {onlineTests.map((test) => (
+                        <div key={test.id} className="rounded-xl border bg-primary/5 p-4">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <h3 className="font-semibold">{test.title}</h3>
+                              <div className="mt-1 flex flex-wrap items-center gap-2">
+                                <Badge variant="secondary">{test.subject}</Badge>
+                                <Badge variant="outline">{test.test_type.toUpperCase()}</Badge>
+                                <span className="text-xs text-muted-foreground">{test.duration_minutes} minutes · {test.max_marks} marks</span>
+                              </div>
+                              {test.description && <p className="mt-2 text-sm text-muted-foreground">{test.description}</p>}
+                              {test.starts_at && <p className="mt-2 text-xs text-muted-foreground">Starts: {new Date(test.starts_at).toLocaleString("en-IN")}</p>}
+                              {test.ends_at && <p className="text-xs text-muted-foreground">Closes: {new Date(test.ends_at).toLocaleString("en-IN")}</p>}
+                            </div>
+                            <Badge className="shrink-0">Published</Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>
