@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, FileImage, FileText, Loader2, ScanText } from "lucide-react";
+import { ArrowLeft, CheckCircle2, FileImage, FileText, Loader2, ScanText, Printer } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 type CheckResult = {
@@ -77,6 +77,17 @@ export default function AIPaperChecker() {
     }
   };
 
+  const printMarkedReport = () => {
+    if (!result) return;
+    const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] || c));
+    const questions = result.extracted_answers?.questions || [];
+    const rows = questions.map((q, i) => `<section class="q"><b>${esc(q.question || `Question ${i + 1}`)}</b><b style="float:right">${q.marks_awarded ?? 0}/${q.marks_available ?? "?"}</b><p><b>Student:</b> ${esc(q.student_answer)}</p><p><b>Expected:</b> ${esc(q.expected_answer)}</p><p>${esc(q.feedback)}</p><small>${q.bbox ? `Page ${q.page || 1}, box ${q.bbox.join(", ")}` : "No location detected"}</small></section>`).join("");
+    const paper = imagePreview && image && !image.name.toLowerCase().endsWith(".pdf") ? `<div class="paper"><img src="${imagePreview}">${questions.filter(q => q.bbox).map(q => { const b = q.bbox!; const ok = Number(q.marks_awarded) >= Number(q.marks_available); return `<span style="position:absolute;left:${b[0]/10}%;top:${b[1]/10}%;width:${b[2]/10}%;height:${b[3]/10}%;box-sizing:border-box;border:2px solid ${ok ? "green" : "red"};color:${ok ? "green" : "red"};font-weight:bold">${ok ? "✓" : "✗"} ${q.marks_awarded ?? 0}/${q.marks_available ?? "?"}</span>`; }).join("")}</div>` : "";
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>AI Paper Check</title><style>body{font:14px Arial;margin:24px}.q{border:1px solid #aaa;padding:10px;margin:10px 0;break-inside:avoid}.paper{position:relative;display:inline-block;max-width:100%}.paper img{max-width:100%;max-height:900px;display:block}button{padding:10px}@media print{button{display:none}}</style></head><body><h1>AI Paper Checking Report</h1><p>${esc(studentName)} · ${esc(className)} · ${esc(subject)}</p><h2>Suggested marks: ${result.suggested_marks}/${result.max_marks}</h2><p>${esc(result.feedback || result.extracted_answers?.summary)}</p><p><b>Draft only — teacher verification required.</b></p>${paper}<h2>Question-wise feedback</h2>${rows}<button onclick="window.print()">Print / Save as PDF</button><script>window.onload=()=>setTimeout(()=>window.print(),400)</script></body></html>`;
+    const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+    if (!window.open(url, "_blank")) toast.error("Allow pop-ups to print the report.");
+  };
+
   const review = async (action: "approve" | "reject") => {
     if (!result) return;
     setBusy(true);
@@ -131,6 +142,7 @@ export default function AIPaperChecker() {
               <div className="rounded-lg border p-4"><p className="text-sm text-muted-foreground">Needs attention</p><p className="text-lg font-semibold">{result.extracted_answers?.needs_teacher_attention ? "Yes — review carefully" : "Review all answers"}</p></div>
             </div>
             <p className="text-sm text-muted-foreground">{result.feedback || result.extracted_answers?.summary}</p>
+            <Button variant="outline" onClick={printMarkedReport}><Printer className="mr-2 h-4 w-4" /> Print / Save marked report as PDF</Button>
             {imagePreview && image && !image.name.toLowerCase().endsWith(".pdf") && (result.extracted_answers?.questions || []).some(q => q.bbox) && <div className="space-y-2"><h3 className="font-semibold">Annotated paper preview</h3><p className="text-xs text-muted-foreground">AI-detected boxes are approximate. Confirm each marker against the original before approving.</p><div className="relative inline-block max-w-full"><img src={imagePreview} alt="Paper with AI marking overlays" className="block max-h-[760px] max-w-full rounded-lg border object-contain" />{(result.extracted_answers?.questions || []).filter(q => q.bbox).map((q, i) => { const b = q.bbox!; const correct = Number(q.marks_awarded) >= Number(q.marks_available); return <div key={i} title={`${q.question || "Question"}: ${q.marks_awarded ?? 0}/${q.marks_available ?? "?"}`} style={{ position: "absolute", left: `${b[0] / 10}%`, top: `${b[1] / 10}%`, width: `${b[2] / 10}%`, height: `${b[3] / 10}%`, border: `2px solid ${correct ? "#16a34a" : "#dc2626"}`, color: correct ? "#16a34a" : "#dc2626", background: correct ? "rgba(22,163,74,.10)" : "rgba(220,38,38,.10)", fontWeight: 700, pointerEvents: "none" }}>{correct ? "✓" : "✗"} {q.marks_awarded ?? 0}/{q.marks_available ?? "?"}</div>; })}</div></div>}
             <div className="space-y-3">
               {(result.extracted_answers?.questions || []).map((q, i) => <div key={i} className="rounded-lg border p-4">
