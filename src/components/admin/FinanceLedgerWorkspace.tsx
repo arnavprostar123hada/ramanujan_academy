@@ -13,8 +13,8 @@ type Student = { id: string; name: string; class: string; board: string | null; 
 type Ledger = { student_id: string; student_name: string; class: string; board: string | null; batch: string | null; branch_id: string | null; academic_year: string | null; fee_account_id: string | null; total_fee: number; scholarship: number; discount: number; net_fee: number; paid: number; pending: number; next_instalment_due_date: string | null; next_instalment_amount: number };
 type FeeStructure = { id: string; class: string; board: string; course_name: string; fee_amount: number; academic_year: string };
 type Payment = { amount: number; payment_date: string; fee_account_id: string };
-type Expense = { amount: number; expense_date: string; category: string; batch: string | null; total_amount: number | null };
-type OtherIncome = { amount: number; income_date: string; category: string; batch: string | null };
+type Expense = { amount: number; expense_date: string; category: string; batch: string | null; total_amount: number | null; vendor_payee?: string | null; description?: string | null; payment_mode?: string | null; reference_number?: string | null };
+type OtherIncome = { amount: number; income_date: string; category: string; batch: string | null; source?: string | null; description?: string | null; payment_mode?: string | null; reference_number?: string | null };
 type Instalment = { id: string; fee_account_id: string; due_date: string; amount: number; paid_amount: number; status: string };
 type Opening = { id: string; cash_balance: number; bank_balance: number; other_current_assets: number; fixed_assets: number; current_liabilities: number; long_term_liabilities: number; capital: number; as_of_date: string };
 
@@ -50,8 +50,8 @@ export function FinanceLedgerWorkspace() {
       (supabase as any).from("finance_student_ledger").select("*").order("student_name"),
       supabase.from("fee_structures").select("id,class,board,course_name,fee_amount,academic_year").eq("is_active", true).order("class"),
       supabase.from("fee_payments").select("id,amount,payment_date,fee_account_id").order("payment_date").order("id"),
-      (supabase as any).from("finance_expenses").select("id,amount,total_amount,expense_date,category,batch").order("expense_date").order("id"),
-      (supabase as any).from("finance_other_income").select("id,amount,income_date,category,batch").order("income_date").order("id"),
+      (supabase as any).from("finance_expenses").select("id,amount,total_amount,expense_date,category,batch,vendor_payee,description,payment_mode,reference_number").order("expense_date").order("id"),
+      (supabase as any).from("finance_other_income").select("id,amount,income_date,category,batch,source,description,payment_mode,reference_number").order("income_date").order("id"),
       supabase.from("fee_installments").select("id,fee_account_id,due_date,amount,paid_amount,status").order("due_date").order("id"),
       supabase.from("finance_opening_balances").select("id,as_of_date,cash_balance,bank_balance,other_current_assets,fixed_assets,current_liabilities,long_term_liabilities,capital").order("as_of_date", { ascending: false }).limit(1).maybeSingle(),
     ]);
@@ -71,8 +71,8 @@ export function FinanceLedgerWorkspace() {
     };
     const [allPayments, allExpenses, allIncome, allInstalments] = await Promise.all([
       loadAllPages("fee_payments", "id,amount,payment_date,fee_account_id", "payment_date", p),
-      loadAllPages("finance_expenses", "id,amount,total_amount,expense_date,category,batch", "expense_date", e),
-      loadAllPages("finance_other_income", "id,amount,income_date,category,batch", "income_date", i),
+      loadAllPages("finance_expenses", "id,amount,total_amount,expense_date,category,batch,vendor_payee,description,payment_mode,reference_number", "expense_date", e),
+      loadAllPages("finance_other_income", "id,amount,income_date,category,batch,source,description,payment_mode,reference_number", "income_date", i),
       loadAllPages("fee_installments", "id,fee_account_id,due_date,amount,paid_amount,status", "due_date", ins),
     ]);
     const errs = [s.error,l.error,fs.error,p.error,e.error,i.error,ins.error,ob.error].filter(Boolean);
@@ -233,7 +233,8 @@ export function FinanceLedgerWorkspace() {
         {selectField("Cash / Bank",expenseForm.cash_bank,v=>setExpenseForm(f=>({...f,cash_bank:v})),["Cash","Bank"].map(v=>({value:v,label:v})))}
         {field("Reference number",expenseForm.reference_number,v=>setExpenseForm(f=>({...f,reference_number:v})))}
         <div className="flex items-end"><Button className="w-full" onClick={()=>void saveExpense()} disabled={saving}><Plus className="mr-2 h-4 w-4"/>Record expense</Button></div>
-      </CardContent></Card></TabsContent>
+      </CardContent></Card>
+      <Card><CardHeader><CardTitle>Expense history</CardTitle></CardHeader><CardContent><div className="overflow-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left"><th className="p-2">Date</th><th className="p-2">Category</th><th className="p-2">Payee / description</th><th className="p-2">Batch</th><th className="p-2">Mode</th><th className="p-2 text-right">Amount</th></tr></thead><tbody>{[...expenses].sort((a,b)=>b.expense_date.localeCompare(a.expense_date)).map((e,idx)=><tr key={e.expense_date+"-"+idx} className="border-b"><td className="p-2 whitespace-nowrap">{e.expense_date}</td><td className="p-2">{e.category}</td><td className="p-2">{e.vendor_payee || e.description || "—"}{e.vendor_payee && e.description ? <div className="text-xs text-muted-foreground">{e.description}</div> : null}</td><td className="p-2">{e.batch || "Academy-wide"}</td><td className="p-2">{e.payment_mode || "—"}</td><td className="p-2 text-right">{fmt(e.total_amount ?? e.amount)}</td></tr>)}</tbody></table></div></CardContent></Card></TabsContent>
       <TabsContent value="income"><Card><CardHeader><CardTitle>Record other income</CardTitle><p className="text-sm text-muted-foreground">For admission fees outside the fee ledger, interest, event income, material sales, sponsorships and other receipts.</p></CardHeader><CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {field("Income date",incomeForm.income_date,v=>setIncomeForm(f=>({...f,income_date:v})),"date")}
         {field("Received from / source",incomeForm.source,v=>setIncomeForm(f=>({...f,source:v})))}
