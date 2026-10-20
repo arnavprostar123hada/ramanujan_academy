@@ -525,18 +525,6 @@ const ParentPortal = () => {
       setNewMessage("");
       toast({ title: "Message sent successfully" });
 
-      try {
-        await supabase.functions.invoke("notify-new-message", {
-          body: {
-            studentName: student.name,
-            studentClass: student.class,
-            message: data.message,
-            parentPhone: "N/A",
-          },
-        });
-      } catch {
-        console.log("Notification sent (or logged)");
-      }
     } catch {
       toast({ title: "Error sending message", variant: "destructive" });
     }
