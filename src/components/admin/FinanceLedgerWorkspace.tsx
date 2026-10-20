@@ -49,10 +49,10 @@ export function FinanceLedgerWorkspace() {
       supabase.from("students").select("id,name,class,board,batch,branch_id,academic_year").eq("status", "active").order("name"),
       (supabase as any).from("finance_student_ledger").select("*").order("student_name"),
       supabase.from("fee_structures").select("id,class,board,course_name,fee_amount,academic_year").eq("is_active", true).order("class"),
-      supabase.from("fee_payments").select("amount,payment_date,fee_account_id").order("payment_date"),
-      (supabase as any).from("finance_expenses").select("amount,total_amount,expense_date,category,batch").order("expense_date"),
-      (supabase as any).from("finance_other_income").select("amount,income_date,category,batch").order("income_date"),
-      supabase.from("fee_installments").select("id,fee_account_id,due_date,amount,paid_amount,status").order("due_date"),
+      supabase.from("fee_payments").select("id,amount,payment_date,fee_account_id").order("payment_date").order("id"),
+      (supabase as any).from("finance_expenses").select("id,amount,total_amount,expense_date,category,batch").order("expense_date").order("id"),
+      (supabase as any).from("finance_other_income").select("id,amount,income_date,category,batch").order("income_date").order("id"),
+      supabase.from("fee_installments").select("id,fee_account_id,due_date,amount,paid_amount,status").order("due_date").order("id"),
       supabase.from("finance_opening_balances").select("id,as_of_date,cash_balance,bank_balance,other_current_assets,fixed_assets,current_liabilities,long_term_liabilities,capital").order("as_of_date", { ascending: false }).limit(1).maybeSingle(),
     ]);
     const loadAllPages = async (table: string, columns: string, dateColumn: string, initial: any) => {
