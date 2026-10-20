@@ -41,6 +41,10 @@ type MonthlyRow = {
   collections: number;
   expenses: number;
   cash_surplus: number;
+  other_income?: number;
+  asset_purchases?: number;
+  borrowings?: number;
+  repayments?: number;
 };
 
 type StudentOption = { id: string; name: string; class: string; board: string | null; branch_id: string | null; parent_name?: string | null; academic_year?: string | null };
@@ -561,8 +565,8 @@ export function FinanceCommandCentre({ mode = "admin" }: { mode?: "owner" | "adm
             <CardContent>
               <div className="overflow-auto">
                 <table className="w-full text-sm">
-                  <thead><tr className="border-b text-left"><th className="py-2">Month</th><th>Collections</th><th>Expenses</th><th>Cash Surplus</th></tr></thead>
-                  <tbody>{monthly.map((r) => <tr key={r.report_month} className="border-b last:border-0"><td className="py-2">{new Date(r.report_month).toLocaleDateString("en-IN", { month:"short", year:"numeric" })}</td><td>{money(r.collections)}</td><td>{money(r.expenses)}</td><td className="font-semibold">{money(r.cash_surplus)}</td></tr>)}</tbody>
+                  <thead><tr className="border-b text-left"><th className="py-2">Month</th><th>Fees</th><th>Other income</th><th>Expenses</th><th>Asset purchases</th><th>Borrowings</th><th>Repayments</th><th>Net cash movement</th></tr></thead>
+                  <tbody>{monthly.map((r) => <tr key={r.report_month} className="border-b last:border-0"><td className="py-2 whitespace-nowrap">{new Date(r.report_month).toLocaleDateString("en-IN", { month:"short", year:"numeric" })}</td><td>{money(r.collections)}</td><td>{money(r.other_income)}</td><td>{money(r.expenses)}</td><td>{money(r.asset_purchases)}</td><td>{money(r.borrowings)}</td><td>{money(r.repayments)}</td><td className="font-semibold">{money(r.cash_surplus)}</td></tr>)}</tbody>
                 </table>
               </div>
             </CardContent>
