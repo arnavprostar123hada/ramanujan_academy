@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { FinanceOwnerBooks } from "@/components/admin/FinanceOwnerBooks";
 
 type Student = { id: string; name: string; class: string; board: string | null; batch: string | null; branch_id: string | null; academic_year: string | null };
 type Ledger = { student_id: string; student_name: string; class: string; board: string | null; batch: string | null; branch_id: string | null; academic_year: string | null; fee_account_id: string | null; total_fee: number; scholarship: number; discount: number; net_fee: number; paid: number; pending: number; next_instalment_due_date: string | null; next_instalment_amount: number };
@@ -23,7 +24,8 @@ const monthKey = (date: string) => (date || "").slice(0, 7);
 const fmt = (value: unknown) => "₹" + Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 const monthLabel = (key: string) => key ? new Date(key + "-01T00:00:00").toLocaleDateString("en-IN", { month: "short", year: "numeric" }) : "—";
 
-export function FinanceLedgerWorkspace() {
+export function FinanceLedgerWorkspace({ mode = "admin" }: { mode?: "owner" | "admin" }) {
+  const isOwner = mode === "owner";
   const { toast } = useToast();
   const [students, setStudents] = useState<Student[]>([]);
   const [ledger, setLedger] = useState<Ledger[]>([]);
