@@ -130,6 +130,7 @@ export function FinanceCommandCentre() {
   const [students, setStudents] = useState<StudentOption[]>([]);
   const [recentReceipts, setRecentReceipts] = useState<FinanceReceiptRow[]>([]);
   const [feeStructures, setFeeStructures] = useState<FeeStructureOption[]>([]);
+  const [feeAccountCount, setFeeAccountCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [savingFee, setSavingFee] = useState(false);
   const [savingExpense, setSavingExpense] = useState(false);
@@ -166,16 +167,17 @@ export function FinanceCommandCentre() {
 
   const loadFinance = async () => {
     setLoading(true);
-    const [d, m, r, s, p, fs] = await Promise.all([
+    const [d, m, r, s, p, fs, fa] = await Promise.all([
       supabase.from("finance_dashboard").select("*").maybeSingle(),
       supabase.from("finance_monthly_mis").select("*").order("report_month", { ascending: true }),
       supabase.from("finance_receivables").select("*").order("outstanding", { ascending: false }).limit(100),
       supabase.from("students").select("id,name,class,board,branch_id,parent_name,academic_year").eq("status", "active").order("name"),
       supabase.from("finance_receipt_register").select("payment_id,receipt_number,payment_date,amount,payment_mode,reference_number,fee_type,cash_bank,student_id,student_name,class,board,academic_year").order("payment_date", { ascending: false }).limit(8),
       supabase.from("fee_structures").select("id,class,board,course_name,fee_amount,academic_year").eq("is_active", true).eq("academic_year", "2026-27").order("class"),
+      supabase.from("fee_accounts").select("id"),
     ]);
-    if (d.error || m.error || r.error || s.error || p.error || fs.error) {
-      console.error("Finance load error", { d: d.error, m: m.error, r: r.error, s: s.error, p: p.error, fs: fs.error });
+    if (d.error || m.error || r.error || s.error || p.error || fs.error || fa.error) {
+      console.error("Finance load error", { d: d.error, m: m.error, r: r.error, s: s.error, p: p.error, fs: fs.error, fa: fa.error });
       toast({ title: "Finance load failed", description: "Please refresh and try again.", variant: "destructive" });
     }
     setDashboard((d.data as FinanceDashboardRow | null) ?? null);
@@ -184,6 +186,7 @@ export function FinanceCommandCentre() {
     setStudents((s.data as StudentOption[]) ?? []);
     setRecentReceipts((p.data as FinanceReceiptRow[]) ?? []);
     setFeeStructures((fs.data as FeeStructureOption[]) ?? []);
+    setFeeAccountCount(fa.data?.length ?? 0);
     setLoading(false);
   };
 
@@ -367,7 +370,21 @@ export function FinanceCommandCentre() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card className="card-elevated"><CardContent className="p-5"><p className="text-xs uppercase tracking-wide text-muted-foreground">Active Students</p><p className="mt-2 text-2xl font-bold">{Number(dashboard?.active_students || 0).toLocaleString("en-IN")}</p><p className="mt-1 text-xs text-muted-foreground">Current active enrolments</p></CardContent></Card>
+        <Card className="card-elevated"><CardContent className="p-5"><p className="text-xs uppercase tracking-wide text-muted-foreground">Fee Accounts Set Up</p><p className="mt-2 text-2xl font-bold">{feeAccountCount.toLocaleString("en-IN")}</p><p className="mt-1 text-xs text-muted-foreground">Students with a fee ledger</p></CardContent></Card>
+        <Card className="card-elevated"><CardContent className="p-5"><p className="text-xs uppercase tracking-wide text-muted-foreground">Fee Account Coverage</p><p className="mt-2 text-2xl font-bold">{dashboard?.active_students ? (feeAccountCount / Number(dashboard.active_students) * 100).toFixed(1) : "0.0"}%</p><p className="mt-1 text-xs text-muted-foreground">Accounts ÷ active students</p></CardContent></Card>
+        <Card className="card-elevated"><CardContent className="p-5"><p className="text-xs uppercase tracking-wide text-muted-foreground">Operating Margin</p><p className="mt-2 text-2xl font-bold">{Number(dashboard?.operating_margin_pct || 0).toFixed(1)}%</p><p className="mt-1 text-xs text-muted-foreground">Cash surplus relative to collections</p></CardContent></Card>
+      </div>
+
+      {dashboard?.active_students && feeAccountCount < Number(dashboard.active_students) && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-600" />
+          <div><p className="font-semibold">Fee setup is incomplete</p><p className="text-sm text-muted-foreground">{feeAccountCount} of {dashboard.active_students} active students currently have fee accounts. Apply the correct class, board and course fee structure before recording payments so outstanding balances remain accurate.</p></div>
+        </div>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card className="card-elevated">
           <CardHeader><CardTitle>Collection Efficiency</CardTitle></CardHeader>
           <CardContent><div className="text-4xl font-bold">{Number(dashboard?.collection_efficiency_pct || 0).toFixed(1)}%</div><p className="text-sm text-muted-foreground mt-2">Collected ÷ billed</p></CardContent>
