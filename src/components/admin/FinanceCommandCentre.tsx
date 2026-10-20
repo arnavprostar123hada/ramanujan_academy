@@ -130,6 +130,7 @@ export function FinanceCommandCentre() {
   const [receivables, setReceivables] = useState<ReceivableRow[]>([]);
   const [students, setStudents] = useState<StudentOption[]>([]);
   const [recentReceipts, setRecentReceipts] = useState<FinanceReceiptRow[]>([]);
+  const [receiptSearch, setReceiptSearch] = useState("");
   const [feeStructures, setFeeStructures] = useState<FeeStructureOption[]>([]);
   const [feeAccountCount, setFeeAccountCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -173,7 +174,7 @@ export function FinanceCommandCentre() {
       supabase.from("finance_monthly_mis").select("*").order("report_month", { ascending: true }),
       supabase.from("finance_receivables").select("*").order("outstanding", { ascending: false }).limit(100),
       supabase.from("students").select("id,name,class,board,branch_id,parent_name,academic_year").eq("status", "active").order("name"),
-      supabase.from("finance_receipt_register").select("payment_id,receipt_number,payment_date,amount,payment_mode,reference_number,fee_type,cash_bank,student_id,student_name,class,board,academic_year").order("payment_date", { ascending: false }).limit(8),
+      supabase.from("finance_receipt_register").select("payment_id,receipt_number,payment_date,amount,payment_mode,reference_number,fee_type,cash_bank,student_id,student_name,class,board,academic_year").order("payment_date", { ascending: false }).limit(500),
       supabase.from("fee_structures").select("id,class,board,course_name,fee_amount,academic_year").eq("is_active", true).eq("academic_year", "2026-27").order("class"),
       supabase.from("fee_accounts").select("id"),
     ]);
@@ -279,6 +280,38 @@ export function FinanceCommandCentre() {
     setSavingFee(false);
   };
 
+  const printSavedReceipt = (receipt: FinanceReceiptRow) => {
+    // Open synchronously from the button click to avoid popup blockers.
+    const printWindow = window.open("", "_blank", "width=900,height=720");
+    if (printWindow) {
+      printWindow.document.write("<!doctype html><title>Preparing saved receipt…</title><p style='font:16px Arial;padding:24px'>Loading saved receipt…</p>");
+    }
+    const student = students.find((item) => item.id === receipt.student_id);
+    renderFeeReceipt(printWindow, {
+      receiptNumber: receipt.receipt_number || "RA—",
+      date: receipt.payment_date,
+      studentId: receipt.student_id,
+      studentName: receipt.student_name || student?.name || "Student",
+      studentClass: receipt.class || student?.class || "",
+      board: receipt.board ?? student?.board,
+      parentName: student?.parent_name,
+      academicYear: receipt.academic_year ?? student?.academic_year,
+      amount: Number(receipt.amount || 0),
+      feeType: receipt.fee_type || "Fee Payment",
+      paymentMode: receipt.payment_mode || "Cash",
+      referenceNumber: receipt.reference_number || "",
+      cashBank: receipt.cash_bank || "",
+    });
+  };
+
+  const filteredReceipts = recentReceipts.filter((receipt) => {
+    const query = receiptSearch.trim().toLowerCase();
+    if (!query) return true;
+    return [receipt.receipt_number, receipt.student_name, receipt.student_id, receipt.class,
+      receipt.board, receipt.fee_type, receipt.payment_mode, receipt.reference_number]
+      .some((value) => String(value || "").toLowerCase().includes(query));
+  });
+
   const recordExpense = async () => {
     if (!expenseForm.category || !expenseForm.amount || Number(expenseForm.amount) <= 0) {
       toast({ title: "Complete expense details", description: "Enter a category and valid amount.", variant: "destructive" });
@@ -343,31 +376,37 @@ export function FinanceCommandCentre() {
 
       <Card className="card-elevated">
         <CardHeader>
-          <div className="flex items-center justify-between gap-3">
-            <div><CardTitle>Recent Fee Collections</CardTitle><p className="text-sm text-muted-foreground mt-1">Latest recorded payments and database-generated receipt numbers</p></div>
-            <Badge variant="outline">{recentReceipts.length} recent</Badge>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div><CardTitle>Receipt History & Reprinting</CardTitle><p className="mt-1 text-sm text-muted-foreground">Search saved receipts and print or save any receipt as PDF again.</p></div>
+            <Badge variant="outline">{filteredReceipts.length} of {recentReceipts.length} receipts</Badge>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input value={receiptSearch} onChange={(event) => setReceiptSearch(event.target.value)} placeholder="Search receipt no., student, class, fee type or reference…" aria-label="Search saved receipts" />
+            <Button variant="outline" onClick={() => void loadFinance()} disabled={loading}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>
           </div>
         </CardHeader>
         <CardContent>
-          {recentReceipts.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">No receipts recorded yet.</p>
+          {filteredReceipts.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">{recentReceipts.length === 0 ? "No saved receipts found yet." : "No receipts match your search."}</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead><tr className="border-b text-left"><th className="py-2 pr-3">Receipt</th><th className="pr-3">Date</th><th className="pr-3">Student</th><th className="pr-3">Fee Type</th><th className="pr-3">Mode</th><th className="text-right">Amount</th></tr></thead>
-                <tbody>{recentReceipts.map((receipt) => (
+                <thead><tr className="border-b text-left"><th className="py-2 pr-3">Receipt No.</th><th className="pr-3">Date</th><th className="pr-3">Student</th><th className="pr-3">Fee Type</th><th className="pr-3">Mode</th><th className="pr-3 text-right">Amount</th><th className="pl-3 text-right">Action</th></tr></thead>
+                <tbody>{filteredReceipts.map((receipt) => (
                   <tr key={receipt.payment_id} className="border-b last:border-0">
-                    <td className="py-3 pr-3 font-semibold">{receipt.receipt_number}</td>
+                    <td className="py-3 pr-3 font-semibold whitespace-nowrap">{receipt.receipt_number || "—"}</td>
                     <td className="pr-3 whitespace-nowrap">{new Date(receipt.payment_date + "T00:00:00").toLocaleDateString("en-IN")}</td>
                     <td className="pr-3"><div className="font-medium">{receipt.student_name}</div><div className="text-xs text-muted-foreground">Class {receipt.class}{receipt.board ? " · " + receipt.board : ""}</div></td>
                     <td className="pr-3">{receipt.fee_type || "Fee Payment"}</td>
                     <td className="pr-3">{receipt.payment_mode || "—"}</td>
-                    <td className="text-right font-semibold whitespace-nowrap">{money(receipt.amount)}</td>
+                    <td className="pr-3 text-right font-semibold whitespace-nowrap">{money(receipt.amount)}</td>
+                    <td className="pl-3 text-right"><Button size="sm" variant="outline" onClick={() => printSavedReceipt(receipt)}><Receipt className="mr-2 h-4 w-4" />Print</Button></td>
                   </tr>
                 ))}</tbody>
               </table>
             </div>
           )}
+          <p className="mt-3 text-xs text-muted-foreground">Select Print to open the saved payment details, then use Print or Save as PDF. Receipt history is loaded from the finance receipt register.</p>
         </CardContent>
       </Card>
 
