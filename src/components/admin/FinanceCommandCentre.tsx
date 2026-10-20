@@ -188,7 +188,7 @@ export function FinanceCommandCentre({ mode = "admin" }: { mode?: "owner" | "adm
       let offset = 500;
       while (true) {
         const page = await supabase.from("finance_receipt_register")
-          .select("payment_id,receipt_number,payment_date,amount,payment_mode,reference_number,fee_type,cash_bank,student_id,student_name,class,board,academic_year")
+          .select("payment_id,receipt_number,payment_date,amount,payment_mode,reference_number,fee_type,cash_bank,student_id,student_name,class,board,academic_year,next_installment_due_date")
           .order("payment_date", { ascending: false }).range(offset, offset + 499);
         if (page.error) {
           console.error("Receipt history page load error", page.error);
