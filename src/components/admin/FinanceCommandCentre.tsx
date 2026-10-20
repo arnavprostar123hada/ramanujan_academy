@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.jpg";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { BarChart, Bar, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -365,6 +366,33 @@ export function FinanceCommandCentre() {
                   </tr>
                 ))}</tbody>
               </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="card-elevated">
+        <CardHeader><CardTitle>Monthly Collections vs Expenses</CardTitle><p className="text-sm text-muted-foreground">Compare money received with recorded operating expenses.</p></CardHeader>
+        <CardContent>
+          {monthly.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Monthly figures will appear here as finance transactions are recorded.</p>
+          ) : (
+            <div className="h-[280px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthly.map((row) => ({
+                  month: new Date(row.report_month).toLocaleDateString("en-IN", { month: "short", year: "2-digit" }),
+                  collections: Number(row.collections || 0),
+                  expenses: Number(row.expenses || 0),
+                }))} margin={{ top: 12, right: 12, left: 4, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(value) => Number(value) >= 1000 ? "₹" + (Number(value) / 1000).toFixed(0) + "k" : "₹" + value} />
+                  <Tooltip formatter={(value) => money(Number(value))} />
+                  <Legend />
+                  <Bar dataKey="collections" name="Collections" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="expenses" name="Expenses" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           )}
         </CardContent>
