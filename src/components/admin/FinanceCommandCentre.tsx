@@ -174,10 +174,27 @@ export function FinanceCommandCentre() {
       supabase.from("finance_monthly_mis").select("*").order("report_month", { ascending: true }),
       supabase.from("finance_receivables").select("*").order("outstanding", { ascending: false }).limit(100),
       supabase.from("students").select("id,name,class,board,branch_id,parent_name,academic_year").eq("status", "active").order("name"),
-      supabase.from("finance_receipt_register").select("payment_id,receipt_number,payment_date,amount,payment_mode,reference_number,fee_type,cash_bank,student_id,student_name,class,board,academic_year").order("payment_date", { ascending: false }).limit(500),
+      supabase.from("finance_receipt_register").select("payment_id,receipt_number,payment_date,amount,payment_mode,reference_number,fee_type,cash_bank,student_id,student_name,class,board,academic_year").order("payment_date", { ascending: false }).range(0, 499),
       supabase.from("fee_structures").select("id,class,board,course_name,fee_amount,academic_year").eq("is_active", true).eq("academic_year", "2026-27").order("class"),
       supabase.from("fee_accounts").select("id"),
     ]);
+    let allReceipts = (p.data as FinanceReceiptRow[] | null) ?? [];
+    // Fetch the full receipt history in pages so older receipts remain searchable too.
+    if (!p.error && allReceipts.length === 500) {
+      let offset = 500;
+      while (true) {
+        const page = await supabase.from("finance_receipt_register")
+          .select("payment_id,receipt_number,payment_date,amount,payment_mode,reference_number,fee_type,cash_bank,student_id,student_name,class,board,academic_year")
+          .order("payment_date", { ascending: false }).range(offset, offset + 499);
+        if (page.error) {
+          console.error("Receipt history page load error", page.error);
+          break;
+        }
+        allReceipts = allReceipts.concat((page.data as FinanceReceiptRow[]) ?? []);
+        if (!page.data || page.data.length < 500) break;
+        offset += 500;
+      }
+    }
     if (d.error || m.error || r.error || s.error || p.error || fs.error || fa.error) {
       console.error("Finance load error", { d: d.error, m: m.error, r: r.error, s: s.error, p: p.error, fs: fs.error, fa: fa.error });
       toast({ title: "Finance load failed", description: "Please refresh and try again.", variant: "destructive" });
@@ -186,7 +203,7 @@ export function FinanceCommandCentre() {
     setMonthly((m.data as MonthlyRow[]) ?? []);
     setReceivables((r.data as ReceivableRow[]) ?? []);
     setStudents((s.data as StudentOption[]) ?? []);
-    setRecentReceipts((p.data as FinanceReceiptRow[]) ?? []);
+    setRecentReceipts(allReceipts);
     setFeeStructures((fs.data as FeeStructureOption[]) ?? []);
     setFeeAccountCount(fa.data?.length ?? 0);
     setLoading(false);
