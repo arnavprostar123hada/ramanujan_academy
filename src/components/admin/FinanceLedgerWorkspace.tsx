@@ -52,8 +52,8 @@ export function FinanceLedgerWorkspace({ mode = "admin" }: { mode?: "owner" | "a
       (supabase as any).from("finance_student_ledger").select("*").order("student_name"),
       supabase.from("fee_structures").select("id,class,board,course_name,fee_amount,academic_year").eq("is_active", true).order("class"),
       supabase.from("fee_payments").select("id,amount,payment_date,fee_account_id").order("payment_date").order("id"),
-      (supabase as any).from("finance_expenses").select("id,amount,total_amount,expense_date,category,batch,vendor_payee,description,payment_mode,reference_number").order("expense_date").order("id"),
-      (supabase as any).from("finance_other_income").select("id,amount,income_date,category,batch,source,description,payment_mode,reference_number").order("income_date").order("id"),
+      isOwner ? (supabase as any).from("finance_expenses").select("id,amount,total_amount,expense_date,category,batch,vendor_payee,description,payment_mode,reference_number").order("expense_date").order("id") : Promise.resolve({data:[],error:null}),
+      isOwner ? (supabase as any).from("finance_other_income").select("id,amount,income_date,category,batch,source,description,payment_mode,reference_number").order("income_date").order("id") : Promise.resolve({data:[],error:null}),
       supabase.from("fee_installments").select("id,fee_account_id,due_date,amount,paid_amount,status").order("due_date").order("id"),
       isOwner ? supabase.from("finance_opening_balances").select("id,as_of_date,cash_balance,bank_balance,other_current_assets,fixed_assets,current_liabilities,long_term_liabilities,capital").order("as_of_date", { ascending: false }).limit(1).maybeSingle() : Promise.resolve({data:null,error:null}),
     ]);
