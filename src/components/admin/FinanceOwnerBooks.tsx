@@ -63,6 +63,9 @@ export function FinanceOwnerBooks() {
     if(Number(assetForm.amount_paid)>Number(assetForm.purchase_cost)) {
       toast({title:"Amount paid cannot exceed purchase cost",variant:"destructive"}); return;
     }
+    if(Number(assetForm.residual_value||0)>Number(assetForm.purchase_cost) || Number(assetForm.accumulated_depreciation||0)>Number(assetForm.purchase_cost)) {
+      toast({title:"Residual value and accumulated depreciation cannot exceed purchase cost",variant:"destructive"}); return;
+    }
     setSaving(true);
     const {data:user}=await supabase.auth.getUser();
     const payload={...assetForm,purchase_cost:Number(assetForm.purchase_cost),amount_paid:Number(assetForm.amount_paid||0),residual_value:Number(assetForm.residual_value||0),useful_life_months:assetForm.useful_life_months?Number(assetForm.useful_life_months):null,accumulated_depreciation:Number(assetForm.accumulated_depreciation||0),payment_due_date:assetForm.payment_due_date||null,notes:assetForm.notes||null,created_by:user.user?.id||null};
