@@ -48,6 +48,10 @@ type FinanceReceiptRow = {
   cash_bank: string | null; student_id: string; student_name: string; class: string;
   board: string | null; academic_year: string | null;
 };
+type FeeStructureOption = {
+  id: string; class: string; board: string; course_name: string;
+  fee_amount: number; academic_year: string;
+};
 
 function escapeReceiptHtml(value: unknown): string {
   return String(value ?? "").replace(/[&<>"']/g, (c) => ({
@@ -125,6 +129,7 @@ export function FinanceCommandCentre() {
   const [receivables, setReceivables] = useState<ReceivableRow[]>([]);
   const [students, setStudents] = useState<StudentOption[]>([]);
   const [recentReceipts, setRecentReceipts] = useState<FinanceReceiptRow[]>([]);
+  const [feeStructures, setFeeStructures] = useState<FeeStructureOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingFee, setSavingFee] = useState(false);
   const [savingExpense, setSavingExpense] = useState(false);
@@ -137,6 +142,7 @@ export function FinanceCommandCentre() {
     cash_bank: "Cash",
     reference_number: "",
     notes: "",
+    fee_structure_id: "",
   });
   const [expenseForm, setExpenseForm] = useState({
     expense_date: new Date().toISOString().slice(0, 10),
@@ -160,15 +166,16 @@ export function FinanceCommandCentre() {
 
   const loadFinance = async () => {
     setLoading(true);
-    const [d, m, r, s, p] = await Promise.all([
+    const [d, m, r, s, p, fs] = await Promise.all([
       supabase.from("finance_dashboard").select("*").maybeSingle(),
       supabase.from("finance_monthly_mis").select("*").order("report_month", { ascending: true }),
       supabase.from("finance_receivables").select("*").order("outstanding", { ascending: false }).limit(100),
       supabase.from("students").select("id,name,class,board,branch_id,parent_name,academic_year").eq("status", "active").order("name"),
       supabase.from("finance_receipt_register").select("payment_id,receipt_number,payment_date,amount,payment_mode,reference_number,fee_type,cash_bank,student_id,student_name,class,board,academic_year").order("payment_date", { ascending: false }).limit(8),
+      supabase.from("fee_structures").select("id,class,board,course_name,fee_amount,academic_year").eq("is_active", true).eq("academic_year", "2026-27").order("class"),
     ]);
-    if (d.error || m.error || r.error || s.error || p.error) {
-      console.error("Finance load error", { d: d.error, m: m.error, r: r.error, s: s.error, p: p.error });
+    if (d.error || m.error || r.error || s.error || p.error || fs.error) {
+      console.error("Finance load error", { d: d.error, m: m.error, r: r.error, s: s.error, p: p.error, fs: fs.error });
       toast({ title: "Finance load failed", description: "Please refresh and try again.", variant: "destructive" });
     }
     setDashboard((d.data as FinanceDashboardRow | null) ?? null);
@@ -176,6 +183,7 @@ export function FinanceCommandCentre() {
     setReceivables((r.data as ReceivableRow[]) ?? []);
     setStudents((s.data as StudentOption[]) ?? []);
     setRecentReceipts((p.data as FinanceReceiptRow[]) ?? []);
+    setFeeStructures((fs.data as FeeStructureOption[]) ?? []);
     setLoading(false);
   };
 
@@ -198,25 +206,34 @@ export function FinanceCommandCentre() {
     const account = await supabase.from("fee_accounts").select("id").eq("student_id", feeForm.student_id).maybeSingle();
     let accountId = account.data?.id;
 
+    // Never invent the student's total fee from the amount of a single payment.
+    // Apply an explicitly selected fee structure first so billed/outstanding totals stay accurate.
     if (!accountId) {
-      const created = await supabase
-        .from("fee_accounts")
-        .insert({
-          student_id: feeForm.student_id,
-          total_fee: Number(feeForm.amount),
-          net_fee: Number(feeForm.amount),
-          scholarship: 0,
-          discount: 0,
-        })
-        .select("id")
-        .single();
-      if (created.error) {
+      if (!feeForm.fee_structure_id) {
         receiptWindow?.close();
-        toast({ title: "Fee account could not be created", description: created.error.message, variant: "destructive" });
+        toast({ title: "Fee structure required", description: "This student has no fee account. Select the correct course fee structure before recording payment.", variant: "destructive" });
         setSavingFee(false);
         return;
       }
-      accountId = created.data.id;
+      const applied = await supabase.rpc("apply_student_fee_structure", {
+        p_student_id: feeForm.student_id,
+        p_fee_structure_id: feeForm.fee_structure_id,
+        p_reason: "Applied from Finance Command Centre before recording payment",
+      });
+      if (applied.error) {
+        receiptWindow?.close();
+        toast({ title: "Could not apply fee structure", description: applied.error.message, variant: "destructive" });
+        setSavingFee(false);
+        return;
+      }
+      const refreshedAccount = await supabase.from("fee_accounts").select("id").eq("student_id", feeForm.student_id).maybeSingle();
+      if (refreshedAccount.error || !refreshedAccount.data?.id) {
+        receiptWindow?.close();
+        toast({ title: "Fee account not created", description: refreshedAccount.error?.message || "Please check the fee structure and try again.", variant: "destructive" });
+        setSavingFee(false);
+        return;
+      }
+      accountId = refreshedAccount.data.id;
     }
 
     const { data: paymentRecord, error } = await supabase.from("fee_payments").insert({
@@ -252,7 +269,7 @@ export function FinanceCommandCentre() {
         cashBank: feeForm.cash_bank,
       });
       toast({ title: "Payment recorded", description: `Receipt ${receiptNumber} created.` });
-      setFeeForm((f) => ({ ...f, amount: "", reference_number: "", notes: "" }));
+      setFeeForm((f) => ({ ...f, amount: "", reference_number: "", notes: "", fee_structure_id: "" }));
       await loadFinance();
     }
     setSavingFee(false);
@@ -372,7 +389,8 @@ export function FinanceCommandCentre() {
           <Card>
             <CardHeader><CardTitle>Record Fee Collection</CardTitle></CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
-              <div><Label>Student</Label><NativeSelect options={students.map(s => ({ value: s.id, label: `${s.name} — Class ${s.class}` }))} value={feeForm.student_id} onValueChange={(value) => setFeeForm(f => ({ ...f, student_id: value }))} placeholder="Select student" /></div>
+              <div><Label>Student</Label><NativeSelect options={students.map(s => ({ value: s.id, label: `${s.name} — Class ${s.class}` }))} value={feeForm.student_id} onValueChange={(value) => setFeeForm(f => ({ ...f, student_id: value, fee_structure_id: "" }))} placeholder="Select student" /></div>
+              <div><Label>Fee Structure (needed if no fee account exists)</Label><NativeSelect options={feeStructures.filter(fs => { const student = students.find(s => s.id === feeForm.student_id); return !!student && fs.class === student.class && (fs.board === "Any" || fs.board === student.board); }).map(fs => ({ value: fs.id, label: `${fs.course_name} — ₹${Number(fs.fee_amount).toLocaleString("en-IN")}` }))} value={feeForm.fee_structure_id} onValueChange={(value) => setFeeForm(f => ({ ...f, fee_structure_id: value }))} placeholder="Select course fee structure" /></div>
               <div><Label>Amount (₹)</Label><Input type="number" min="1" value={feeForm.amount} onChange={(e) => setFeeForm(f => ({ ...f, amount: e.target.value }))} /></div>
               <div><Label>Payment Date</Label><Input type="date" value={feeForm.payment_date} onChange={(e) => setFeeForm(f => ({ ...f, payment_date: e.target.value }))} /></div>
               <div><Label>Fee Type</Label><NativeSelect options={["Tuition Fee","Admission Fee","Exam Fee","Other Fee"].map(v => ({ value:v,label:v }))} value={feeForm.fee_type} onValueChange={(value) => setFeeForm(f => ({ ...f, fee_type:value }))} /></div>
