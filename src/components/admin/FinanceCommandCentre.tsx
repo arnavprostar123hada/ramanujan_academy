@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { FinanceLedgerWorkspace } from "@/components/admin/FinanceLedgerWorkspace";
 
 type FinanceDashboardRow = {
   active_students: number;
@@ -85,7 +86,7 @@ function receiptAmountInWords(value: number): string {
 
 function renderFeeReceipt(
   printWindow: Window | null,
-  data: { receiptNumber: string; date: string; studentId: string; studentName: string; studentClass: string; board?: string | null; parentName?: string | null; academicYear?: string | null; amount: number; feeType: string; paymentMode: string; referenceNumber?: string; cashBank?: string }
+  data: { receiptNumber: string; date: string; studentId: string; studentName: string; studentClass: string; board?: string | null; parentName?: string | null; academicYear?: string | null; amount: number; feeType: string; paymentMode: string; referenceNumber?: string; cashBank?: string; nextInstallmentDueDate?: string | null }
 ) {
   if (!printWindow || printWindow.closed) {
     window.alert("Payment was saved, but the receipt window was blocked. Allow pop-ups and try printing the receipt again.");
@@ -109,7 +110,7 @@ function renderFeeReceipt(
     '.totals{width:290px;margin:10px 0 12px auto}.total{display:flex;justify-content:space-between;padding:4px 0}.grand{font-size:16px;font-weight:bold;border-top:1px solid #111;border-bottom:3px double #111;padding:8px 0}.words{border:1px solid #555;padding:9px;margin:12px 0}.words b{display:block;font-size:10px;margin-bottom:5px}.payment{margin-top:14px}.modes{display:flex;flex-wrap:wrap;gap:16px;margin:8px 0}.bank{display:grid;grid-template-columns:1fr 1fr;gap:8px 22px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:50px;margin-top:54px}.sign{border-top:1px solid #222;text-align:center;padding-top:7px;font-size:11px}.foot{text-align:center;font-size:9px;color:#555;margin-top:18px}.actions{text-align:center;margin:18px}.actions button{padding:10px 18px;cursor:pointer}@media print{.actions{display:none}.receipt{max-width:none;padding:0}}@media(max-width:560px){.meta,.bank{grid-template-columns:1fr}.full{grid-column:auto}.totals{width:100%}}' +
     '</style></head><body><main class="receipt"><header class="brand"><img src="' + escapeReceiptHtml(logo) + '" alt="Ramanujan Academy logo"><h1>RAMANUJAN ACADEMY</h1><p>Not Just Education, But Complete Development</p><p>Jehan Circle Branch, Patil Sankul, Opp. Reliance Digital, Gangapur Road, Nashik</p><p>Website: ramanujanacademy.in</p><p class="sub">OFFICIAL FEE PAYMENT RECEIPT</p></header>' +
     '<section class="meta"><div class="field"><b>Receipt No:</b><span>' + escapeReceiptHtml(data.receiptNumber) + '</span></div><div class="field"><b>Date:</b><span>' + escapeReceiptHtml(date) + '</span></div>' +
-    '<div class="field"><b>Admission / Reg. No:</b><span>' + escapeReceiptHtml(data.studentId) + '</span></div><div class="field"><b>Academic Year:</b><span>' + escapeReceiptHtml((data.academicYear || "2026-2027").replace("-", " - ")) + '</span></div></section>' +
+    '<div class="field"><b>Admission / Reg. No:</b><span>' + escapeReceiptHtml(data.studentId) + '</span></div><div class="field"><b>Academic Year:</b><span>' + escapeReceiptHtml((data.academicYear || "2026-2027").replace("-", " - ")) + '</span></div><div class="field full"><b>Next Instalment Due Date:</b><span>' + escapeReceiptHtml(data.nextInstallmentDueDate || "Not scheduled") + '</span></div></section>' +
     '<section class="meta"><div class="field full"><b>Student Name:</b><span>' + escapeReceiptHtml(data.studentName) + '</span></div><div class="field"><b>Class / Course:</b><span>' + escapeReceiptHtml(data.studentClass + (data.board ? " / " + data.board : "")) + '</span></div><div class="field"><b>Roll No / Section:</b><span>—</span></div><div class="field full"><b>Parent / Guardian Name:</b><span>' + escapeReceiptHtml(data.parentName || "—") + '</span></div></section>' +
     '<table><thead><tr><th>S.No.</th><th>Fee Particulars / Description</th><th>Amount (₹)</th></tr></thead><tbody>' +
     feeLine(1, data.feeType || "Fee Payment", amount) + feeLine(2, "Tuition Fee (Monthly / Quarterly)", 0) + feeLine(3, "Examination Fee", 0) + feeLine(4, "Library / Laboratory Fee", 0) + feeLine(5, "Transport / School Bus Fee", 0) + feeLine(6, "Miscellaneous Charges", 0) +
@@ -275,7 +276,9 @@ export function FinanceCommandCentre() {
       receiptWindow?.close();
       toast({ title: "Payment not recorded", description: error.message, variant: "destructive" });
     } else {
+      const nextDue = await supabase.from("finance_student_ledger").select("next_instalment_due_date").eq("student_id", feeForm.student_id).maybeSingle();
       renderFeeReceipt(receiptWindow, {
+        nextInstallmentDueDate: nextDue.data?.next_instalment_due_date ?? null,
         receiptNumber,
         date: feeForm.payment_date,
         studentId: student?.id || feeForm.student_id,
@@ -297,14 +300,16 @@ export function FinanceCommandCentre() {
     setSavingFee(false);
   };
 
-  const printSavedReceipt = (receipt: FinanceReceiptRow) => {
+  const printSavedReceipt = async (receipt: FinanceReceiptRow) => {
     // Open synchronously from the button click to avoid popup blockers.
     const printWindow = window.open("", "_blank", "width=900,height=720");
     if (printWindow) {
       printWindow.document.write("<!doctype html><title>Preparing saved receipt…</title><p style='font:16px Arial;padding:24px'>Loading saved receipt…</p>");
     }
     const student = students.find((item) => item.id === receipt.student_id);
+    const nextDue = await supabase.from("finance_student_ledger").select("next_instalment_due_date").eq("student_id", receipt.student_id).maybeSingle();
     renderFeeReceipt(printWindow, {
+      nextInstallmentDueDate: nextDue.data?.next_instalment_due_date ?? null,
       receiptNumber: receipt.receipt_number || "RA—",
       date: receipt.payment_date,
       studentId: receipt.student_id,
@@ -478,6 +483,8 @@ export function FinanceCommandCentre() {
           <CardContent><div className="flex items-center gap-2 text-4xl font-bold"><TrendingUp className="h-8 w-8" />{money(dashboard?.operating_cash_surplus)}</div><p className="text-sm text-muted-foreground mt-2">Collections less recorded expenses</p></CardContent>
         </Card>
       </div>
+
+      <FinanceLedgerWorkspace />
 
       <Tabs defaultValue="collection">
         <TabsList className="grid w-full grid-cols-3">
