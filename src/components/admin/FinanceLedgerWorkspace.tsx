@@ -16,7 +16,7 @@ type Payment = { amount: number; payment_date: string; fee_account_id: string };
 type Expense = { amount: number; expense_date: string; category: string; batch: string | null; total_amount: number | null };
 type OtherIncome = { amount: number; income_date: string; category: string; batch: string | null };
 type Instalment = { id: string; fee_account_id: string; due_date: string; amount: number; paid_amount: number; status: string };
-type Opening = { cash_balance: number; bank_balance: number; other_current_assets: number; fixed_assets: number; current_liabilities: number; long_term_liabilities: number; capital: number; as_of_date: string };
+type Opening = { id: string; cash_balance: number; bank_balance: number; other_current_assets: number; fixed_assets: number; current_liabilities: number; long_term_liabilities: number; capital: number; as_of_date: string };
 
 const today = () => new Date().toISOString().slice(0, 10);
 const monthKey = (date: string) => (date || "").slice(0, 7);
@@ -47,13 +47,13 @@ export function FinanceLedgerWorkspace() {
     setLoading(true);
     const [s, l, fs, p, e, i, ins, ob] = await Promise.all([
       supabase.from("students").select("id,name,class,board,batch,branch_id,academic_year").eq("status", "active").order("name"),
-      supabase.from("finance_student_ledger").select("*").order("student_name"),
+      (supabase as any).from("finance_student_ledger").select("*").order("student_name"),
       supabase.from("fee_structures").select("id,class,board,course_name,fee_amount,academic_year").eq("is_active", true).order("class"),
       supabase.from("fee_payments").select("amount,payment_date,fee_account_id").order("payment_date"),
       supabase.from("finance_expenses").select("amount,total_amount,expense_date,category,batch").order("expense_date"),
-      supabase.from("finance_other_income").select("amount,income_date,category,batch").order("income_date"),
+      (supabase as any).from("finance_other_income").select("amount,income_date,category,batch").order("income_date"),
       supabase.from("fee_installments").select("id,fee_account_id,due_date,amount,paid_amount,status").order("due_date"),
-      supabase.from("finance_opening_balances").select("as_of_date,cash_balance,bank_balance,other_current_assets,fixed_assets,current_liabilities,long_term_liabilities,capital").order("as_of_date", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("finance_opening_balances").select("id,as_of_date,cash_balance,bank_balance,other_current_assets,fixed_assets,current_liabilities,long_term_liabilities,capital").order("as_of_date", { ascending: false }).limit(1).maybeSingle(),
     ]);
     const errs = [s.error,l.error,fs.error,p.error,e.error,i.error,ins.error,ob.error].filter(Boolean);
     if (errs.length) {
@@ -146,7 +146,7 @@ export function FinanceLedgerWorkspace() {
       accountId = refreshed.data?.id || null;
     }
     if (!accountId) { toast({ title: "Fee account missing", description: "Refresh and try again.", variant: "destructive" }); setSaving(false); return; }
-    const result = await supabase.rpc("create_fee_installment_schedule", { p_fee_account_id: accountId, p_installment_count: Number(plan.count), p_first_due_date: plan.first_due_date, p_interval_months: Number(plan.interval) });
+    const result = await (supabase as any).rpc("create_fee_installment_schedule", { p_fee_account_id: accountId, p_installment_count: Number(plan.count), p_first_due_date: plan.first_due_date, p_interval_months: Number(plan.interval) });
     if (result.error) toast({ title: "Schedule not created", description: result.error.message, variant: "destructive" });
     else { toast({ title: "Instalment plan created", description: `${plan.count} instalments scheduled.` }); setPlan(f => ({ ...f, fee_structure_id: "" })); await load(); }
     setSaving(false);
@@ -155,7 +155,7 @@ export function FinanceLedgerWorkspace() {
   const saveExpense = async () => {
     if (!expenseForm.category || Number(expenseForm.amount) <= 0) { toast({ title: "Enter a valid expense amount", variant: "destructive" }); return; }
     setSaving(true);
-    const { error } = await supabase.from("finance_expenses").insert({ ...expenseForm, amount: Number(expenseForm.amount), total_amount: Number(expenseForm.amount), tax_amount: 0, vendor_payee: expenseForm.vendor_payee || null, description: expenseForm.description || null, batch: expenseForm.batch || null, branch_id: expenseForm.branch_id || null, reference_number: expenseForm.reference_number || null });
+    const { error } = await supabase.from("finance_expenses").insert({ ...expenseForm, amount: Number(expenseForm.amount), total_amount: Number(expenseForm.amount), tax_amount: 0, vendor_payee: expenseForm.vendor_payee || null, description: expenseForm.description || null, batch: expenseForm.batch || null, branch_id: expenseForm.branch_id || null, reference_number: expenseForm.reference_number || null } as any);
     if (error) toast({ title: "Expense not saved", description: error.message, variant: "destructive" });
     else { toast({ title: "Expense recorded" }); setExpenseForm(f => ({ ...f, amount: "", vendor_payee: "", description: "", reference_number: "" })); await load(); }
     setSaving(false);
@@ -173,7 +173,7 @@ export function FinanceLedgerWorkspace() {
   const saveOpening = async () => {
     setSaving(true);
     const values = { as_of_date: openingForm.as_of_date, cash_balance: moneyInput(openingForm.cash_balance), bank_balance: moneyInput(openingForm.bank_balance), other_current_assets: moneyInput(openingForm.other_current_assets), fixed_assets: moneyInput(openingForm.fixed_assets), current_liabilities: moneyInput(openingForm.current_liabilities), long_term_liabilities: moneyInput(openingForm.long_term_liabilities), capital: moneyInput(openingForm.capital), notes: openingForm.notes };
-    const result = opening ? await supabase.from("finance_opening_balances").update(values).eq("id", (opening as Opening & {id?:string}).id || "") : await supabase.from("finance_opening_balances").insert(values);
+    const result = opening ? await supabase.from("finance_opening_balances").update(values).eq("id", opening.id) : await supabase.from("finance_opening_balances").insert(values);
     if (result.error) toast({ title: "Opening balances not saved", description: result.error.message, variant: "destructive" });
     else { toast({ title: "Opening balances saved" }); await load(); }
     setSaving(false);
