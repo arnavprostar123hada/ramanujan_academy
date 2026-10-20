@@ -50,10 +50,30 @@ export function FinanceLedgerWorkspace() {
       (supabase as any).from("finance_student_ledger").select("*").order("student_name"),
       supabase.from("fee_structures").select("id,class,board,course_name,fee_amount,academic_year").eq("is_active", true).order("class"),
       supabase.from("fee_payments").select("amount,payment_date,fee_account_id").order("payment_date"),
-      supabase.from("finance_expenses").select("amount,total_amount,expense_date,category,batch").order("expense_date"),
+      (supabase as any).from("finance_expenses").select("amount,total_amount,expense_date,category,batch").order("expense_date"),
       (supabase as any).from("finance_other_income").select("amount,income_date,category,batch").order("income_date"),
       supabase.from("fee_installments").select("id,fee_account_id,due_date,amount,paid_amount,status").order("due_date"),
       supabase.from("finance_opening_balances").select("id,as_of_date,cash_balance,bank_balance,other_current_assets,fixed_assets,current_liabilities,long_term_liabilities,capital").order("as_of_date", { ascending: false }).limit(1).maybeSingle(),
+    ]);
+    const loadAllPages = async (table: string, columns: string, dateColumn: string, initial: any) => {
+      const rows: any[] = [...((initial.data as any[]) || [])];
+      if (!initial.error && rows.length === 1000) {
+        let offset = 1000;
+        while (true) {
+          const page = await (supabase as any).from(table).select(columns).order(dateColumn, { ascending: true }).order("id", { ascending: true }).range(offset, offset + 999);
+          if (page.error) { console.error("Finance pagination error", table, page.error); break; }
+          rows.push(...(page.data || []));
+          if (!page.data || page.data.length < 1000) break;
+          offset += 1000;
+        }
+      }
+      return rows;
+    };
+    const [allPayments, allExpenses, allIncome, allInstalments] = await Promise.all([
+      loadAllPages("fee_payments", "id,amount,payment_date,fee_account_id", "payment_date", p),
+      loadAllPages("finance_expenses", "id,amount,total_amount,expense_date,category,batch", "expense_date", e),
+      loadAllPages("finance_other_income", "id,amount,income_date,category,batch", "income_date", i),
+      loadAllPages("fee_installments", "id,fee_account_id,due_date,amount,paid_amount,status", "due_date", ins),
     ]);
     const errs = [s.error,l.error,fs.error,p.error,e.error,i.error,ins.error,ob.error].filter(Boolean);
     if (errs.length) {
@@ -63,10 +83,10 @@ export function FinanceLedgerWorkspace() {
     setStudents((s.data as Student[]) || []);
     setLedger((l.data as Ledger[]) || []);
     setStructures((fs.data as FeeStructure[]) || []);
-    setPayments((p.data as Payment[]) || []);
-    setExpenses((e.data as Expense[]) || []);
-    setIncome((i.data as OtherIncome[]) || []);
-    setInstalments((ins.data as Instalment[]) || []);
+    setPayments((allPayments as Payment[]) || []);
+    setExpenses((allExpenses as Expense[]) || []);
+    setIncome((allIncome as OtherIncome[]) || []);
+    setInstalments((allInstalments as Instalment[]) || []);
     if (ob.data) {
       const row = ob.data as Opening;
       setOpening(row);
@@ -101,7 +121,6 @@ export function FinanceLedgerWorkspace() {
   const collections = filteredPayments.reduce((a,p) => a + Number(p.amount), 0);
   const otherIncome = filteredIncome.reduce((a,i) => a + Number(i.amount), 0);
   const expenseTotal = filteredExpenses.reduce((a,e) => a + Number(e.total_amount ?? e.amount), 0);
-  const dueForecast = instalments.filter(i => monthKey(i.due_date) === monthFilter).reduce((a,i) => a + Math.max(0, Number(i.amount) - Number(i.paid_amount)), 0);
   const netOperating = collections + otherIncome - expenseTotal;
 
   const monthlyRows = months.map(m => {
