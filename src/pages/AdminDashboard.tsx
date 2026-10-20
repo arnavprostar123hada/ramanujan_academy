@@ -2095,7 +2095,7 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
 
           <TabsContent value="finance">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-              <FinanceCommandCentre />
+              <FinanceCommandCentre mode={mode} />
             </motion.div>
           </TabsContent>
 
