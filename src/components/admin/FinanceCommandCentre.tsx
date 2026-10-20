@@ -319,6 +319,36 @@ export function FinanceCommandCentre() {
         ))}
       </div>
 
+      <Card className="card-elevated">
+        <CardHeader>
+          <div className="flex items-center justify-between gap-3">
+            <div><CardTitle>Recent Fee Collections</CardTitle><p className="text-sm text-muted-foreground mt-1">Latest recorded payments and database-generated receipt numbers</p></div>
+            <Badge variant="outline">{recentReceipts.length} recent</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {recentReceipts.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">No receipts recorded yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b text-left"><th className="py-2 pr-3">Receipt</th><th className="pr-3">Date</th><th className="pr-3">Student</th><th className="pr-3">Fee Type</th><th className="pr-3">Mode</th><th className="text-right">Amount</th></tr></thead>
+                <tbody>{recentReceipts.map((receipt) => (
+                  <tr key={receipt.payment_id} className="border-b last:border-0">
+                    <td className="py-3 pr-3 font-semibold">{receipt.receipt_number}</td>
+                    <td className="pr-3 whitespace-nowrap">{new Date(receipt.payment_date + "T00:00:00").toLocaleDateString("en-IN")}</td>
+                    <td className="pr-3"><div className="font-medium">{receipt.student_name}</div><div className="text-xs text-muted-foreground">Class {receipt.class}{receipt.board ? " · " + receipt.board : ""}</div></td>
+                    <td className="pr-3">{receipt.fee_type || "Fee Payment"}</td>
+                    <td className="pr-3">{receipt.payment_mode || "—"}</td>
+                    <td className="text-right font-semibold whitespace-nowrap">{money(receipt.amount)}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="card-elevated">
           <CardHeader><CardTitle>Collection Efficiency</CardTitle></CardHeader>
