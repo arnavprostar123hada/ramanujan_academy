@@ -257,7 +257,7 @@ export function FinanceLedgerWorkspace({ mode = "admin" }: { mode?: "owner" | "a
         {selectField("Category",expenseForm.category,v=>setExpenseForm(f=>({...f,category:v})),["Teacher Salary","Admin Salary","Rent","Electricity","Internet & Phone","Stationery","Tea / Coffee","Event Expenses","Marketing","Software","Teaching Material","Travel","Repairs & Maintenance","Bank Charges","Taxes","Interest Expense","Insurance","Cleaning","Other Operating Expense"].map(v=>({value:v,label:v})))}
         {selectField("Expense type",expenseForm.expense_type,v=>setExpenseForm(f=>({...f,expense_type:v})),["Operating","Depreciation","Accrual","Other"].map(v=>({value:v,label:v})))}
         {selectField("Cash impact",expenseForm.cash_paid,v=>setExpenseForm(f=>({...f,cash_paid:v})),[{value:"true",label:"Paid from cash / bank"},{value:"false",label:"Non-cash / accrued expense"}])}
-        {selectField("Fixed / variable cost",expenseForm.fixed_variable,v=>setExpenseForm(f=>({...f,fixed_variable:v})),["Fixed","Variable"].map(v=>({value:v,label:v}))}
+        {selectField("Fixed / variable cost",expenseForm.fixed_variable,v=>setExpenseForm(f=>({...f,fixed_variable:v})),["Fixed","Variable"].map(v=>({value:v,label:v})))}
         {field("Amount (₹)",expenseForm.amount,v=>setExpenseForm(f=>({...f,amount:v})),"number")}
         {field("Vendor / Payee",expenseForm.vendor_payee,v=>setExpenseForm(f=>({...f,vendor_payee:v})))}
         {field("Description",expenseForm.description,v=>setExpenseForm(f=>({...f,description:v})))}
