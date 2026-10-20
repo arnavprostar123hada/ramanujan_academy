@@ -368,6 +368,46 @@ const ParentPortal = () => {
     }
   };
 
+  // Keep test schedules, published online tests, marks and parent messages fresh while the portal stays open.
+  useEffect(() => {
+    if (!student?.id) return;
+
+    const refreshAcademicUpdates = async () => {
+      let testsQuery = supabase
+        .from("tests")
+        .select("*")
+        .eq("class", student.class)
+        .eq("approval_status", "approved");
+      testsQuery = student.batch ? testsQuery.eq("batch", student.batch) : testsQuery.is("batch", null);
+      testsQuery = student.board ? testsQuery.eq("board", student.board) : testsQuery.is("board", null);
+
+      const [testsResult, onlineResult, resultsResult, messagesResult] = await Promise.all([
+        testsQuery.order("test_date", { ascending: false }),
+        supabase.from("online_tests")
+          .select("id,title,description,class,subject,test_type,duration_minutes,max_marks,starts_at,ends_at,created_at")
+          .eq("is_published", true).eq("class", student.class).order("created_at", { ascending: false }),
+        supabase.from("test_results").select("*").eq("student_id", student.id)
+          .eq("approval_status", "approved").order("created_at", { ascending: false }),
+        supabase.from("parent_messages").select("*").eq("student_id", student.id)
+          .order("created_at", { ascending: true }),
+      ]);
+
+      if (testsResult.data) setTests(testsResult.data as Test[]);
+      if (onlineResult.data) setOnlineTests(onlineResult.data as OnlineTestNotice[]);
+      if (resultsResult.data) setTestResults(resultsResult.data as TestResult[]);
+      if (messagesResult.data) setMessages(messagesResult.data as Message[]);
+    };
+
+    const channel = supabase.channel("parent-academic-updates-" + student.id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tests", filter: "class=eq." + student.class }, () => { void refreshAcademicUpdates(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "online_tests", filter: "class=eq." + student.class }, () => { void refreshAcademicUpdates(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "test_results", filter: "student_id=eq." + student.id }, () => { void refreshAcademicUpdates(); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "parent_messages", filter: "student_id=eq." + student.id }, () => { void refreshAcademicUpdates(); })
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [student?.id, student?.class, student?.batch, student?.board]);
+
   const handleLogin = async (code?: string) => {
     const codeToUse = (code || accessCode).trim().toUpperCase().replace(/\s+/g, "");
     if (!codeToUse) {
@@ -445,6 +485,10 @@ const ParentPortal = () => {
   const handleLogout = () => {
     localStorage.removeItem("parent_access_code");
     setStudent(null);
+    setOnlineTests([]);
+    setTests([]);
+    setTestResults([]);
+    setMessages([]);
     setIsLoggedIn(false);
     setAccessCode("");
     setStudentName("");
