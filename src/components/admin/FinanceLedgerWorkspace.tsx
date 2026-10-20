@@ -17,9 +17,9 @@ type Payment = { amount: number; payment_date: string; fee_account_id: string };
 type Expense = { amount: number; expense_date: string; category: string; batch: string | null; total_amount: number | null; cash_paid?: boolean; expense_type?: string; vendor_payee?: string | null; description?: string | null; payment_mode?: string | null; reference_number?: string | null };
 type OtherIncome = { amount: number; income_date: string; category: string; batch: string | null; source?: string | null; description?: string | null; payment_mode?: string | null; reference_number?: string | null };
 type Instalment = { id: string; fee_account_id: string; due_date: string; amount: number; paid_amount: number; status: string };
-type FixedAssetReport = { id:string; acquisition_date:string; purchase_cost:number; amount_paid:number; accumulated_depreciation:number; residual_value:number; payment_status:string };
+type FixedAssetReport = { id:string; acquisition_date:string; purchase_cost:number; amount_paid:number; accumulated_depreciation:number; residual_value:number; payment_status:string; payment_mode?:string|null; cash_bank?:string|null };
 type LiabilityReport = { id:string; start_date:string; outstanding_amount:number; status:string };
-type LiabilityMovementReport = { liability_id:string; transaction_date:string; transaction_type:string; amount:number };
+type LiabilityMovementReport = { liability_id:string; transaction_date:string; transaction_type:string; amount:number; payment_mode?:string|null; cash_bank?:string|null };
 type Opening = { id: string; cash_balance: number; bank_balance: number; other_current_assets: number; fixed_assets: number; current_liabilities: number; long_term_liabilities: number; capital: number; as_of_date: string };
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -62,9 +62,9 @@ export function FinanceLedgerWorkspace({ mode = "admin" }: { mode?: "owner" | "a
       isOwner ? (supabase as any).from("finance_other_income").select("id,amount,income_date,category,batch,source,description,payment_mode,reference_number").order("income_date").order("id") : Promise.resolve({data:[],error:null}),
       supabase.from("fee_installments").select("id,fee_account_id,due_date,amount,paid_amount,status").order("due_date").order("id"),
       isOwner ? supabase.from("finance_opening_balances").select("id,as_of_date,cash_balance,bank_balance,other_current_assets,fixed_assets,current_liabilities,long_term_liabilities,capital").order("as_of_date", { ascending: false }).limit(1).maybeSingle() : Promise.resolve({data:null,error:null}),
-      isOwner ? (supabase as any).from("finance_fixed_assets").select("id,acquisition_date,purchase_cost,amount_paid,accumulated_depreciation,residual_value,payment_status").order("acquisition_date") : Promise.resolve({data:[],error:null}),
+      isOwner ? (supabase as any).from("finance_fixed_assets").select("id,acquisition_date,purchase_cost,amount_paid,accumulated_depreciation,residual_value,payment_status,payment_mode,cash_bank").order("acquisition_date") : Promise.resolve({data:[],error:null}),
       isOwner ? (supabase as any).from("finance_liabilities").select("id,start_date,outstanding_amount,status").order("start_date") : Promise.resolve({data:[],error:null}),
-      isOwner ? (supabase as any).from("finance_liability_transactions").select("liability_id,transaction_date,transaction_type,amount").order("transaction_date") : Promise.resolve({data:[],error:null}),
+      isOwner ? (supabase as any).from("finance_liability_transactions").select("liability_id,transaction_date,transaction_type,amount,payment_mode,cash_bank").order("transaction_date") : Promise.resolve({data:[],error:null}),
     ]);
     const loadAllPages = async (table: string, columns: string, dateColumn: string, initial: any) => {
       const rows: any[] = [...((initial.data as any[]) || [])];
@@ -165,12 +165,12 @@ export function FinanceLedgerWorkspace({ mode = "admin" }: { mode?: "owner" | "a
   const allIncome = feeCollectionsSinceOpening + otherIncomeSinceOpening;
   const allExpenses = expensesSinceOpening;
   const assetsAddedSinceOpening = fixedAssets.filter(a => !openingDate || a.acquisition_date > openingDate);
-  const assetPurchasesSinceOpening = assetsAddedSinceOpening.reduce((sum,a) => sum + Number(a.amount_paid || 0), 0);
+  const assetPurchasesSinceOpening = assetsAddedSinceOpening.filter(a => a.payment_mode !== "Loan" && a.payment_mode !== "Non-cash").reduce((sum,a) => sum + Number(a.amount_paid || 0), 0);
   const unpaidAssetPurchases = assetsAddedSinceOpening.reduce((sum,a) => sum + Math.max(0,Number(a.purchase_cost)-Number(a.amount_paid)),0);
   const assetBookValueAdded = assetsAddedSinceOpening.reduce((sum,a) => sum + Math.max(0,Number(a.purchase_cost)-Number(a.accumulated_depreciation)),0);
   const liabilityIdsSinceOpening = new Set(liabilityBook.filter(l => !openingDate || l.start_date > openingDate).map(l=>l.id));
-  const liabilityBorrowingsSinceOpening = liabilityMovements.filter(t => (!openingDate || t.transaction_date > openingDate) && t.transaction_type === "borrowed").reduce((sum,t)=>sum+Number(t.amount),0);
-  const liabilityRepaymentsSinceOpening = liabilityMovements.filter(t => (!openingDate || t.transaction_date > openingDate) && t.transaction_type === "repayment").reduce((sum,t)=>sum+Number(t.amount),0);
+  const liabilityBorrowingsSinceOpening = liabilityMovements.filter(t => (!openingDate || t.transaction_date > openingDate) && t.transaction_type === "borrowed" && t.payment_mode !== "Non-cash").reduce((sum,t)=>sum+Number(t.amount),0);
+  const liabilityRepaymentsSinceOpening = liabilityMovements.filter(t => (!openingDate || t.transaction_date > openingDate) && t.transaction_type === "repayment" && t.payment_mode !== "Non-cash").reduce((sum,t)=>sum+Number(t.amount),0);
   const registeredLiabilitiesSinceOpening = liabilityBook.filter(l => l.status !== "settled" && liabilityIdsSinceOpening.has(l.id)).reduce((sum,l)=>sum+Number(l.outstanding_amount),0);
   const openingCash = Number(opening?.cash_balance || 0) + Number(opening?.bank_balance || 0);
   const cashExpensesSinceOpening = expenses.filter(e => (!openingDate || e.expense_date > openingDate) && e.cash_paid !== false).reduce((sum,e)=>sum+Number(e.total_amount ?? e.amount),0);
