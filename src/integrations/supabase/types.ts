@@ -1431,8 +1431,6 @@ export type Database = {
           amount: number
           cash_paid: boolean
           expense_type: string
-          cash_paid: boolean
-          expense_type: string
           branch_id: string | null
           cash_bank: string | null
           category: string
@@ -1452,6 +1450,8 @@ export type Database = {
         }
         Insert: {
           amount: number
+          cash_paid?: boolean
+          expense_type?: string
           branch_id?: string | null
           cash_bank?: string | null
           category: string
