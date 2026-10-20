@@ -253,13 +253,12 @@ const ParentPortal = () => {
       .order("created_at", { ascending: false });
     if (concernsData) setConcerns(concernsData);
 
-    // Fetch messages
-    const { data: messagesData } = await supabase
-      .from("parent_messages")
-      .select("*")
-      .eq("student_id", studentData.id)
-      .order("created_at", { ascending: true });
-    if (messagesData) setMessages(messagesData);
+    // Parent messages are fetched through an access-code-validated RPC; anon table reads stay blocked.
+    const { data: messagesData, error: messagesError } = await supabase.rpc("get_parent_portal_messages", {
+      p_access_code: studentData.access_code,
+    });
+    if (messagesError) console.error("Parent portal messages load failed", messagesError);
+    if (messagesData) setMessages(messagesData as Message[]);
 
     // Fetch tests
     let testsQuery = supabase
@@ -388,8 +387,7 @@ const ParentPortal = () => {
           .eq("is_published", true).eq("class", student.class).order("created_at", { ascending: false }),
         supabase.from("test_results").select("*").eq("student_id", student.id)
           .eq("approval_status", "approved").order("created_at", { ascending: false }),
-        supabase.from("parent_messages").select("*").eq("student_id", student.id)
-          .order("created_at", { ascending: true }),
+        supabase.rpc("get_parent_portal_messages", { p_access_code: student.access_code }),
       ]);
 
       if (testsResult.data) setTests(testsResult.data as Test[]);
@@ -401,11 +399,15 @@ const ParentPortal = () => {
     const channel = supabase.channel("parent-academic-updates-" + student.id)
       .on("postgres_changes", { event: "*", schema: "public", table: "tests", filter: "class=eq." + student.class }, () => { void refreshAcademicUpdates(); })
       .on("postgres_changes", { event: "*", schema: "public", table: "online_tests", filter: "class=eq." + student.class }, () => { void refreshAcademicUpdates(); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "test_results", filter: "student_id=eq." + student.id }, () => { void refreshAcademicUpdates(); })
-      .on("postgres_changes", { event: "*", schema: "public", table: "parent_messages", filter: "student_id=eq." + student.id }, () => { void refreshAcademicUpdates(); })
       .subscribe();
 
-    return () => { void supabase.removeChannel(channel); };
+    // RPC-only parent messages cannot be subscribed to directly without exposing other students' messages.
+    // Poll the access-code-scoped RPC so new notices/results appear without a manual refresh.
+    const refreshInterval = window.setInterval(() => { void refreshAcademicUpdates(); }, 30000);
+    return () => {
+      window.clearInterval(refreshInterval);
+      void supabase.removeChannel(channel);
+    };
   }, [student?.id, student?.class, student?.batch, student?.board]);
 
   const handleLogin = async (code?: string) => {
@@ -511,19 +513,15 @@ const ParentPortal = () => {
     if (!student || !newMessage.trim()) return;
 
     try {
-      const { data, error } = await supabase
-        .from("parent_messages")
-        .insert({
-          student_id: student.id,
-          message: newMessage.trim(),
-          is_from_parent: true,
-        })
-        .select()
-        .single();
+      const { data, error } = await supabase.rpc("send_parent_portal_message", {
+        p_access_code: student.access_code,
+        p_message: newMessage.trim(),
+      });
 
       if (error) throw error;
+      if (!data) throw new Error("Message was not saved");
 
-      setMessages([...messages, data]);
+      setMessages([...messages, data as Message]);
       setNewMessage("");
       toast({ title: "Message sent successfully" });
 
