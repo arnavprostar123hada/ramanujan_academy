@@ -365,6 +365,17 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
     board: "",
     parent_name: "",
     student_type: "offline",
+    agreed_fee: "",
+    extra_subject_fee: "0",
+    discount: "0",
+    installment1_amount: "",
+    installment1_due: "",
+    installment2_amount: "",
+    installment2_due: "",
+    installment3_amount: "",
+    installment3_due: "",
+    installment4_amount: "",
+    installment4_due: "",
   });
 
   // Edit student form state
@@ -592,11 +603,29 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
     e.preventDefault();
     
     if (!newStudent.name || !newStudent.phone || !newStudent.class) {
-      toast({
-        title: "Missing fields",
-        description: "Please fill name, phone, and class",
-        variant: "destructive",
-      });
+      toast({ title: "Missing fields", description: "Please fill name, phone, and class", variant: "destructive" });
+      return;
+    }
+
+    const baseFee = Number(newStudent.agreed_fee || 0);
+    const extraFee = Number(newStudent.extra_subject_fee || 0);
+    const discount = Number(newStudent.discount || 0);
+    const grossFee = baseFee + extraFee;
+    const netFee = grossFee - discount;
+    const plannedInstallments = [1, 2, 3, 4].map(n => ({
+      amount: Number((newStudent as any)[`installment${n}_amount`] || 0),
+      due_date: (newStudent as any)[`installment${n}_due`] || "",
+    })).filter(row => row.amount > 0 || row.due_date);
+    if ([baseFee, extraFee, discount].some(v => !Number.isFinite(v) || v < 0) || discount > grossFee) {
+      toast({ title: "Check the fee amounts", description: "Fee and discount values must be valid; discount cannot exceed the total fee.", variant: "destructive" });
+      return;
+    }
+    if (plannedInstallments.some(row => row.amount <= 0 || !row.due_date)) {
+      toast({ title: "Incomplete instalment", description: "Each entered instalment needs both a positive amount and a due date.", variant: "destructive" });
+      return;
+    }
+    if (plannedInstallments.length && (netFee <= 0 || Math.abs(plannedInstallments.reduce((sum,row)=>sum+row.amount,0)-netFee) > 0.01)) {
+      toast({ title: "Instalments do not match net fees", description: `Planned instalments must total ₹${netFee.toLocaleString("en-IN")}.`, variant: "destructive" });
       return;
     }
 
@@ -619,8 +648,30 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
       if (error) throw error;
 
       const addedStudent = data as Student;
+      if (grossFee > 0) {
+        const { data: feeAccount, error: feeError } = await (supabase as any)
+          .from("fee_accounts")
+          .insert({
+            student_id: addedStudent.id,
+            total_fee: grossFee,
+            scholarship: 0,
+            discount,
+            net_fee: netFee,
+            fee_applied_at: new Date().toISOString(),
+          })
+          .select("id")
+          .single();
+        if (feeError) throw new Error(`Student was created, but fee setup failed: ${feeError.message}`);
+        if (plannedInstallments.length) {
+          const { error: installmentError } = await (supabase as any)
+            .from("fee_installments")
+            .insert(plannedInstallments.map(row => ({ fee_account_id: feeAccount.id, due_date: row.due_date, amount: row.amount, paid_amount: 0, status: "pending" })));
+          if (installmentError) throw new Error(`Student and fee account were created, but instalments failed: ${installmentError.message}`);
+        }
+      }
+
       setStudents([addedStudent, ...students]);
-      setNewStudent({ name: "", email: "", phone: "", class: "", batch: "", board: "", parent_name: "", student_type: "offline" });
+      setNewStudent({ name: "", email: "", phone: "", class: "", batch: "", board: "", parent_name: "", student_type: "offline", agreed_fee: "", extra_subject_fee: "0", discount: "0", installment1_amount: "", installment1_due: "", installment2_amount: "", installment2_due: "", installment3_amount: "", installment3_due: "", installment4_amount: "", installment4_due: "" });
       setIsAddStudentOpen(false);
       setNewlyAddedStudent(addedStudent);
     } catch (error) {
@@ -1897,6 +1948,25 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                             onValueChange={(v) => setNewStudent({ ...newStudent, student_type: v })}
                             options={[{ value: "offline", label: "Offline" }, { value: "online", label: "Online" }]}
                           />
+                        </div>
+                        <div className="rounded-lg border p-3 space-y-3">
+                          <div>
+                            <h4 className="font-semibold">Admission fee & instalment plan (optional)</h4>
+                            <p className="text-xs text-muted-foreground">Save the agreed fee now. These amounts will appear in Finance as the student's fee account and due instalments.</p>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="space-y-1"><Label htmlFor="agreed_fee">Course fee (₹)</Label><Input id="agreed_fee" type="number" min="0" value={newStudent.agreed_fee} onChange={e=>setNewStudent({...newStudent,agreed_fee:e.target.value})} placeholder="e.g. 50000" /></div>
+                            <div className="space-y-1"><Label htmlFor="extra_subject_fee">Extra subject / add-on fee (₹)</Label><Input id="extra_subject_fee" type="number" min="0" value={newStudent.extra_subject_fee} onChange={e=>setNewStudent({...newStudent,extra_subject_fee:e.target.value})} placeholder="0" /></div>
+                            <div className="space-y-1"><Label htmlFor="discount">Discount (₹)</Label><Input id="discount" type="number" min="0" value={newStudent.discount} onChange={e=>setNewStudent({...newStudent,discount:e.target.value})} placeholder="0" /></div>
+                          </div>
+                          <div className="text-sm rounded-md bg-muted p-2">Total fee: ₹{(Number(newStudent.agreed_fee||0)+Number(newStudent.extra_subject_fee||0)).toLocaleString("en-IN")} · Discount: ₹{Number(newStudent.discount||0).toLocaleString("en-IN")} · <b>Net fee: ₹{(Number(newStudent.agreed_fee||0)+Number(newStudent.extra_subject_fee||0)-Number(newStudent.discount||0)).toLocaleString("en-IN")}</b></div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {[1,2,3,4].map(n=><div key={n} className="rounded-md border p-2 space-y-2">
+                              <Label>Instalment {n}{n>2?" (optional)":""}</Label>
+                              <Input aria-label={`Instalment ${n} amount`} type="number" min="0" placeholder="Amount (₹)" value={(newStudent as any)[`installment${n}_amount`]} onChange={e=>setNewStudent({...newStudent,[`installment${n}_amount`]:e.target.value})} />
+                              <Input aria-label={`Instalment ${n} due date`} type="date" value={(newStudent as any)[`installment${n}_due`]} onChange={e=>setNewStudent({...newStudent,[`installment${n}_due`]:e.target.value})} />
+                            </div>)}
+                          </div>
                         </div>
                         <div className="flex gap-3 pt-4">
                           <Button type="button" variant="outline" onClick={() => setIsAddStudentOpen(false)} className="flex-1">
