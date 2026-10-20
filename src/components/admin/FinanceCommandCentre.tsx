@@ -158,6 +158,8 @@ export function FinanceCommandCentre({ mode = "admin" }: { mode?: "owner" | "adm
     tax_amount: "0",
     payment_mode: "Cash",
     cash_bank: "Cash",
+    cash_paid: "true",
+    expense_type: "Operating",
     fixed_variable: "Fixed",
     reference_number: "",
     notes: "",
@@ -351,8 +353,11 @@ export function FinanceCommandCentre({ mode = "admin" }: { mode?: "owner" | "adm
       description: expenseForm.description || null,
       amount: Number(expenseForm.amount),
       tax_amount: Number(expenseForm.tax_amount || 0),
+      total_amount: Number(expenseForm.amount) + Number(expenseForm.tax_amount || 0),
       payment_mode: expenseForm.payment_mode,
       cash_bank: expenseForm.cash_bank,
+      cash_paid: expenseForm.cash_paid === "true",
+      expense_type: expenseForm.expense_type,
       fixed_variable: expenseForm.fixed_variable,
       reference_number: expenseForm.reference_number || null,
       notes: expenseForm.notes || null,
@@ -525,6 +530,9 @@ export function FinanceCommandCentre({ mode = "admin" }: { mode?: "owner" | "adm
               <div><Label>Vendor / Payee</Label><Input value={expenseForm.vendor_payee} onChange={(e) => setExpenseForm(f => ({ ...f, vendor_payee:e.target.value }))} /></div>
               <div><Label>Category</Label><NativeSelect options={["Teaching","Admin Salary","Teacher Salary","Rent","Electricity","Marketing","Software","Office","Travel","Other"].map(v => ({ value:v,label:v }))} value={expenseForm.category} onValueChange={(value) => setExpenseForm(f => ({ ...f, category:value }))} /></div>
               <div><Label>Fixed / Variable</Label><NativeSelect options={["Fixed","Variable"].map(v => ({ value:v,label:v }))} value={expenseForm.fixed_variable} onValueChange={(value) => setExpenseForm(f => ({ ...f, fixed_variable:value }))} /></div>
+              <div><Label>Expense Type</Label><NativeSelect options={["Operating","Depreciation","Accrual","Other"].map(v => ({ value:v,label:v }))} value={expenseForm.expense_type} onValueChange={(value) => setExpenseForm(f => ({ ...f, expense_type:value }))} /></div>
+              <div><Label>Cash Impact</Label><NativeSelect options={[{value:"true",label:"Paid from cash / bank"},{value:"false",label:"Non-cash / accrued"}]} value={expenseForm.cash_paid} onValueChange={(value) => setExpenseForm(f => ({ ...f, cash_paid:value }))} /></div>
+              <div><Label>Cash / Bank Account</Label><NativeSelect options={["Cash","Bank"].map(v => ({ value:v,label:v }))} value={expenseForm.cash_bank} onValueChange={(value) => setExpenseForm(f => ({ ...f, cash_bank:value }))} /></div>
               <div><Label>Amount (₹)</Label><Input type="number" min="1" value={expenseForm.amount} onChange={(e) => setExpenseForm(f => ({ ...f, amount:e.target.value }))} /></div>
               <div><Label>Tax (₹)</Label><Input type="number" min="0" value={expenseForm.tax_amount} onChange={(e) => setExpenseForm(f => ({ ...f, tax_amount:e.target.value }))} /></div>
               <div><Label>Payment Mode</Label><NativeSelect options={["Cash","UPI","Bank Transfer","Card","Cheque"].map(v => ({ value:v,label:v }))} value={expenseForm.payment_mode} onValueChange={(value) => setExpenseForm(f => ({ ...f, payment_mode:value }))} /></div>
