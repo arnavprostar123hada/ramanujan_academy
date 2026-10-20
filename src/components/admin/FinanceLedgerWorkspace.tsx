@@ -166,7 +166,7 @@ export function FinanceLedgerWorkspace({ mode = "admin" }: { mode?: "owner" | "a
   const allExpenses = expensesSinceOpening;
   const assetsAddedSinceOpening = fixedAssets.filter(a => !openingDate || a.acquisition_date > openingDate);
   const assetPurchasesSinceOpening = assetsAddedSinceOpening.filter(a => a.payment_mode !== "Loan" && a.payment_mode !== "Non-cash").reduce((sum,a) => sum + Number(a.amount_paid || 0), 0);
-  const unpaidAssetPurchases = assetsAddedSinceOpening.reduce((sum,a) => sum + Math.max(0,Number(a.purchase_cost)-Number(a.amount_paid)),0);
+  const unpaidAssetPurchases = assetsAddedSinceOpening.filter(a => a.payment_status !== "financed").reduce((sum,a) => sum + Math.max(0,Number(a.purchase_cost)-Number(a.amount_paid)),0);
   const assetBookValueAdded = assetsAddedSinceOpening.reduce((sum,a) => sum + Math.max(0,Number(a.purchase_cost)-Number(a.accumulated_depreciation)),0);
   const liabilityIdsSinceOpening = new Set(liabilityBook.filter(l => !openingDate || l.start_date > openingDate).map(l=>l.id));
   const liabilityBorrowingsSinceOpening = liabilityMovements.filter(t => (!openingDate || t.transaction_date > openingDate) && t.transaction_type === "borrowed" && t.payment_mode !== "Non-cash").reduce((sum,t)=>sum+Number(t.amount),0);
