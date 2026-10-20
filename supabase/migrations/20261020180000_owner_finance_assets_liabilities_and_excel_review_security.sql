@@ -181,6 +181,9 @@ for all to authenticated using ((select public.is_finance_owner()))
 with check ((select public.is_finance_owner()));
 grant select, insert, update, delete on public.finance_fee_import_staging to authenticated;
 
+alter table public.finance_expenses
+  add column if not exists cash_paid boolean not null default true,
+  add column if not exists expense_type text not null default 'Operating';
 alter table public.finance_expenses enable row level security;
 drop policy if exists "Admins manage finance expenses" on public.finance_expenses;
 drop policy if exists finance_expenses_owner_all on public.finance_expenses;
@@ -208,3 +211,39 @@ with check ((select public.is_finance_owner()));
 create index if not exists finance_fixed_assets_acquisition_date_idx on public.finance_fixed_assets(acquisition_date);
 create index if not exists finance_liabilities_due_date_idx on public.finance_liabilities(due_date, next_payment_date);
 create index if not exists finance_fee_import_review_status_idx on public.finance_fee_import_staging(review_status, source_row);
+
+
+-- Monthly cash-flow MIS must exclude non-cash depreciation/accrual entries.
+create or replace view public.finance_monthly_mis
+with (security_invoker = true) as
+with months as (
+  select generate_series(
+    date_trunc('month', least(
+      coalesce((select min(fp.payment_date) from public.fee_payments fp), current_date),
+      coalesce((select min(fe.expense_date) from public.finance_expenses fe where coalesce(fe.cash_paid,true)=true), current_date)
+    )::timestamp with time zone),
+    date_trunc('month', current_date::timestamp with time zone),
+    '1 mon'::interval
+  )::date as report_month
+),
+collections as (
+  select date_trunc('month', fp.payment_date::timestamp with time zone)::date as report_month,
+         sum(fp.amount) as collected
+  from public.fee_payments fp
+  group by date_trunc('month', fp.payment_date::timestamp with time zone)::date
+),
+expenses as (
+  select date_trunc('month', fe.expense_date::timestamp with time zone)::date as report_month,
+         sum(fe.total_amount) as expenses
+  from public.finance_expenses fe
+  where coalesce(fe.cash_paid,true)=true
+  group by date_trunc('month', fe.expense_date::timestamp with time zone)::date
+)
+select m.report_month,
+       coalesce(c.collected,0::numeric) as collections,
+       coalesce(e.expenses,0::numeric) as expenses,
+       coalesce(c.collected,0::numeric)-coalesce(e.expenses,0::numeric) as cash_surplus
+from months m
+left join collections c using (report_month)
+left join expenses e using (report_month)
+order by m.report_month;
