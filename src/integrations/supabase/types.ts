@@ -3399,6 +3399,10 @@ export type Database = {
           collections: number | null
           expenses: number | null
           report_month: string | null
+          other_income: number | null
+          asset_purchases: number | null
+          borrowings: number | null
+          repayments: number | null
         }
         Relationships: []
       }
