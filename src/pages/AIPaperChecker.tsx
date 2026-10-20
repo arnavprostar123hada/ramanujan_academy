@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, FileImage, Loader2, ScanText } from "lucide-react";
+import { ArrowLeft, CheckCircle2, FileImage, FileText, Loader2, ScanText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 type CheckResult = {
@@ -19,7 +19,7 @@ type CheckResult = {
     summary?: string;
     confidence?: string;
     needs_teacher_attention?: boolean;
-    questions?: Array<{ question?: string; student_answer?: string; expected_answer?: string; marks_awarded?: number; marks_available?: number; feedback?: string }>;
+    questions?: Array<{ question?: string; student_answer?: string; expected_answer?: string; marks_awarded?: number; marks_available?: number; feedback?: string; page?: number; bbox?: [number, number, number, number] }>;
   };
   feedback?: string;
   student_name?: string | null;
@@ -42,15 +42,16 @@ export default function AIPaperChecker() {
 
   const runCheck = async () => {
     if (!subject.trim() || !answerKey.trim() || !image || Number(maxMarks) <= 0) {
-      toast.error("Enter the subject, answer key, maximum marks and upload a paper image.");
+      toast.error("Enter the subject, answer key, maximum marks and upload a paper image or PDF.");
       return;
     }
-    if (!["image/png", "image/jpeg", "image/webp"].includes(image.type)) {
-      toast.error("Please upload a PNG, JPG or WebP image.");
+    const isPdf = image.type === "application/pdf" || image.name.toLowerCase().endsWith(".pdf");
+    if (!isPdf && !["image/png", "image/jpeg", "image/webp"].includes(image.type)) {
+      toast.error("Please upload a PDF, PNG, JPG or WebP file.");
       return;
     }
     if (image.size > 4 * 1024 * 1024) {
-      toast.error("Image must be 4 MB or smaller.");
+      toast.error("File must be 4 MB or smaller.");
       return;
     }
     setBusy(true);
@@ -63,7 +64,7 @@ export default function AIPaperChecker() {
         reader.readAsDataURL(image);
       });
       const { data, error } = await supabase.functions.invoke("ai-paper-checker", {
-        body: { action: "check", studentName, studentId: studentId || null, subject, className, maxMarks: Number(maxMarks), answerKey, imageDataUrl },
+        body: { action: "check", studentName, studentId: studentId || null, subject, className, maxMarks: Number(maxMarks), answerKey, imageDataUrl, fileMimeType: isPdf ? "application/pdf" : image.type },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -115,9 +116,9 @@ export default function AIPaperChecker() {
             <div className="space-y-2"><Label>Class / standard</Label><Input value={className} onChange={e => setClassName(e.target.value)} placeholder="e.g. 8th CBSE" /></div>
             <div className="space-y-2"><Label>Subject *</Label><Input value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Mathematics" /></div>
             <div className="space-y-2"><Label>Maximum marks *</Label><Input type="number" min="1" value={maxMarks} onChange={e => setMaxMarks(e.target.value)} /></div>
-            <div className="space-y-2"><Label>Answer sheet image *</Label><Input type="file" accept="image/png,image/jpeg,image/webp" onChange={e => { const file = e.target.files?.[0] || null; setImage(file); setResult(null); if (!file) { setImagePreview(null); return; } const reader = new FileReader(); reader.onload = () => setImagePreview(typeof reader.result === "string" ? reader.result : null); reader.onerror = () => setImagePreview(null); reader.readAsDataURL(file); }} /></div>
+            <div className="space-y-2"><Label>Answer sheet image or PDF *</Label><Input type="file" accept="application/pdf,image/png,image/jpeg,image/webp,.pdf" onChange={e => { const file = e.target.files?.[0] || null; setImage(file); setResult(null); if (!file) { setImagePreview(null); return; } const reader = new FileReader(); reader.onload = () => setImagePreview(typeof reader.result === "string" ? reader.result : null); reader.onerror = () => setImagePreview(null); reader.readAsDataURL(file); }} /></div>
             <div className="space-y-2 md:col-span-2"><Label>Answer key / marking scheme *</Label><Textarea value={answerKey} onChange={e => setAnswerKey(e.target.value)} rows={6} placeholder={"Paste correct answers and marking scheme. Include question-wise marks and partial-credit rules."} /></div>
-            {image && <div className="space-y-2 md:col-span-2"><div className="flex items-center gap-2 text-sm text-muted-foreground"><FileImage className="h-4 w-4" />{image.name} · {(image.size / 1024).toFixed(0)} KB</div>{imagePreview && <div className="space-y-1"><p className="text-sm font-medium">Preview — confirm this is the student’s handwritten/typed answer sheet before checking.</p><img src={imagePreview} alt="Selected answer sheet preview" className="max-h-[520px] max-w-full rounded-lg border object-contain" /></div>}</div>}
+            {image && <div className="space-y-2 md:col-span-2"><div className="flex items-center gap-2 text-sm text-muted-foreground">{image.type === "application/pdf" || image.name.toLowerCase().endsWith(".pdf") ? <FileText className="h-4 w-4" /> : <FileImage className="h-4 w-4" />}{image.name} · {(image.size / 1024).toFixed(0)} KB</div>{imagePreview && <div className="space-y-1"><p className="text-sm font-medium">Preview — confirm this is the student’s handwritten/typed answer sheet before checking.</p>{image.type === "application/pdf" || image.name.toLowerCase().endsWith(".pdf") ? <iframe src={imagePreview} title="Selected answer sheet PDF" className="h-[520px] w-full rounded-lg border" /> : <img src={imagePreview} alt="Selected answer sheet preview" className="max-h-[520px] max-w-full rounded-lg border object-contain" />}</div>}</div>}
             <div className="md:col-span-2"><Button onClick={runCheck} disabled={busy} className="w-full sm:w-auto">{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ScanText className="mr-2 h-4 w-4" />} Check paper and prepare draft</Button></div>
           </CardContent>
         </Card>
@@ -135,7 +136,7 @@ export default function AIPaperChecker() {
                 <div className="flex flex-wrap justify-between gap-2"><h3 className="font-semibold">{q.question || `Question ${i + 1}`}</h3><Badge variant="secondary">{q.marks_awarded ?? 0} / {q.marks_available ?? "?"}</Badge></div>
                 <p className="mt-2 text-sm"><strong>Student answer:</strong> {q.student_answer || "Unclear / not detected"}</p>
                 <p className="mt-1 text-sm"><strong>Expected:</strong> {q.expected_answer || "See marking scheme"}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{q.feedback}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{q.feedback}</p>{q.bbox && <p className="mt-1 text-xs text-muted-foreground">Detected location: page {q.page || 1}, normalized box {q.bbox.join(", ")}</p>}
               </div>)}
             </div>
             {result.status === "pending_review" && <div className="flex flex-wrap gap-3 border-t pt-4"><Button disabled={busy} onClick={() => review("approve")}><CheckCircle2 className="mr-2 h-4 w-4" /> Approve suggested marks</Button><Button disabled={busy} variant="outline" onClick={() => review("reject")}>Reject draft</Button><p className="basis-full text-xs text-muted-foreground">Approval records the reviewing user. This feature does not automatically notify parents or publish results.</p></div>}
