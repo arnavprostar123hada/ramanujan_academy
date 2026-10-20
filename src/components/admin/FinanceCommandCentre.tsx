@@ -124,7 +124,8 @@ function renderFeeReceipt(
   printWindow.document.close();
 }
 
-export function FinanceCommandCentre() {
+export function FinanceCommandCentre({ mode = "admin" }: { mode?: "owner" | "admin" }) {
+  const isOwner = mode === "owner";
   const { toast } = useToast();
   const [dashboard, setDashboard] = useState<FinanceDashboardRow | null>(null);
   const [monthly, setMonthly] = useState<MonthlyRow[]>([]);
@@ -170,15 +171,17 @@ export function FinanceCommandCentre() {
 
   const loadFinance = async () => {
     setLoading(true);
-    const [d, m, r, s, p, fs, fa] = await Promise.all([
-      supabase.from("finance_dashboard").select("*").maybeSingle(),
-      supabase.from("finance_monthly_mis").select("*").order("report_month", { ascending: true }),
-      supabase.from("finance_receivables").select("*").order("outstanding", { ascending: false }).limit(100),
+    const [s, p, fs, fa] = await Promise.all([
       supabase.from("students").select("id,name,class,board,branch_id,parent_name,academic_year").eq("status", "active").order("name"),
       supabase.from("finance_receipt_register").select("payment_id,receipt_number,payment_date,amount,payment_mode,reference_number,fee_type,cash_bank,student_id,student_name,class,board,academic_year").order("payment_date", { ascending: false }).range(0, 499),
       supabase.from("fee_structures").select("id,class,board,course_name,fee_amount,academic_year").eq("is_active", true).eq("academic_year", "2026-27").order("class"),
       supabase.from("fee_accounts").select("id"),
     ]);
+    const [d, m, r] = isOwner ? await Promise.all([
+      supabase.from("finance_dashboard").select("*").maybeSingle(),
+      supabase.from("finance_monthly_mis").select("*").order("report_month", { ascending: true }),
+      supabase.from("finance_receivables").select("*").order("outstanding", { ascending: false }).limit(100),
+    ]) : [{ data: null, error: null }, { data: [], error: null }, { data: [], error: null }] as any;
     let allReceipts = (p.data as FinanceReceiptRow[] | null) ?? [];
     // Fetch the full receipt history in pages so older receipts remain searchable too.
     if (!p.error && allReceipts.length === 500) {
@@ -196,7 +199,7 @@ export function FinanceCommandCentre() {
         offset += 500;
       }
     }
-    if (d.error || m.error || r.error || s.error || p.error || fs.error || fa.error) {
+    if ((isOwner && (d.error || m.error || r.error)) || s.error || p.error || fs.error || fa.error) {
       console.error("Finance load error", { d: d.error, m: m.error, r: r.error, s: s.error, p: p.error, fs: fs.error, fa: fa.error });
       toast({ title: "Finance load failed", description: "Please refresh and try again.", variant: "destructive" });
     }
@@ -212,7 +215,7 @@ export function FinanceCommandCentre() {
 
   useEffect(() => {
     void loadFinance();
-  }, []);
+  }, [isOwner]);
 
   const recordFee = async () => {
     if (!feeForm.student_id || !feeForm.amount || Number(feeForm.amount) <= 0) {
@@ -367,14 +370,15 @@ export function FinanceCommandCentre() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Finance Command Centre</h2>
-          <p className="text-sm text-muted-foreground">Live financial control for Ramanujan Academy</p>
+          <h2 className="text-2xl font-bold tracking-tight">{isOwner ? "Finance Command Centre" : "Fee Collection & Receipts"}</h2>
+          <p className="text-sm text-muted-foreground">{isOwner ? "Owner-only financial control for Ramanujan Academy" : "Record student fee payments and reprint saved receipts"}</p>
         </div>
         <Button variant="outline" onClick={() => void loadFinance()} disabled={loading}>
           <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Refresh
         </Button>
       </div>
 
+{isOwner && (
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {[
           { label: "Total Billed", value: money(dashboard?.billed), icon: IndianRupee },
@@ -395,6 +399,7 @@ export function FinanceCommandCentre() {
           </Card>
         ))}
       </div>
+)}
 
       <Card className="card-elevated">
         <CardHeader>
@@ -432,7 +437,7 @@ export function FinanceCommandCentre() {
         </CardContent>
       </Card>
 
-      <Card className="card-elevated">
+      {isOwner && <Card className="card-elevated">
         <CardHeader><CardTitle>Monthly Collections vs Expenses</CardTitle><p className="text-sm text-muted-foreground">Compare money received with recorded operating expenses.</p></CardHeader>
         <CardContent>
           {monthly.length === 0 ? (
@@ -457,23 +462,23 @@ export function FinanceCommandCentre() {
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {isOwner && <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="card-elevated"><CardContent className="p-5"><p className="text-xs uppercase tracking-wide text-muted-foreground">Active Students</p><p className="mt-2 text-2xl font-bold">{Number(dashboard?.active_students || 0).toLocaleString("en-IN")}</p><p className="mt-1 text-xs text-muted-foreground">Current active enrolments</p></CardContent></Card>
         <Card className="card-elevated"><CardContent className="p-5"><p className="text-xs uppercase tracking-wide text-muted-foreground">Fee Accounts Set Up</p><p className="mt-2 text-2xl font-bold">{feeAccountCount.toLocaleString("en-IN")}</p><p className="mt-1 text-xs text-muted-foreground">Students with a fee ledger</p></CardContent></Card>
         <Card className="card-elevated"><CardContent className="p-5"><p className="text-xs uppercase tracking-wide text-muted-foreground">Fee Account Coverage</p><p className="mt-2 text-2xl font-bold">{dashboard?.active_students ? (feeAccountCount / Number(dashboard.active_students) * 100).toFixed(1) : "0.0"}%</p><p className="mt-1 text-xs text-muted-foreground">Accounts ÷ active students</p></CardContent></Card>
         <Card className="card-elevated"><CardContent className="p-5"><p className="text-xs uppercase tracking-wide text-muted-foreground">Operating Margin</p><p className="mt-2 text-2xl font-bold">{Number(dashboard?.operating_margin_pct || 0).toFixed(1)}%</p><p className="mt-1 text-xs text-muted-foreground">Cash surplus relative to collections</p></CardContent></Card>
-      </div>
+      </div>}
 
-      {dashboard?.active_students && feeAccountCount < Number(dashboard.active_students) && (
+      {isOwner && dashboard?.active_students && feeAccountCount < Number(dashboard.active_students) && (
         <div className="flex items-start gap-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-4">
           <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-600" />
           <div><p className="font-semibold">Fee setup is incomplete</p><p className="text-sm text-muted-foreground">{feeAccountCount} of {dashboard.active_students} active students currently have fee accounts. Apply the correct class, board and course fee structure before recording payments so outstanding balances remain accurate.</p></div>
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {isOwner && <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card className="card-elevated">
           <CardHeader><CardTitle>Collection Efficiency</CardTitle></CardHeader>
           <CardContent><div className="text-4xl font-bold">{Number(dashboard?.collection_efficiency_pct || 0).toFixed(1)}%</div><p className="text-sm text-muted-foreground mt-2">Collected ÷ billed</p></CardContent>
@@ -482,15 +487,15 @@ export function FinanceCommandCentre() {
           <CardHeader><CardTitle>Operating Cash Surplus</CardTitle></CardHeader>
           <CardContent><div className="flex items-center gap-2 text-4xl font-bold"><TrendingUp className="h-8 w-8" />{money(dashboard?.operating_cash_surplus)}</div><p className="text-sm text-muted-foreground mt-2">Collections less recorded expenses</p></CardContent>
         </Card>
-      </div>
+      </div>}
 
-      <FinanceLedgerWorkspace />
+      <FinanceLedgerWorkspace mode={mode} />
 
       <Tabs defaultValue="collection">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className={isOwner ? "grid w-full grid-cols-3" : "grid w-full grid-cols-1"}>
           <TabsTrigger value="collection">Fee Collection</TabsTrigger>
-          <TabsTrigger value="expenses">Expense Entry</TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
+          {isOwner && <TabsTrigger value="expenses">Expense Entry</TabsTrigger>}
+          {isOwner && <TabsTrigger value="reports">Reports</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="collection">
@@ -511,7 +516,7 @@ export function FinanceCommandCentre() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="expenses">
+        {isOwner && <TabsContent value="expenses">
           <Card>
             <CardHeader><CardTitle>Record Expense</CardTitle></CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-2">
@@ -526,9 +531,9 @@ export function FinanceCommandCentre() {
               <div className="md:col-span-2"><Button onClick={() => void recordExpense()} disabled={savingExpense} className="w-full"><Plus className="mr-2 h-4 w-4" />{savingExpense ? "Recording…" : "Record Expense"}</Button></div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent>}
 
-        <TabsContent value="reports" className="space-y-4">
+        {isOwner && <TabsContent value="reports" className="space-y-4">
           <Card>
             <CardHeader><CardTitle>Outstanding Fees</CardTitle></CardHeader>
             <CardContent>
@@ -553,7 +558,7 @@ export function FinanceCommandCentre() {
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent>}
       </Tabs>
     </div>
   );
