@@ -148,6 +148,69 @@ export type Database = {
         }
         Relationships: []
       }
+      attendance_audit_log: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          created_at: string
+          details: Json
+          device_id: string | null
+          id: string
+          student_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          created_at?: string
+          details?: Json
+          device_id?: string | null
+          id?: string
+          student_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          created_at?: string
+          details?: Json
+          device_id?: string | null
+          id?: string
+          student_id?: string | null
+        }
+        Relationships: []
+      }
+      attendance_kiosk_devices: {
+        Row: {
+          branch: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          last_seen_at: string | null
+          name: string
+          token_hash: string
+        }
+        Insert: {
+          branch?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          last_seen_at?: string | null
+          name: string
+          token_hash: string
+        }
+        Update: {
+          branch?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          last_seen_at?: string | null
+          name?: string
+          token_hash?: string
+        }
+        Relationships: []
+      }
       class_logs: {
         Row: {
           class: string
@@ -666,6 +729,85 @@ export type Database = {
         }
         Relationships: []
       }
+      student_attendance_events: {
+        Row: {
+          actor_user_id: string | null
+          attendance_date: string
+          branch: string
+          confidence: number | null
+          corrects_event_id: string | null
+          created_at: string
+          device_id: string | null
+          direction: string
+          id: string
+          idempotency_key: string
+          method: string
+          needs_review: boolean
+          occurred_at: string
+          override_reason: string | null
+          review_reason: string | null
+          student_id: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          attendance_date?: string
+          branch?: string
+          confidence?: number | null
+          corrects_event_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          direction: string
+          id?: string
+          idempotency_key: string
+          method: string
+          needs_review?: boolean
+          occurred_at?: string
+          override_reason?: string | null
+          review_reason?: string | null
+          student_id: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          attendance_date?: string
+          branch?: string
+          confidence?: number | null
+          corrects_event_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          direction?: string
+          id?: string
+          idempotency_key?: string
+          method?: string
+          needs_review?: boolean
+          occurred_at?: string
+          override_reason?: string | null
+          review_reason?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_attendance_events_corrects_event_id_fkey"
+            columns: ["corrects_event_id"]
+            isOneToOne: false
+            referencedRelation: "student_attendance_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_attendance_events_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_kiosk_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_attendance_events_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_chat_messages: {
         Row: {
           content: string
@@ -779,6 +921,47 @@ export type Database = {
             foreignKeyName: "student_concerns_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_face_consent: {
+        Row: {
+          granted_at: string | null
+          guardian_name: string | null
+          notes: string | null
+          recorded_by: string | null
+          revoked_at: string | null
+          status: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          granted_at?: string | null
+          guardian_name?: string | null
+          notes?: string | null
+          recorded_by?: string | null
+          revoked_at?: string | null
+          status?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          granted_at?: string | null
+          guardian_name?: string | null
+          notes?: string | null
+          recorded_by?: string | null
+          revoked_at?: string | null
+          status?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_face_consent_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
             referencedRelation: "students"
             referencedColumns: ["id"]
           },
@@ -1211,12 +1394,90 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _kiosk_device: {
+        Args: { p_token: string }
+        Returns: {
+          branch: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          last_seen_at: string | null
+          name: string
+          token_hash: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "attendance_kiosk_devices"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      _kiosk_resolve_student: { Args: { p_code: string }; Returns: string }
+      _last_effective_event: {
+        Args: { p_student: string }
+        Returns: {
+          actor_user_id: string | null
+          attendance_date: string
+          branch: string
+          confidence: number | null
+          corrects_event_id: string | null
+          created_at: string
+          device_id: string | null
+          direction: string
+          id: string
+          idempotency_key: string
+          method: string
+          needs_review: boolean
+          occurred_at: string
+          override_reason: string | null
+          review_reason: string | null
+          student_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "student_attendance_events"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      is_staff: { Args: { _user_id: string }; Returns: boolean }
+      kiosk_lookup: {
+        Args: { p_code: string; p_device_token: string }
+        Returns: Json
+      }
+      kiosk_record: {
+        Args: {
+          p_code: string
+          p_device_token: string
+          p_direction: string
+          p_idempotency_key: string
+        }
+        Returns: Json
+      }
+      parent_attendance_by_code: {
+        Args: { p_access_code: string }
+        Returns: Json
+      }
+      register_kiosk_device: {
+        Args: { p_branch?: string; p_name: string }
+        Returns: Json
+      }
+      set_face_consent: {
+        Args: {
+          p_guardian_name?: string
+          p_notes?: string
+          p_status: string
+          p_student_id: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
