@@ -12,7 +12,7 @@ interface ScannerProps {
   attendanceDate: string;
   onMarked?: () => void;
 }
-type KioskMatch = { name: string; class?: string; suggested: "in" | "out"; ambiguous?: boolean; ambiguous_reason?: string | null; last_direction?: string | null; last_at?: string | null };
+type KioskMatch = { student_ref: string; suggested: "in" | "out"; ambiguous?: boolean; ambiguous_reason?: string | null; last_direction?: string | null; last_at?: string | null };
 const DEVICE_TOKEN_KEY = "ra_attendance_kiosk_token";
 
 export function StudentAttendanceScanner({ students, attendanceDate, onMarked }: ScannerProps) {
@@ -26,6 +26,9 @@ export function StudentAttendanceScanner({ students, attendanceDate, onMarked }:
   const [message, setMessage] = useState("Ready to scan");
   const [match, setMatch] = useState<KioskMatch | null>(null);
   const [busy, setBusy] = useState(false);
+  const [deviceName, setDeviceName] = useState("Ramanujan Entrance Kiosk");
+  const [branchName, setBranchName] = useState("Main");
+  const [newToken, setNewToken] = useState("");
   const [markedStudent, setMarkedStudent] = useState<{name:string; direction:"in"|"out"; at:string} | null>(null);
 
   const stopCamera = () => {
@@ -51,7 +54,7 @@ export function StudentAttendanceScanner({ students, attendanceDate, onMarked }:
       toast({ title: "Unable to identify student", description: reason, variant: "destructive" });
       return;
     }
-    setMatch(data as KioskMatch);
+    setMatch({ ...data, student_ref: data.student_ref || "" } as KioskMatch);
     setMessage("Confirm the student's direction before recording attendance.");
   };
 
@@ -60,7 +63,7 @@ export function StudentAttendanceScanner({ students, attendanceDate, onMarked }:
     setBusy(true);
     const { data, error } = await supabase.rpc("kiosk_record", {
       p_device_token: deviceToken.trim(),
-      p_code: manualId.trim(),
+      p_code: pendingCode,
       p_direction: direction,
       p_idempotency_key: crypto.randomUUID(),
     });
@@ -69,7 +72,8 @@ export function StudentAttendanceScanner({ students, attendanceDate, onMarked }:
       toast({ title: "Attendance could not be recorded", description: data?.reason || error?.message || "Please retry or use admin manual attendance.", variant: "destructive" });
       return;
     }
-    const record = { name: data.name || match.name, direction, at: data.occurred_at || new Date().toISOString() };
+    const student = students.find((s) => s.id === match.student_ref);
+    const record = { name: student?.name || "Student", direction, at: data.occurred_at || new Date().toISOString() };
     setMarkedStudent(record);
     setMessage(direction === "in" ? "Arrival recorded" : "Departure recorded");
     setMatch(null);
@@ -86,6 +90,7 @@ export function StudentAttendanceScanner({ students, attendanceDate, onMarked }:
       return;
     }
     setManualId(trimmed);
+    setPendingCode(trimmed);
     void lookup(trimmed);
   };
 
@@ -116,6 +121,25 @@ export function StudentAttendanceScanner({ students, attendanceDate, onMarked }:
     }
   };
 
+  const [pendingCode, setPendingCode] = useState("");
+
+  const registerDevice = async () => {
+    setBusy(true);
+    const { data, error } = await supabase.rpc("register_kiosk_device", {
+      p_name: deviceName.trim(),
+      p_branch: branchName.trim() || "Main",
+    });
+    setBusy(false);
+    if (error || !data?.token) {
+      toast({ title: "Could not register kiosk", description: error?.message || "Check that you are signed in as an admin or owner.", variant: "destructive" });
+      return;
+    }
+    setDeviceToken(data.token);
+    setNewToken(data.token);
+    sessionStorage.setItem(DEVICE_TOKEN_KEY, data.token);
+    toast({ title: "Kiosk registered", description: "Copy the device token now. It is shown only once." });
+  };
+
   const saveDeviceToken = () => {
     const value = deviceToken.trim();
     if (!value) { sessionStorage.removeItem(DEVICE_TOKEN_KEY); return; }
@@ -135,8 +159,20 @@ export function StudentAttendanceScanner({ students, attendanceDate, onMarked }:
           <div className="flex min-h-[280px] flex-col items-center justify-center p-8 text-center text-white"><div className="mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-white/10"><Camera className="h-9 w-9 text-cyan-300" /></div><p className="font-semibold">Entrance / Exit Scanner</p><p className="mt-1 text-xs text-white/65">Scan attendance QR or enter access code.</p><Button className="mt-5" onClick={startCamera}><Camera className="mr-2 h-4 w-4" /> Start Camera</Button></div>}
         </div>
         <div className="space-y-4">
-          <div className="rounded-2xl border bg-muted/30 p-4"><div className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="h-4 w-4 text-emerald-600" /> Kiosk settings</div><p className="mt-1 text-xs text-muted-foreground">Date: {attendanceDate}. Token is kept in session storage only.</p><Input type="password" value={deviceToken} onChange={e=>setDeviceToken(e.target.value)} placeholder="Kiosk device token" className="mt-3" /><Button variant="outline" size="sm" className="mt-2 w-full" onClick={saveDeviceToken}>Save token for this session</Button></div>
-          {match && <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4"><p className="font-bold">{match.name}</p><p className="text-sm text-muted-foreground">Class {match.class || "—"}</p>{match.ambiguous && <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">Please verify direction: {match.ambiguous_reason || "The last scan is ambiguous."}</p>}<p className="mt-3 text-xs text-muted-foreground">Suggested next event: {match.suggested.toUpperCase()} — confirm below.</p><div className="mt-3 grid grid-cols-2 gap-2"><Button disabled={busy} onClick={()=>markAttendance("in")}><LogIn className="mr-2 h-4 w-4"/> IN / Arrived</Button><Button variant="secondary" disabled={busy} onClick={()=>markAttendance("out")}><LogOut className="mr-2 h-4 w-4"/> OUT / Left</Button></div></div>}
+          <div className="rounded-2xl border bg-muted/30 p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="h-4 w-4 text-emerald-600" /> Kiosk settings</div>
+            <p className="mt-1 text-xs text-muted-foreground">Date: {attendanceDate}. Token is kept in session storage only.</p>
+            <Input type="password" value={deviceToken} onChange={e=>setDeviceToken(e.target.value)} placeholder="Existing kiosk device token" className="mt-3" />
+            <Button variant="outline" size="sm" className="mt-2 w-full" onClick={saveDeviceToken}>Save token for this session</Button>
+            <details className="mt-3">
+              <summary className="cursor-pointer text-xs font-semibold">Register this device (admin/owner)</summary>
+              <Input value={deviceName} onChange={e=>setDeviceName(e.target.value)} placeholder="Device name" className="mt-2" />
+              <Input value={branchName} onChange={e=>setBranchName(e.target.value)} placeholder="Branch" className="mt-2" />
+              <Button size="sm" disabled={busy || !deviceName.trim()} className="mt-2 w-full" onClick={registerDevice}>Register kiosk</Button>
+              {newToken && <div className="mt-3 space-y-2"><p className="text-xs text-amber-800">Copy and store this token securely. It is displayed once.</p><Input readOnly value={newToken} /><Button variant="outline" size="sm" className="w-full" onClick={()=>void navigator.clipboard.writeText(newToken)}>Copy device token</Button></div>}
+            </details>
+          </div>
+          {match && <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4"><p className="font-bold">{students.find((s)=>s.id===match.student_ref)?.name || "Student identified"}</p><p className="text-sm text-muted-foreground">The student code matched an active record.</p>{match.ambiguous && <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">Please verify direction: {match.ambiguous_reason || "The last scan is ambiguous."}</p>}<p className="mt-3 text-xs text-muted-foreground">Suggested next event: {match.suggested.toUpperCase()} — confirm below.</p><div className="mt-3 grid grid-cols-2 gap-2"><Button disabled={busy} onClick={()=>markAttendance("in")}><LogIn className="mr-2 h-4 w-4"/> IN / Arrived</Button><Button variant="secondary" disabled={busy} onClick={()=>markAttendance("out")}><LogOut className="mr-2 h-4 w-4"/> OUT / Left</Button></div></div>}
           {markedStudent && <div className="rounded-2xl border border-emerald-300/60 bg-emerald-50 p-4 text-emerald-800"><div className="flex items-center gap-2 font-bold"><CheckCircle2 className="h-5 w-5"/>{markedStudent.direction==="in"?"Arrival recorded":"Departure recorded"}</div><p className="mt-1 text-sm">{markedStudent.name}</p><p className="text-xs">{new Date(markedStudent.at).toLocaleTimeString("en-IN")}</p></div>}
           <div className="space-y-2"><p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">QR / access-code fallback</p><Input value={manualId} onChange={e=>setManualId(e.target.value)} placeholder="RA_ATTENDANCE:student-id or access code" /><Button variant="outline" className="w-full" disabled={busy || !manualId.trim()} onClick={()=>handlePayload(manualId)}><QrCode className="mr-2 h-4 w-4"/> Identify student</Button></div>
           {!scannerAvailable && scanning && <p className="text-xs text-amber-700">This browser does not expose native QR detection. Use manual code fallback.</p>}
