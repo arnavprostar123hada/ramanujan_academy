@@ -40,6 +40,7 @@ import logo from "@/assets/logo.jpg";
 import { PerformanceComment, PerformanceBadge, getPerformanceComment } from "@/components/PerformanceComment";
 import { StudentTestAnalytics } from "@/components/TestAnalyticsChart";
 import { QRCodeScanner } from "@/components/QRCodeScanner";
+import { StudentAttendanceQR } from "@/components/StudentAttendanceScanner";
 import { StudentComparisonChart } from "@/components/StudentComparisonChart";
 import StudyAssistant from "@/components/StudyAssistant";
 import { Video, ExternalLink, CheckCircle2, XCircle, Clock as ClockIcon } from "lucide-react";
@@ -1630,6 +1631,7 @@ const ParentPortal = () => {
 
           {/* Attendance Tab */}
           <TabsContent value="attendance" className="space-y-4">
+            {student?.access_code && <StudentAttendanceQR accessCode={student.access_code} studentName={student.name} />}
             <Card className="shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
