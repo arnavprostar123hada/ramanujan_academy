@@ -54,6 +54,7 @@ export function StudentAttendanceScanner({ students, attendanceDate, onMarked }:
       toast({ title: "Unable to identify student", description: reason, variant: "destructive" });
       return;
     }
+    setPendingCode(payload.trim());
     setMatch({ ...data, student_ref: data.student_ref || "" } as KioskMatch);
     setMessage("Confirm the student's direction before recording attendance.");
   };
@@ -78,6 +79,7 @@ export function StudentAttendanceScanner({ students, attendanceDate, onMarked }:
     setMessage(direction === "in" ? "Arrival recorded" : "Departure recorded");
     setMatch(null);
     setManualId("");
+    setPendingCode("");
     onMarked?.();
     toast({ title: direction === "in" ? "Student arrived" : "Student departed", description: record.name });
     window.setTimeout(() => setMarkedStudent(null), 4000);
