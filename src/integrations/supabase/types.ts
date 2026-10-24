@@ -1396,9 +1396,13 @@ export type Database = {
       is_staff: { Args: { _user_id: string }; Returns: boolean }
       kiosk_lookup: { Args: { p_code: string; p_device_token: string }; Returns: Json }
       kiosk_record: { Args: { p_code: string; p_device_token: string; p_direction: string; p_idempotency_key: string }; Returns: Json }
+      kiosk_record_face: { Args: { p_device_token: string; p_direction: string; p_idempotency_key: string; p_match_token: string }; Returns: Json }
+      match_attendance_face: { Args: { p_descriptor: Json; p_device_token: string; p_threshold?: number }; Returns: Json }
+      online_student_attendance_summary: { Args: Record<PropertyKey, never>; Returns: number }
       parent_attendance_by_code: { Args: { p_access_code: string }; Returns: Json }
       register_kiosk_device: { Args: { p_branch?: string; p_name: string }; Returns: Json }
-      set_face_consent: { Args: { p_guardian_name?: string; p_notes?: string; p_status: string; p_student_id: string }; Returns: undefined }
+      save_student_face_template: { Args: { p_descriptor: Json; p_model?: string; p_student_id: string }; Returns: undefined }
+      set_face_consent: { Args: { p_guardian_name?: string | null; p_notes?: string | null; p_status: string; p_student_id: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user" | "owner"
