@@ -102,7 +102,8 @@ const OnlineStudentPortal = () => {
       setStudent(data as OnlineStudent);
       setIsLoggedIn(true);
       await fetchZoomLinks(data.class, data.batch);
-      await fetchAttendanceDays(data.student_id, data.access_code);
+      // Online profiles do not expose the offline parent's access code. Do not query parent attendance with a missing code.
+      setAttendanceDays(0);
     }
   };
 
