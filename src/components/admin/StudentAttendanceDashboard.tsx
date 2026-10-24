@@ -46,7 +46,7 @@ export function StudentAttendanceDashboard({ refreshKey = 0 }: { refreshKey?: nu
     const [eventResult, deviceResult, consentResult, alertResult] = await Promise.all([
       supabase.from("student_attendance_events")
         .select("id,student_id,direction,occurred_at,method,needs_review,review_reason,branch,students(name,class)")
-        .gte("occurred_at", start).order("occurred_at", { ascending: false }).limit(150),
+        .gte("occurred_at", start).order("occurred_at", { ascending: false }).limit(500),
       supabase.from("attendance_kiosk_devices").select("id,name,branch,is_active,last_seen_at").order("created_at", { ascending: false }),
       supabase.from("student_face_consent").select("status"),
       supabase.from("communication_queue")
