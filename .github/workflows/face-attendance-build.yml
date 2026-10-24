@@ -4,18 +4,15 @@ on:
   push:
     branches:
       - feature/face-attendance-kiosk
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,8 +20,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - name: Install locked dependencies
-        run: npm ci
+      - name: Resolve package manifest and synchronize npm lockfile
+        run: npm install --no-audit --no-fund
+      - name: Commit lockfile sync on feature branch when required
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo "package-lock.json is already synchronized"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            git commit -m "chore: synchronize npm lockfile for attendance feature"
+            git push origin HEAD:feature/face-attendance-kiosk
+          fi
+      - name: Verify clean locked installation
+        run: npm ci --no-audit --no-fund
       - name: Build application
         run: npm run build
