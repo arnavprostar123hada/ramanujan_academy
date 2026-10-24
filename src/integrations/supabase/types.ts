@@ -781,6 +781,16 @@ export type Database = {
           },
         ]
       }
+      student_attendance_events: {
+        Row: { actor_user_id: string | null; attendance_date: string; branch: string; confidence: number | null; corrects_event_id: string | null; created_at: string; device_id: string | null; direction: string; id: string; idempotency_key: string; method: string; needs_review: boolean; occurred_at: string; override_reason: string | null; review_reason: string | null; student_id: string }
+        Insert: { actor_user_id?: string | null; attendance_date?: string; branch?: string; confidence?: number | null; corrects_event_id?: string | null; created_at?: string; device_id?: string | null; direction: string; id?: string; idempotency_key: string; method: string; needs_review?: boolean; occurred_at?: string; override_reason?: string | null; review_reason?: string | null; student_id: string }
+        Update: { actor_user_id?: string | null; attendance_date?: string; branch?: string; confidence?: number | null; corrects_event_id?: string | null; created_at?: string; device_id?: string | null; direction?: string; id?: string; idempotency_key?: string; method?: string; needs_review?: boolean; occurred_at?: string; override_reason?: string | null; review_reason?: string | null; student_id?: string }
+        Relationships: [
+          { foreignKeyName: "student_attendance_events_corrects_event_id_fkey"; columns: ["corrects_event_id"]; isOneToOne: false; referencedRelation: "student_attendance_events"; referencedColumns: ["id"] },
+          { foreignKeyName: "student_attendance_events_device_id_fkey"; columns: ["device_id"]; isOneToOne: false; referencedRelation: "attendance_kiosk_devices"; referencedColumns: ["id"] },
+          { foreignKeyName: "student_attendance_events_student_id_fkey"; columns: ["student_id"]; isOneToOne: false; referencedRelation: "students"; referencedColumns: ["id"] }
+        ]
+      }
       student_chat_messages: {
         Row: {
           content: string
