@@ -102,18 +102,19 @@ const OnlineStudentPortal = () => {
       setStudent(data as OnlineStudent);
       setIsLoggedIn(true);
       await fetchZoomLinks(data.class, data.batch);
-      await fetchAttendanceDays(data.student_id);
+      await fetchAttendanceDays(data.student_id, data.access_code);
     }
   };
 
-  const fetchAttendanceDays = async (studentId: string) => {
-    const { data } = await supabase
-      .from("student_attendance")
-      .select("attendance_date,status")
-      .eq("student_id", studentId)
-      .eq("status", "present")
-      .order("attendance_date", { ascending: false });
-    if (data) setAttendanceDays(new Set(data.map((row) => row.attendance_date)).size);
+  const fetchAttendanceDays = async (_studentId: string, accessCode: string) => {
+    const { data, error } = await supabase.rpc("parent_attendance_by_code", { p_access_code: accessCode });
+    if (error) {
+      console.error("Student attendance summary load failed", error);
+      return;
+    }
+    const daily = Array.isArray(data?.daily) ? data.daily : [];
+    setAttendanceDays(new Set(daily.filter((row: { status?: string }) => row.status === "present")
+      .map((row: { attendance_date: string }) => row.attendance_date)).size);
   };
 
   const fetchZoomLinks = async (studentClass: string, studentBatch?: string | null) => {
