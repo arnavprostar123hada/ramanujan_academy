@@ -325,13 +325,15 @@ const ParentPortal = () => {
       if (zoomData) setZoomLinks(zoomData as ZoomLink[]);
     }
 
-    // Fetch attendance
-    const { data: attendanceData } = await supabase
-      .from("student_attendance")
-      .select("*")
-      .eq("student_id", studentData.id)
-      .order("attendance_date", { ascending: false });
-    if (attendanceData) setAttendance(attendanceData as AttendanceRecord[]);
+    // Attendance is retrieved through the access-code-scoped RPC; do not query the table directly.
+    const { data: attendanceSnapshot, error: attendanceError } = await supabase.rpc("parent_attendance_by_code", {
+      p_access_code: studentData.access_code,
+    });
+    if (attendanceError) {
+      console.error("Parent attendance load failed", attendanceError);
+    } else if (attendanceSnapshot?.daily) {
+      setAttendance(attendanceSnapshot.daily as AttendanceRecord[]);
+    }
 
     // Fetch published homework for the student's current batch.
     if (studentData.batch) {
