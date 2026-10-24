@@ -21,6 +21,7 @@ type KioskMatch = {
   suggested: "in" | "out";
   method: "qr" | "face";
   match_distance?: number;
+  match_token?: string;
   ambiguous?: boolean;
   ambiguous_reason?: string | null;
   last_direction?: string | null;
@@ -131,11 +132,16 @@ export function StudentAttendanceScanner({ students, attendanceDate, onMarked }:
     const idempotencyKey = crypto.randomUUID();
     let result: { data: any; error: any };
     if (match.method === "face") {
+      if (!match.match_token) {
+        setBusy(false);
+        toast({ title: "Face confirmation expired", description: "Please scan the face again before recording IN/OUT.", variant: "destructive" });
+        setMatch(null);
+        return;
+      }
       result = await supabase.rpc("kiosk_record_face", {
         p_device_token: deviceToken.trim(),
-        p_student_id: match.student_ref,
+        p_match_token: match.match_token,
         p_direction: direction,
-        p_match_distance: match.match_distance ?? 1,
         p_idempotency_key: idempotencyKey,
       });
     } else {
@@ -247,6 +253,7 @@ export function StudentAttendanceScanner({ students, attendanceDate, onMarked }:
       setMatch({
         student_ref: data.student_ref,
         method: "face",
+        match_token: data.match_token,
         suggested: data.suggested === "out" ? "out" : "in",
         ambiguous: Boolean(data.ambiguous),
         ambiguous_reason: data.ambiguous_reason || null,
