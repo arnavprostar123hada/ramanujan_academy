@@ -179,36 +179,9 @@ export type Database = {
         Relationships: []
       }
       attendance_kiosk_devices: {
-        Row: {
-          branch: string
-          created_at: string
-          created_by: string | null
-          id: string
-          is_active: boolean
-          last_seen_at: string | null
-          name: string
-          token_hash: string
-        }
-        Insert: {
-          branch?: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          is_active?: boolean
-          last_seen_at?: string | null
-          name: string
-          token_hash: string
-        }
-        Update: {
-          branch?: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          is_active?: boolean
-          last_seen_at?: string | null
-          name?: string
-          token_hash?: string
-        }
+        Row: { branch: string; created_at: string; created_by: string | null; id: string; is_active: boolean; last_seen_at: string | null; name: string; token_hash: string }
+        Insert: { branch?: string; created_at?: string; created_by?: string | null; id?: string; is_active?: boolean; last_seen_at?: string | null; name: string; token_hash: string }
+        Update: { branch?: string; created_at?: string; created_by?: string | null; id?: string; is_active?: boolean; last_seen_at?: string | null; name?: string; token_hash?: string }
         Relationships: []
       }
       class_logs: {
