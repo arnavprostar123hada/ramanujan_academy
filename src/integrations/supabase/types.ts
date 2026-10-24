@@ -702,6 +702,18 @@ export type Database = {
         }
         Relationships: []
       }
+      attendance_audit_log: {
+        Row: { action: string; actor_user_id: string | null; created_at: string; details: Json; device_id: string | null; id: string; student_id: string | null }
+        Insert: { action: string; actor_user_id?: string | null; created_at?: string; details?: Json; device_id?: string | null; id?: string; student_id?: string | null }
+        Update: { action?: string; actor_user_id?: string | null; created_at?: string; details?: Json; device_id?: string | null; id?: string; student_id?: string | null }
+        Relationships: []
+      }
+      student_face_consent: {
+        Row: { granted_at: string | null; guardian_name: string | null; notes: string | null; recorded_by: string | null; revoked_at: string | null; status: string; student_id: string; updated_at: string }
+        Insert: { granted_at?: string | null; guardian_name?: string | null; notes?: string | null; recorded_by?: string | null; revoked_at?: string | null; status?: string; student_id: string; updated_at?: string }
+        Update: { granted_at?: string | null; guardian_name?: string | null; notes?: string | null; recorded_by?: string | null; revoked_at?: string | null; status?: string; student_id?: string; updated_at?: string }
+        Relationships: [{ foreignKeyName: "student_face_consent_student_id_fkey"; columns: ["student_id"]; isOneToOne: true; referencedRelation: "students"; referencedColumns: ["id"] }]
+      }
       student_attendance_events: {
         Row: {
           actor_user_id: string | null
