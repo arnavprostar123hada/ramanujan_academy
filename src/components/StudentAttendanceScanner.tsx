@@ -169,7 +169,10 @@ export function StudentAttendanceScanner({ students, attendanceDate, onMarked }:
     setManualId("");
     setPendingCode("");
     onMarked?.();
-    toast({ title: direction === "in" ? "Student arrived" : "Student departed", description: record.name });
+    toast({
+      title: direction === "in" ? "Student arrived" : "Student departed",
+      description: `${record.name}. If a parent phone is linked, an alert is queued; delivery depends on AiSensy configuration.`,
+    });
     window.setTimeout(() => setMarkedStudent(null), 4000);
   };
 
