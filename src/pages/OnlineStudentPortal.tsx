@@ -102,20 +102,17 @@ const OnlineStudentPortal = () => {
       setStudent(data as OnlineStudent);
       setIsLoggedIn(true);
       await fetchZoomLinks(data.class, data.batch);
-      // Online profiles do not expose the offline parent's access code. Do not query parent attendance with a missing code.
-      setAttendanceDays(0);
+      await fetchAttendanceDays();
     }
   };
 
-  const fetchAttendanceDays = async (_studentId: string, accessCode: string) => {
-    const { data, error } = await supabase.rpc("parent_attendance_by_code", { p_access_code: accessCode });
+  const fetchAttendanceDays = async () => {
+    const { data, error } = await supabase.rpc("online_student_attendance_summary");
     if (error) {
       console.error("Student attendance summary load failed", error);
       return;
     }
-    const daily = Array.isArray(data?.daily) ? data.daily : [];
-    setAttendanceDays(new Set(daily.filter((row: { status?: string }) => row.status === "present")
-      .map((row: { attendance_date: string }) => row.attendance_date)).size);
+    setAttendanceDays(Number(data ?? 0));
   };
 
   const fetchZoomLinks = async (studentClass: string, studentBatch?: string | null) => {
