@@ -19,6 +19,7 @@ type AttendanceEvent = {
 
 type Device = { id: string; name: string; branch: string; is_active: boolean; last_seen_at: string | null };
 type Consent = { status: string };
+type QueueAlert = { id: string; event_key: string; status: string; failure_reason: string | null; created_at: string };
 
 function indiaDateKey() {
   return new Date(Date.now() + 330 * 60 * 1000).toISOString().slice(0, 10);
@@ -31,6 +32,8 @@ export function StudentAttendanceDashboard({ refreshKey = 0 }: { refreshKey?: nu
   const [events, setEvents] = useState<AttendanceEvent[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [consents, setConsents] = useState<Consent[]>([]);
+  const [alerts, setAlerts] = useState<QueueAlert[]>([]);
+  const [alertQueryError, setAlertQueryError] = useState("");
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [error, setError] = useState("");
@@ -40,12 +43,16 @@ export function StudentAttendanceDashboard({ refreshKey = 0 }: { refreshKey?: nu
     setError("");
     const date = indiaDateKey();
     const start = new Date(date + "T00:00:00+05:30").toISOString();
-    const [eventResult, deviceResult, consentResult] = await Promise.all([
+    const [eventResult, deviceResult, consentResult, alertResult] = await Promise.all([
       supabase.from("student_attendance_events")
         .select("id,student_id,direction,occurred_at,method,needs_review,review_reason,branch,students(name,class)")
         .gte("occurred_at", start).order("occurred_at", { ascending: false }).limit(150),
       supabase.from("attendance_kiosk_devices").select("id,name,branch,is_active,last_seen_at").order("created_at", { ascending: false }),
       supabase.from("student_face_consent").select("status"),
+      supabase.from("communication_queue")
+        .select("id,event_key,status,failure_reason,created_at")
+        .in("event_key", ["student_arrival", "student_departure"])
+        .order("created_at", { ascending: false }).limit(20),
     ]);
     if (eventResult.error || deviceResult.error || consentResult.error) {
       setError(eventResult.error?.message || deviceResult.error?.message || consentResult.error?.message || "Could not load attendance insights.");
@@ -56,6 +63,8 @@ export function StudentAttendanceDashboard({ refreshKey = 0 }: { refreshKey?: nu
       })) as AttendanceEvent[]);
       setDevices((deviceResult.data || []) as Device[]);
       setConsents((consentResult.data || []) as Consent[]);
+      setAlerts((alertResult.data || []) as QueueAlert[]);
+      setAlertQueryError(alertResult.error?.message || "");
       setLastUpdated(new Date());
     }
     setLoading(false);
@@ -79,7 +88,7 @@ export function StudentAttendanceDashboard({ refreshKey = 0 }: { refreshKey?: nu
     { label: "Arrivals today", value: arrivals, icon: ArrowDownLeft, tone: "text-emerald-600", detail: "IN events" },
     { label: "Departures today", value: departures, icon: ArrowUpRight, tone: "text-blue-600", detail: "OUT events" },
     { label: "Needs review", value: reviewCount, icon: ShieldAlert, tone: reviewCount ? "text-amber-600" : "text-emerald-600", detail: "Manual verification" },
-    { label: "Consent recorded", value: grantedConsent, icon: ShieldCheck, tone: "text-violet-600", detail: "Face-enabled students" },
+    { label: "Guardian consent granted", value: grantedConsent, icon: ShieldCheck, tone: "text-violet-600", detail: "Biometric opt-ins only" },
   ];
 
   return (
@@ -131,6 +140,19 @@ export function StudentAttendanceDashboard({ refreshKey = 0 }: { refreshKey?: nu
         </Card>
 
         <div className="space-y-4">
+          <Card className="shadow-sm">
+            <CardHeader className="pb-3"><CardTitle className="text-base">Parent alert pipeline</CardTitle><p className="text-xs text-muted-foreground">Arrival / departure WhatsApp notifications</p></CardHeader>
+            <CardContent className="space-y-3">
+              {alertQueryError ? <p className="text-xs text-amber-800">Queue status is not available for this account.</p> : alerts.length === 0 ? (
+                <div className="rounded-xl border border-dashed p-3"><p className="text-sm font-medium">No attendance alerts queued yet</p><p className="mt-1 text-xs text-muted-foreground">A linked parent phone is required to create a queue item. Delivery also requires AiSensy API credentials and a valid default campaign.</p></div>
+              ) : alerts.slice(0,5).map((alert) => (
+                <div key={alert.id} className="flex items-start justify-between gap-3 border-b pb-2 last:border-0">
+                  <div><p className="text-sm font-medium">{alert.event_key === "student_arrival" ? "Arrival alert" : "Departure alert"}</p><p className="text-xs text-muted-foreground">{new Date(alert.created_at).toLocaleString("en-IN", {timeZone:"Asia/Kolkata"})}</p>{alert.status === "failed" && alert.failure_reason && <p className="mt-1 text-xs text-red-700">{alert.failure_reason.includes("AISENSY_API_KEY") ? "AiSensy API key is not configured; delivery is blocked." : alert.failure_reason.slice(0,140)}</p>}</div>
+                  <Badge variant={alert.status === "sent" ? "default" : alert.status === "failed" ? "destructive" : "secondary"}>{alert.status}</Badge>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
           <Card className="shadow-sm">
             <CardHeader className="pb-3"><CardTitle className="text-base">Kiosk health</CardTitle><p className="text-xs text-muted-foreground">Registered tablets and laptops</p></CardHeader>
             <CardContent className="space-y-3">
