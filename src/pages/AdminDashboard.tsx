@@ -96,6 +96,7 @@ import { ClassAdministration } from "@/components/admin/ClassAdministration";
 import { GeoAttendance } from "@/components/GeoAttendance";
 import StudentAIHistory from "@/components/admin/StudentAIHistory";
 import { StudentAttendanceScanner } from "@/components/StudentAttendanceScanner";
+import { StudentAttendanceDashboard } from "@/components/admin/StudentAttendanceDashboard";
 
 interface ContactSubmission {
   id: string;
@@ -2637,11 +2638,15 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
 
           {/* Student Attendance Tab */}
           <TabsContent value="student-attendance">
+            <StudentAttendanceDashboard />
             <div className="mb-5">
               <StudentAttendanceScanner
                 students={students.map(s => ({ id: s.id, name: s.name, class: s.class, batch: s.batch }))}
                 attendanceDate={attendanceDate}
-                onMarked={() => attendanceClassFilter && fetchStudentAttendance(attendanceClassFilter, attendanceDate)}
+                onMarked={() => {
+                  window.dispatchEvent(new Event("ra-attendance-updated"));
+                  if (attendanceClassFilter) fetchStudentAttendance(attendanceClassFilter, attendanceDate);
+                }}
               />
             </div>
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
