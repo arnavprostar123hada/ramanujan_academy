@@ -1,0 +1,10 @@
+REVOKE ALL ON FUNCTION public.kiosk_lookup(text,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.kiosk_record(text,text,text,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.parent_attendance_by_code(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.register_kiosk_device(text,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.set_face_consent(uuid,text,text,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.kiosk_lookup(text,text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.kiosk_record(text,text,text,text) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.parent_attendance_by_code(text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.register_kiosk_device(text,text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.set_face_consent(uuid,text,text,text) TO authenticated;
