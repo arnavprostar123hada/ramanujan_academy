@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft, Sparkles, FileText, BookOpen, Library, History, Settings2,
-  CheckCircle2, Clock3, Download, Printer, Plus, Trash2, Edit3, Save,
-  GraduationCap, BrainCircuit, SlidersHorizontal, WandSparkles, Loader2,
-  Search, Filter, ChevronDown, RefreshCw, ShieldCheck, CircleHelp,
-  FileCheck2, Layers3, Target, ClipboardList
+  ArrowLeft, Sparkles, FileText, BookOpen, Library, CheckCircle2,
+  Printer, Plus, Trash2, Edit3, Save, GraduationCap, SlidersHorizontal,
+  WandSparkles, Loader2, Search, Filter, RefreshCw, ShieldCheck,
+  CircleHelp, FileCheck2, Layers3, Target
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
