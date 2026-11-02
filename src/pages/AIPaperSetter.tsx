@@ -183,7 +183,7 @@ export default function AIPaperSetter() {
           <div className="pointer-events-none absolute -bottom-24 right-1/3 h-64 w-64 rounded-full bg-cyan-400/20 blur-3xl" />
           <div className="relative z-10 flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
             <div className="max-w-2xl">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold tracking-wide backdrop-blur"><Sparkles className="h-3.5 w-3.5 text-cyan-300" /> RAMANUJAN ACADEMY · ACADEMICS INTELLIGENCE</div>
+              <div className="mb-4 flex flex-wrap items-center gap-3"><img src="/ramanujan-academy-logo.svg" alt="Ramanujan Academy logo" className="h-16 w-16 rounded-full bg-white object-contain p-1 shadow-lg ring-2 ring-white/40" /><div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold tracking-wide backdrop-blur"><Sparkles className="h-3.5 w-3.5 text-cyan-300" /> RAMANUJAN ACADEMY · ACADEMICS INTELLIGENCE</div></div>
               <h1 className="text-3xl font-bold tracking-tight sm:text-5xl">AI Paper Setter</h1>
               <p className="mt-3 max-w-xl text-sm leading-6 text-indigo-100 sm:text-base">Build structured question papers, manage drafts and prepare print-ready assessments from one focused academic workspace.</p>
             </div>
