@@ -1796,6 +1796,20 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
             <AcademicSyllabusManagement />
           </TabsContent>
 
+          <TabsContent value="ai-paper-setter">
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
+              <Card className="border-violet-200 bg-gradient-to-r from-violet-50 to-indigo-50 dark:border-violet-900 dark:from-violet-950/30 dark:to-indigo-950/30">
+                <CardContent className="flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-xl bg-violet-600 p-3 text-white"><WandSparkles className="h-5 w-5" /></div>
+                    <div><h3 className="font-semibold">AI Paper Setter</h3><p className="mt-1 text-sm text-muted-foreground">Create structured CBSE and ICSE practice paper drafts, manage your paper library and export printable layouts.</p></div>
+                  </div>
+                  <Button onClick={() => navigate("/admin/ai-paper-setter")} className="shrink-0 bg-violet-600 text-white hover:bg-violet-700"><WandSparkles className="mr-2 h-4 w-4" /> Open Paper Setter</Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
           <TabsContent value="ra-credits">
             <RAPointsManagement />
           </TabsContent>
