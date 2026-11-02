@@ -13,6 +13,7 @@ import EnquiryPortal from "./pages/EnquiryPortal";
 import NotFound from "./pages/NotFound";
 import OnlineStudentPortal from "./pages/OnlineStudentPortal";
 import AIPaperChecker from "./pages/AIPaperChecker";
+import AIPaperSetter from "./pages/AIPaperSetter";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/enquiry" element={<EnquiryPortal />} />
             <Route path="/ai" element={<OnlineStudentPortal />} />
             <Route path="/admin/ai-paper-checker" element={<AIPaperChecker />} />
+            <Route path="/admin/ai-paper-setter" element={<AIPaperSetter />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
