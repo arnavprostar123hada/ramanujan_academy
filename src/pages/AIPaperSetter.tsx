@@ -52,37 +52,6 @@ const initialDraft = (): PaperDraft => ({
   answerKey: true, markingScheme: true, status: "draft",
 });
 
-function makeDemoQuestions(draft: PaperDraft): Question[] {
-  const chapter = draft.chapters.trim() || "the selected chapters";
-  const pattern: Record<string, { type: string; marks: number }[]> = {
-    mcq: [{ type: "Multiple Choice", marks: 1 }],
-    assertion: [{ type: "Assertion–Reason", marks: 1 }],
-    case: [{ type: "Case-based", marks: 4 }],
-    competency: [{ type: "Competency-based", marks: 3 }],
-    short: [{ type: "Short Answer", marks: 2 }],
-    long: [{ type: "Long Answer", marks: 5 }],
-  };
-  const enabled = draft.questionTypes.flatMap(k => pattern[k] || []);
-  if (!enabled.length) return [];
-  let remaining = draft.totalMarks;
-  const questions: Question[] = [];
-  let cursor = 0;
-  while (remaining > 0 && questions.length < 30) {
-    const template = enabled[cursor % enabled.length];
-    const marks = Math.min(template.marks, remaining);
-    questions.push({
-      id: crypto.randomUUID(), type: template.type, marks,
-      text: `Draft ${template.type.toLowerCase()} question on ${chapter}. Replace or validate this prompt against the prescribed ${draft.board} syllabus before using the paper.`,
-      options: template.type === "Multiple Choice" ? ["Option A", "Option B", "Option C", "Option D"] : undefined,
-      answer: "Teacher to verify and complete the answer key.",
-      explanation: "Add the expected reasoning and marking points after subject-expert review.",
-    });
-    remaining -= marks;
-    cursor++;
-  }
-  return questions;
-}
-
 export default function AIPaperSetter() {
   const navigate = useNavigate();
   const [draft, setDraft] = useState<PaperDraft>(initialDraft);
