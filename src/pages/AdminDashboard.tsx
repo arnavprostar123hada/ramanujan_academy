@@ -45,7 +45,8 @@ import {
   Globe,
   Monitor,
   Wallet,
-  Zap
+  Zap,
+  WandSparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1658,6 +1659,10 @@ const AdminDashboard = ({ mode = "admin" }: { mode?: "owner" | "admin" }) => {
                 <TabsTrigger value="academic-approvals" className="gap-1.5 data-[state=active]:bg-green-500 data-[state=active]:text-white">
                   <CheckCircle className="w-4 h-4" />
                   <span className="hidden sm:inline">Approvals</span>
+                </TabsTrigger>
+                <TabsTrigger value="ai-paper-setter" className="gap-1.5 data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+                  <WandSparkles className="w-4 h-4" />
+                  <span className="hidden sm:inline">AI Paper Setter</span>
                 </TabsTrigger>
                 <TabsTrigger value="syllabus" className="gap-1.5 data-[state=active]:bg-green-600 data-[state=active]:text-white">
                   <BookOpen className="w-4 h-4" />
