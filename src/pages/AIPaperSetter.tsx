@@ -125,11 +125,30 @@ export default function AIPaperSetter() {
       toast.error("Enter a subject and at least one chapter or syllabus unit.");
       return;
     }
-    // Safe deterministic structure scaffold. AI-backed generation is added after the
-    // approved model/provider secret is configured in the server-side Edge Function.
-    update("questions", makeDemoQuestions(draft));
-    setPreview(true);
-    toast.info("Paper structure drafted. Replace the marked prompts with verified questions before use.");
+    // Ask the authenticated server-side function to generate structured questions.
+    // No provider secret is ever exposed to this browser client.
+    setLoading(true);
+    void supabase.functions.invoke("ai-paper-setter", { body: {
+      board: draft.board, className: draft.className, subject: draft.subject,
+      chapters: draft.chapters, totalMarks: draft.totalMarks, duration: draft.duration,
+      difficulty: draft.difficulty, questionTypes: draft.questionTypes,
+      academicYear: draft.academicYear, instructions: draft.instructions,
+    }}).then(({ data, error }) => {
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const questions = Array.isArray(data?.questions) ? data.questions : [];
+      if (!questions.length) throw new Error("The AI provider returned no questions. Please retry.");
+      update("questions", questions.map((q: any, i: number) => ({
+        id: q.id || crypto.randomUUID(), type: String(q.type || "Question"),
+        text: String(q.text || q.question || ""), marks: Number(q.marks || 0),
+        options: Array.isArray(q.options) ? q.options.map(String) : undefined,
+        answer: q.answer ? String(q.answer) : undefined,
+        explanation: q.explanation ? String(q.explanation) : undefined,
+      })));
+      setPreview(true);
+      toast.success("AI draft generated. Verify the questions and answer key before use.");
+    }).catch((error) => toast.error(error instanceof Error ? error.message : "AI generation failed."))
+      .finally(() => setLoading(false));
   };
 
   const savePaper = async () => {
